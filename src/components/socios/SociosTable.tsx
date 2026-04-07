@@ -608,7 +608,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                     </TableHeader>
                     <TableBody>
                       {filteredInactivos.map((socio) => (
-                        <TableRow key={socio.id} className="border-[#333333] hover:bg-[#252525] opacity-60">
+                        <TableRow key={socio.id} className="border-[#333333] hover:bg-red-500/10 bg-red-500/5 opacity-80">
                           <TableCell className="text-[#CCCCCC] text-xs py-2">
                             <span className="font-medium">{socio.apellido}</span>, {socio.nombre}
                           </TableCell>
