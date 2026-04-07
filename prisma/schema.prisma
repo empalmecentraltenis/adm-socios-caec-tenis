@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Cancha {
+  id     Int     @id @default(autoincrement())
+  nombre String
+  activa Boolean @default(true)
+  turnos Turno[]
+
+  @@map("canchas")
+}
+
+model ListaEspera {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  turnoId    String   @map("turno_id") @db.Uuid
+  socioDni   String   @map("socio_dni")
+  createdAt  DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+  
+  socio      Socio    @relation(fields: [socioDni], references: [dni], onDelete: Cascade)
+  turno      Turno    @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+
+  @@unique([turnoId, socioDni])
+  @@map("lista_espera")
+}
+
+model Noticia {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  titulo        String
+  contenido     String
+  activo        Boolean? @default(true)
+  fechaCreacion DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("fecha_creacion") @db.Timestamptz(6)
+
+  @@map("noticias")
+}
+
+model Socio {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dni          String         @unique
+  nombre       String
+  apellido     String
+  activo       Boolean?       @default(true)
+  rol          String?        @default("socio")
+  estado       String         @default("activo") // 'activo' | 'inactivo'
+  categoria    String         @default("socio")  // 'socio' | 'alumno' | 'vitalicio'
+  telefono     String         @default("")
+  email        String?
+  fechaAlta    DateTime       @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+  
+  listaEspera  ListaEspera[]
+  turnos       Turno[]
+  pagos        PagoCuota[]
+
+  @@map("socios")
+}
+
+model Turno {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  canchaId      Int           @map("cancha_id")
+  fecha         DateTime      @db.Date
+  horaInicio    DateTime      @map("hora_inicio") @db.Time(6)
+  horaFin       DateTime      @map("hora_fin") @db.Time(6)
+  socioDni      String?       @map("socio_dni")
+  acompanante   String?
+  estado        String?       @default("libre")
+  motivoBloqueo String?       @map("motivo_bloqueo")
+  createdAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("updated_at") @db.Timestamptz(6)
+  
+  listaEspera   ListaEspera[]
+  cancha        Cancha        @relation(fields: [canchaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  socio         Socio?        @relation(fields: [socioDni], references: [dni], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([canchaId, fecha, horaInicio], map: "turnos_cancha_fecha_hora_key")
+  @@map("turnos")
+}
+
+model PagoCuota {
+  id            String   @id @default(cuid())
+  socioId       String   @db.Uuid @map("socio_id")
+  mesPagado     String   // formato 'YYYY-MM', ej: '2024-11'
+  monto         Float
+  fechaRegistro DateTime @default(now()) @map("fecha_registro")
+  metodoPago    String   @default("efectivo") @map("metodo_pago")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  socio Socio @relation(fields: [socioId], references: [id], onDelete: Cascade)
+
+  @@index([socioId])
+  @@index([mesPagado])
+  @@map("pago_cuotas")
+}
+
+model Configuracion {
+  id    String @id @default(cuid())
+  clave String @unique
+  valor String
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("configuracion")
+}
+
+model Actividad {
+  id        String   @id @default(cuid())
+  accion    String   // 'pago_registrado' | 'socio_creado' | 'socio_editado' | 'socio_dado_baja' | 'config_actualizada' | 'pago_masivo'
+  detalle   String   
+  socioId   String?  @map("socio_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("actividades")
+}

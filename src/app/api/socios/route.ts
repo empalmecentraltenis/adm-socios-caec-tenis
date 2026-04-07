@@ -1,0 +1,225 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+
+// Helper para registrar actividad usando raw SQL (evita bug de Turbopack con Prisma Client)
+async function logActividad(accion: string, detalle: string, socioId?: string) {
+  try {
+    const now = new Date().toISOString();
+    await db.$executeRawUnsafe(
+      `INSERT INTO Actividad (id, accion, detalle, socioId, createdAt) VALUES (lower(hex(randomblob(8))), ?, ?, ?, ?)`,
+      accion, detalle, socioId || null, now
+    );
+  } catch (err) {
+    console.warn("No se pudo registrar actividad:", err);
+  }
+}
+
+// GET /api/socios - Obtener todos los socios con información de pagos
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const soloActivos = searchParams.get("activos") === "true";
+    const categoria = searchParams.get("categoria");
+
+    const where: Record<string, unknown> = {};
+    if (soloActivos) where.estado = "activo";
+    if (categoria && categoria !== "todos") where.categoria = categoria;
+
+    const socios = await db.socio.findMany({
+      where,
+      include: {
+        pagos: {
+          orderBy: { mesPagado: "desc" },
+        },
+      },
+      orderBy: { apellido: "asc" },
+    });
+
+    const ahora = new Date();
+    const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
+
+    // Obtener configuración de cuotas
+    const configuraciones = await db.configuracion.findMany();
+    const getValor = (clave: string) => {
+      const c = configuraciones.find((c) => c.clave === clave);
+      return c ? parseFloat(c.valor) : 0;
+    };
+
+    const cuotaSocio = getValor("cuota_socio") || 7000;
+    const cuotaAlumno = getValor("cuota_alumno") || 3500;
+    const cuotaVitalicio = getValor("cuota_vitalicio") || 0;
+
+    const cuotaPorCategoria: Record<string, number> = {
+      socio: cuotaSocio,
+      alumno: cuotaAlumno,
+      vitalicio: cuotaVitalicio,
+    };
+
+    const sociosConEstado = socios.map((socio) => {
+      const mesesPagados = socio.pagos.map((p) => p.mesPagado);
+      const tienePagoMesActual = mesesPagados.includes(mesActual);
+
+      // Mes de alta del socio (formato YYYY-MM)
+      const mesAlta = `${socio.fechaAlta.getFullYear()}-${String(socio.fechaAlta.getMonth() + 1).padStart(2, "0")}`;
+      const esPrimerMes = mesAlta === mesActual;
+
+      let mesesAdeudados = 0;
+      if (!tienePagoMesActual) {
+        const ultimoPago = mesesPagados.length > 0
+          ? new Date(Math.max(...mesesPagados.map((m) => new Date(m + "-01").getTime())))
+          : new Date(socio.fechaAlta);
+
+        const diff = ahora.getFullYear() - ultimoPago.getFullYear();
+        mesesAdeudados = diff * 12 + (ahora.getMonth() - ultimoPago.getMonth());
+        if (mesesAdeudados < 0) mesesAdeudados = 0;
+      }
+
+      const valorCuota = cuotaPorCategoria[socio.categoria] || 7000;
+
+      // alDia: pagó mes actual, o es vitalicio, o está en su primer mes (gracia)
+      const alDia = tienePagoMesActual || socio.categoria === "vitalicio" || esPrimerMes;
+
+      return {
+        ...socio,
+        alDia,
+        mesesAdeudados: socio.categoria === "vitalicio" || esPrimerMes ? 0 : mesesAdeudados,
+        totalPagado: socio.pagos.reduce((acc, p) => acc + p.monto, 0),
+        deudaEstimada: mesesAdeudados * valorCuota,
+        valorCuota,
+      };
+    });
+
+    return NextResponse.json(sociosConEstado);
+  } catch (error) {
+    console.error("Error al obtener socios:", error);
+    return NextResponse.json({ error: "Error al obtener socios" }, { status: 500 });
+  }
+}
+
+// POST /api/socios - Crear un nuevo socio
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { nombre, apellido, email, dni, telefono, categoria } = body;
+
+    if (!nombre || !apellido || !email || !dni) {
+      return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
+    }
+
+    const socio = await db.socio.create({
+      data: {
+        nombre,
+        apellido,
+        email,
+        dni,
+        telefono: telefono || "",
+        categoria: categoria || "socio",
+      },
+    });
+
+    // Registrar actividad
+    await logActividad("socio_creado", `Alta de socio: ${nombre} ${apellido} (${categoria || "socio"})`, socio.id);
+
+    return NextResponse.json(socio, { status: 201 });
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err.code === "P2002") {
+      return NextResponse.json({ error: "El email o DNI ya existe" }, { status: 409 });
+    }
+    console.error("Error al crear socio:", error);
+    return NextResponse.json({ error: "Error al crear socio" }, { status: 500 });
+  }
+}
+
+// PUT /api/socios - Modificar un socio existente
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, nombre, apellido, email, dni, telefono, estado, categoria } = body;
+
+    if (!id || !nombre || !apellido || !email || !dni) {
+      return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
+    }
+
+    const socioAnterior = await db.socio.findUnique({ where: { id } });
+    if (!socioAnterior) {
+      return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
+    }
+
+    const socio = await db.socio.update({
+      where: { id },
+      data: {
+        nombre,
+        apellido,
+        email,
+        dni,
+        telefono: telefono !== undefined ? telefono : undefined,
+        estado: estado || undefined,
+        categoria: categoria || undefined,
+      },
+    });
+
+    // Registrar actividad
+    const cambios: string[] = [];
+    if (socioAnterior.nombre !== nombre || socioAnterior.apellido !== apellido) cambios.push("datos personales");
+    if (socioAnterior.telefono !== telefono) cambios.push("teléfono");
+    if (socioAnterior.estado !== estado) cambios.push(`estado: ${socioAnterior.estado} → ${estado}`);
+    if (socioAnterior.categoria !== categoria && categoria) cambios.push(`categoría: ${socioAnterior.categoria} → ${categoria}`);
+
+    // Registrar actividad
+    if (cambios.length > 0) {
+      await logActividad("socio_editado", `Se modificó ${cambios.join(", ")} de ${nombre} ${apellido}`, id);
+    }
+
+    return NextResponse.json(socio);
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err.code === "P2025") {
+      return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
+    }
+    if (err.code === "P2002") {
+      return NextResponse.json({ error: "El email o DNI ya existe" }, { status: 409 });
+    }
+    console.error("Error al modificar socio:", error);
+    return NextResponse.json({ error: "Error al modificar socio" }, { status: 500 });
+  }
+}
+
+// DELETE /api/socios - Dar de baja (soft delete) o eliminar un socio
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    const hard = searchParams.get("hard") === "true";
+
+    if (!id) {
+      return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+    }
+
+    const socio = await db.socio.findUnique({ where: { id } });
+    if (!socio) {
+      return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
+    }
+
+    if (hard) {
+      await db.socio.delete({ where: { id } });
+    } else {
+      await db.socio.update({
+        where: { id },
+        data: { estado: "inactivo" },
+      });
+
+      // Registrar actividad
+      await logActividad("socio_dado_baja", `Baja de socio: ${socio.nombre} ${socio.apellido}`, id);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err.code === "P2025") {
+      return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
+    }
+    console.error("Error al eliminar socio:", error);
+    return NextResponse.json({ error: "Error al eliminar socio" }, { status: 500 });
+  }
+}
