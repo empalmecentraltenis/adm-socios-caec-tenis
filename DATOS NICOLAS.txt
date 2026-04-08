@@ -1,0 +1,12 @@
+GIT
+perfil empalmecentraltenis
+repo adm-socios-caec-tenis
+usuario empalmecentraltenis
+Gmail empalmecentraltenis2026@gmail.com
+
+Vercel
+Gmail empalmecentraltenis2026@gmail.com
+usuario empalmecentraltenis2026-8432
+proyecto adm-socios-caec-tenis (git)
+
+base de datos Supabase Reservas CAEC

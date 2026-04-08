@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Pencil, Trash2, ChevronUp, ChevronDown, DollarSign, History, Users, Phone, Mail, UserCheck, UserX, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, ChevronUp, ChevronDown, DollarSign, History, Users, Phone, Mail, UserCheck, UserX, MessageCircle, AlertTriangle, FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -282,6 +283,35 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
 
   const deudoresCount = socios.filter(s => s.mesesAdeudados >= 2).length;
 
+  const handleExportExcel = () => {
+    // Combinamos activos e inactivos para una exportación completa
+    const allData = [...socios, ...inactivosData].map(s => ({
+      Apellido: s.apellido,
+      Nombre: s.nombre,
+      DNI: s.dni,
+      Email: s.email,
+      Teléfono: s.telefono || 'N/A',
+      Categoría: s.categoria.charAt(0).toUpperCase() + s.categoria.slice(1),
+      Estado: s.estado === 'activo' ? 'Activo' : 'Inactivo',
+      'Al Día': s.alDia ? 'Sí' : 'No',
+      'Meses Adeudados': s.mesesAdeudados,
+      'Total Pagado': s.totalPagado,
+      'Última Alta': new Date(s.fechaAlta).toLocaleDateString('es-AR')
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(allData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Socios");
+
+    // Generar archivo y descargar
+    XLSX.writeFile(workbook, `Lista_Socios_CAEC_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    toast({
+      title: "Exportación exitosa",
+      description: "La lista de socios se ha descargado correctamente.",
+    });
+  };
+
   if (loading) {
     return (
       <div className="bg-[#1E1E1E] border border-[#333333] rounded-lg p-4 space-y-3">
@@ -308,6 +338,15 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               Nuevo
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportExcel}
+              className="border-[#CCCCCC]/30 text-[#CCCCCC] hover:bg-[#CCCCCC]/10 text-xs h-7 px-2.5"
+            >
+              <FileDown className="h-3.5 w-3.5 mr-1" />
+              Exportar
             </Button>
             {deudoresCount > 0 && (
               <Button

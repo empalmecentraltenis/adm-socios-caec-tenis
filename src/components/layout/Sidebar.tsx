@@ -14,7 +14,7 @@ interface SidebarProps {
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'socios', label: 'Socios / Pagos', icon: Users },
-  { id: 'reportes', label: 'Reportes', icon: FileText },
+  { id: 'reportes', label: 'Deudores', icon: FileText },
   { id: 'configuracion', label: 'Configuración', icon: Settings },
 ];
 
