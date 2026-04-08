@@ -22,7 +22,13 @@ export async function GET(request: Request) {
     const categoria = searchParams.get("categoria");
 
     const where: Record<string, unknown> = {};
-    if (soloActivos) where.estado = "activo";
+    const activosParam = searchParams.get("activos");
+    
+    if (activosParam === "true") {
+      where.estado = "activo";
+    } else if (activosParam === "false") {
+      where.estado = "inactivo";
+    }
     if (categoria && categoria !== "todos") where.categoria = categoria;
 
     const socios = await db.socio.findMany({
