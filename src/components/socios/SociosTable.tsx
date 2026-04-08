@@ -44,6 +44,7 @@ interface Socio {
   fechaAlta: string;
   estado: string;
   categoria: string;
+  rol?: string;
   alDia: boolean;
   mesesAdeudados: number;
   totalPagado: number;
@@ -234,14 +235,8 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: reactivateTarget.id,
-          nombre: reactivateTarget.nombre,
-          apellido: reactivateTarget.apellido,
-          email: reactivateTarget.email,
-          dni: reactivateTarget.dni,
-          telefono: reactivateTarget.telefono,
+          ...reactivateTarget,
           estado: 'activo',
-          categoria: reactivateTarget.categoria,
         }),
       });
       if (res.ok) {
@@ -292,6 +287,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
       Email: s.email,
       Teléfono: s.telefono || 'N/A',
       Categoría: s.categoria.charAt(0).toUpperCase() + s.categoria.slice(1),
+      Rol: s.rol === 'admin' ? 'Administrador' : 'Socio',
       Estado: s.estado === 'activo' ? 'Activo' : 'Inactivo',
       'Al Día': s.alDia ? 'Sí' : 'No',
       'Meses Adeudados': s.mesesAdeudados,
@@ -443,6 +439,11 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                     <TableCell className="text-[#CCCCCC] text-xs py-2">
                       <span className="font-medium">{socio.apellido}</span>{', '}
                       {socio.nombre}
+                      {socio.rol === 'admin' && (
+                        <Badge variant="outline" className="ml-2 bg-purple-500/15 text-purple-400 border-purple-500/20 text-[9px] px-1 py-0 h-4">
+                          Admin
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="py-2">
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getCategoriaBadge(socio.categoria)}`}>
@@ -550,7 +551,12 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-white text-sm font-medium truncate">{socio.apellido}, {socio.nombre}</p>
+                    <p className="text-white text-sm font-medium truncate">
+                      {socio.apellido}, {socio.nombre}
+                      {socio.rol === 'admin' && (
+                        <span className="ml-2 text-[9px] text-purple-400 font-bold uppercase">Admin</span>
+                      )}
+                    </p>
                     <p className="text-[#999999] text-[11px] truncate">{socio.email}</p>
                     {socio.telefono && (
                       <p className="text-[#999999] text-[11px] truncate">{socio.telefono}</p>
@@ -650,6 +656,11 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                         <TableRow key={socio.id} className="border-[#333333] hover:bg-red-500/10 bg-red-500/5 opacity-80">
                           <TableCell className="text-[#CCCCCC] text-xs py-2">
                             <span className="font-medium">{socio.apellido}</span>, {socio.nombre}
+                            {socio.rol === 'admin' && (
+                              <Badge variant="outline" className="ml-2 bg-purple-500/10 text-purple-400/70 border-purple-500/10 text-[9px] px-1 py-0 h-4">
+                                Admin
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="py-2">
                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getCategoriaBadge(socio.categoria)}`}>

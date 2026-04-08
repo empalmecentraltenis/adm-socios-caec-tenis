@@ -56,6 +56,7 @@ model Socio {
   listaEspera  ListaEspera[]
   turnos       Turno[]
   pagos        PagoCuota[]
+  cuotas       Cuota[]
 
   @@map("socios")
 }
@@ -107,6 +108,21 @@ model Configuracion {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("configuracion")
+}
+
+model Cuota {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  socioId          String   @map("socio_id") @db.Uuid
+  mes              String   // Formato 'YYYY-MM'
+  monto            Float
+  estado           String   @default("pendiente") // 'pendiente' | 'pagada'
+  fechaVencimiento DateTime? @map("fecha_vencimiento") @db.Date
+  createdAt        DateTime @default(dbgenerated("now()")) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(dbgenerated("now()")) @map("updated_at") @db.Timestamptz(6)
+
+  socio            Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+
+  @@map("cuotas")
 }
 
 model Actividad {

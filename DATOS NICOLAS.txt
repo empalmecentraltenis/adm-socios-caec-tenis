@@ -10,3 +10,27 @@ usuario empalmecentraltenis2026-8432
 proyecto adm-socios-caec-tenis (git)
 
 base de datos Supabase Reservas CAEC
+
+
+el push me pide usuario y contraseña de git y creo que la terminal no toma la contraseña, tuve que poner el token recuerdo, puede ser?
+Tenés razón, GitHub ya no permite usar la contraseña normal por seguridad. Tenés que usar un Personal Access Token (PAT).
+
+Aquí tenés los pasos para generar uno rápido:
+Entrá a tu GitHub en el navegador.
+Andá a Settings (arriba a la derecha, en tu foto).
+Abajo de todo en la izquierda, hacé clic en Developer settings.
+Hacé clic en Personal access tokens -> Tokens (classic).
+Dale a Generate new token (classic).
+Poné una nota (ej: "Dashboard CAEC") y marcá la casilla que dice repo (esto es lo más importante).
+Dale a Generate token abajo de todo.
+Copiá ese código largo (empieza con ghp_...). Ojo: Una vez que salgas de la página, no lo podés volver a ver.
+Cómo usarlo en la terminal:
+Cuando hagas el git push y te pida el Password:
+
+Pegá el token que acabás de copiar.
+IMPORTANTE: En la terminal de Windows, cuando pegás o escribís una contraseña, no se ve nada (el cursor no se mueve). Es normal.
+Pegalo una sola vez y dale a Enter.
+Si querés evitar esto en el futuro:
+Si no querés estar pegando el token cada vez, podés correr este comando para que Windows recuerde tus credenciales de GitHub: git config --global credential.helper manager
+
+¿Pudiste encontrar la sección de tokens en GitHub? Si te trabás en algún paso, avisame.

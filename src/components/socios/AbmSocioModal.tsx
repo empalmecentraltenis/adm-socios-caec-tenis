@@ -30,6 +30,7 @@ interface SocioFormData {
   telefono: string;
   estado?: string;
   categoria?: string;
+  rol?: string;
 }
 
 interface AbmSocioModalProps {
@@ -47,6 +48,7 @@ const EMPTY_FORM: SocioFormData = {
   telefono: '',
   estado: 'activo',
   categoria: 'socio',
+  rol: 'socio',
 };
 
 export default function AbmSocioModal({
@@ -72,6 +74,7 @@ export default function AbmSocioModal({
         telefono: socio.telefono || '',
         estado: socio.estado || 'activo',
         categoria: socio.categoria || 'socio',
+        rol: socio.rol || 'socio',
       });
     } else if (open && !socio) {
       setForm({ ...EMPTY_FORM });
@@ -221,9 +224,9 @@ export default function AbmSocioModal({
               </Select>
             </div>
 
-            {isEditing && (
-              <div className="space-y-1.5">
-                <Label className="text-[#CCCCCC] text-xs">Estado</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[#CCCCCC] text-xs">{isEditing ? 'Estado' : 'Rol Inicial'}</Label>
+              {isEditing ? (
                 <Select value={form.estado || 'activo'} onValueChange={(v) => setForm({ ...form, estado: v })}>
                   <SelectTrigger className="w-full bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] h-9 text-sm">
                     <SelectValue />
@@ -237,12 +240,36 @@ export default function AbmSocioModal({
                     </SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            )}
+              ) : (
+                <div className="h-9 flex items-center bg-[#2A2A2A]/50 border border-[#333333] px-3 rounded-md text-[#666666] text-xs">
+                  ✅ Activo por defecto
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5 pt-1">
+            <Label className="text-[#CCCCCC] text-xs font-medium">Permisos en App de Reservas</Label>
+            <Select value={form.rol || 'socio'} onValueChange={(v) => setForm({ ...form, rol: v })}>
+              <SelectTrigger className="w-full bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1E1E1E] border-[#333333]">
+                <SelectItem value="socio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white border-0">
+                  👤 Socio (Acceso estándar)
+                </SelectItem>
+                <SelectItem value="admin" className="text-purple-400 focus:bg-[#2A2A2A] focus:text-purple-300 border-0">
+                  🛡️ Administrador (Acceso total)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-[#666666] leading-tight">
+              Los administradores pueden gestionar turnos de otros socios y configurar canchas desde la App.
+            </p>
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="gap-2 sm:gap-0 mt-4">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -256,7 +283,7 @@ export default function AbmSocioModal({
             disabled={submitting}
             className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] font-medium"
           >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             {submitting
               ? 'Guardando...'
               : isEditing

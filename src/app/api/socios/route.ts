@@ -31,6 +31,9 @@ export async function GET(request: Request) {
         pagos: {
           orderBy: { mesPagado: "desc" },
         },
+        cuotas: {
+          orderBy: { mes: "desc" },
+        },
       },
       orderBy: { apellido: "asc" },
     });
@@ -56,33 +59,36 @@ export async function GET(request: Request) {
     };
 
     const sociosConEstado = socios.map((socio) => {
-      const mesesPagados = socio.pagos.map((p) => p.mesPagado);
-      const tienePagoMesActual = mesesPagados.includes(mesActual);
+      // 1. Obtener cuotas pendientes reales de la nueva tabla
+      const cuotasPendientes = socio.cuotas.filter(c => c.estado === 'pendiente');
+      const mesesAdeudadosReales = cuotasPendientes.length;
 
-      // Mes de alta del socio (formato YYYY-MM)
-      const mesAlta = `${socio.fechaAlta.getFullYear()}-${String(socio.fechaAlta.getMonth() + 1).padStart(2, "0")}`;
-      const esPrimerMes = mesAlta === mesActual;
-
-      let mesesAdeudados = 0;
-      if (!tienePagoMesActual) {
+      // 2. Lógica de compatibilidad: si no hay registros en la tabla cuotas (ej. cuotas viejas), 
+      // seguimos usando el cálculo dinámico como respaldo para no perder deudas históricas.
+      let mesesAdeudados = mesesAdeudadosReales;
+      
+      if (socio.cuotas.length === 0) {
+        const mesesPagados = socio.pagos.map((p) => p.mesPagado);
+        const tienePagoMesActual = mesesPagados.includes(mesActual);
         const ultimoPago = mesesPagados.length > 0
           ? new Date(Math.max(...mesesPagados.map((m) => new Date(m + "-01").getTime())))
           : new Date(socio.fechaAlta);
 
         const diff = ahora.getFullYear() - ultimoPago.getFullYear();
-        mesesAdeudados = diff * 12 + (ahora.getMonth() - ultimoPago.getMonth());
-        if (mesesAdeudados < 0) mesesAdeudados = 0;
+        const calcDiff = diff * 12 + (ahora.getMonth() - ultimoPago.getMonth());
+        mesesAdeudados = calcDiff > 0 ? calcDiff : 0;
       }
 
-      const valorCuota = cuotaPorCategoria[socio.categoria] || 7000;
-
-      // alDia: pagó mes actual, o es vitalicio, o está en su primer mes (gracia)
-      const alDia = tienePagoMesActual || socio.categoria === "vitalicio" || esPrimerMes;
+      const valorCuota = cuotaPorCategoria[socio.categoria] || 8000;
+      const esVitalicio = socio.categoria === "vitalicio";
+      
+      // alDia: no tiene cuotas pendientes (o es vitalicio)
+      const alDia = esVitalicio || mesesAdeudados === 0;
 
       return {
         ...socio,
         alDia,
-        mesesAdeudados: socio.categoria === "vitalicio" || esPrimerMes ? 0 : mesesAdeudados,
+        mesesAdeudados: esVitalicio ? 0 : mesesAdeudados,
         totalPagado: socio.pagos.reduce((acc, p) => acc + p.monto, 0),
         deudaEstimada: mesesAdeudados * valorCuota,
         valorCuota,
@@ -100,7 +106,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { nombre, apellido, email, dni, telefono, categoria } = body;
+    const { nombre, apellido, email, dni, telefono, categoria, rol } = body;
 
     if (!nombre || !apellido || !email || !dni) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
@@ -114,6 +120,7 @@ export async function POST(request: Request) {
         dni,
         telefono: telefono || "",
         categoria: categoria || "socio",
+        rol: rol || "socio",
       },
     });
 
@@ -135,7 +142,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, nombre, apellido, email, dni, telefono, estado, categoria } = body;
+    const { id, nombre, apellido, email, dni, telefono, estado, categoria, rol } = body;
 
     if (!id || !nombre || !apellido || !email || !dni) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
@@ -156,6 +163,7 @@ export async function PUT(request: Request) {
         telefono: telefono !== undefined ? telefono : undefined,
         estado: estado || undefined,
         categoria: categoria || undefined,
+        rol: rol || undefined,
       },
     });
 
@@ -165,6 +173,7 @@ export async function PUT(request: Request) {
     if (socioAnterior.telefono !== telefono) cambios.push("teléfono");
     if (socioAnterior.estado !== estado) cambios.push(`estado: ${socioAnterior.estado} → ${estado}`);
     if (socioAnterior.categoria !== categoria && categoria) cambios.push(`categoría: ${socioAnterior.categoria} → ${categoria}`);
+    if (socioAnterior.rol !== rol && rol) cambios.push(`rol: ${socioAnterior.rol} → ${rol}`);
 
     // Registrar actividad
     if (cambios.length > 0) {
