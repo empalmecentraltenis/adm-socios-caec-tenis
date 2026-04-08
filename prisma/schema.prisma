@@ -51,7 +51,8 @@ model Socio {
   categoria    String         @default("socio")  // 'socio' | 'alumno' | 'vitalicio'
   telefono     String         @default("")
   email        String?
-  fechaAlta    DateTime       @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+  fechaAlta    DateTime       @default(dbgenerated("timezone('utc'::text, now())")) @map("fecha_alta") @db.Timestamptz(6)
+  createdAt    DateTime       @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
   
   listaEspera  ListaEspera[]
   turnos       Turno[]
