@@ -161,6 +161,9 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
     }
 
+    // Sincronizar activo <-> estado para que la app de reservas vea lo mismo
+    const activoSync = estado ? (estado === 'activo') : undefined;
+
     const socio = await db.socio.update({
       where: { id },
       data: {
@@ -170,6 +173,7 @@ export async function PUT(request: Request) {
         dni,
         telefono: telefono !== undefined ? telefono : undefined,
         estado: estado || undefined,
+        activo: activoSync,
         categoria: categoria || undefined,
         rol: rol || undefined,
       },
@@ -223,7 +227,7 @@ export async function DELETE(request: Request) {
     } else {
       await db.socio.update({
         where: { id },
-        data: { estado: "inactivo" },
+        data: { estado: "inactivo", activo: false },
       });
 
       // Registrar actividad
