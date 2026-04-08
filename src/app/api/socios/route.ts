@@ -18,18 +18,20 @@ async function logActividad(accion: string, detalle: string, socioId?: string) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const soloActivos = searchParams.get("activos") === "true";
-    const categoria = searchParams.get("categoria");
-
-    const where: Record<string, unknown> = {};
+    const where: any = {};
     const activosParam = searchParams.get("activos");
+    const categoria = searchParams.get("categoria");
     
+    // Filtro estricto de estado
     if (activosParam === "true") {
       where.estado = "activo";
     } else if (activosParam === "false") {
       where.estado = "inactivo";
     }
-    if (categoria && categoria !== "todos") where.categoria = categoria;
+    
+    if (categoria && categoria !== "todos") {
+      where.categoria = categoria;
+    }
 
     const socios = await db.socio.findMany({
       where,
