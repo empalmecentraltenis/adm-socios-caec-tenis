@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import Sidebar from '@/components/layout/Sidebar';
 import KpiCards from '@/components/dashboard/KpiCards';
 import RecaudacionChart from '@/components/dashboard/RecaudacionChart';
@@ -16,6 +17,7 @@ import PagoMasivoModal from '@/components/socios/PagoMasivoModal';
 import AbmSocioModal from '@/components/socios/AbmSocioModal';
 import ReportesTable from '@/components/reportes/ReportesTable';
 import ConfiguracionPanel from '@/components/configuracion/ConfiguracionPanel';
+import { Loader2 } from 'lucide-react';
 
 type TabType = 'dashboard' | 'socios' | 'reportes' | 'configuracion';
 
@@ -33,30 +35,6 @@ interface DashboardData {
   distribucionCategorias: { categoria: string; cantidad: number; cuota: number; color: string }[];
   ingresosPorCategoria: { categoria: string; total: number }[];
   ultimasActividades: { id: string; accion: string; detalle: string; createdAt: string }[];
-}
-
-interface SocioForPago {
-  id: string;
-  nombre: string;
-  apellido: string;
-}
-
-interface SocioForAbm {
-  id: string;
-  nombre: string;
-  apellido: string;
-  email: string;
-  dni: string;
-  telefono: string;
-  estado?: string;
-  categoria?: string;
-}
-
-interface SocioForHistorial {
-  id: string;
-  nombre: string;
-  apellido: string;
-  categoria: string;
 }
 
 interface SocioFull {
@@ -78,6 +56,7 @@ interface SocioFull {
 }
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -86,13 +65,15 @@ export default function Home() {
   const [sociosRefreshKey, setSociosRefreshKey] = useState(0);
 
   // Modal states
-  const [socioForPago, setSocioForPago] = useState<SocioForPago | null>(null);
+  const [socioForPago, setSocioForPago] = useState<any>(null);
   const [pagoModalOpen, setPagoModalOpen] = useState(false);
-  const [socioForAbm, setSocioForAbm] = useState<SocioForAbm | null>(null);
+  const [socioForAbm, setSocioForAbm] = useState<any>(null);
   const [abmModalOpen, setAbmModalOpen] = useState(false);
-  const [socioForHistorial, setSocioForHistorial] = useState<SocioForHistorial | null>(null);
+  const [socioForHistorial, setSocioForHistorial] = useState<any>(null);
   const [historialModalOpen, setHistorialModalOpen] = useState(false);
   const [pagoMasivoModalOpen, setPagoMasivoModalOpen] = useState(false);
+
+  const isReadOnly = session?.user && (session.user as any).role === 'viewer';
 
   // Fetch dashboard data
   const fetchDashboard = useCallback(async () => {
@@ -124,60 +105,38 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'dashboard') {
+    if (activeTab === 'dashboard' && status === 'authenticated') {
       fetchDashboard();
     }
-  }, [activeTab, fetchDashboard]);
+  }, [activeTab, fetchDashboard, status]);
 
   useEffect(() => {
-    fetchSocios();
-  }, [sociosRefreshKey, fetchSocios]);
+    if (status === 'authenticated') {
+      fetchSocios();
+    }
+  }, [sociosRefreshKey, fetchSocios, status]);
+
+  // Loading state
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] flex flex-col items-center justify-center gap-4 text-white">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium animate-pulse">Cargando panel...</p>
+      </div>
+    );
+  }
 
   function handleNavigate(tab: string) {
     setActiveTab(tab as TabType);
   }
 
-  function handleRegistrarPago(socio: SocioForPago) {
+  function handleRegistrarPago(socio: any) {
+    if (isReadOnly) return;
     setSocioForPago(socio);
     setPagoModalOpen(true);
   }
 
-  function handlePagoSuccess() {
-    setPagoModalOpen(false);
-    setSocioForPago(null);
-    setSociosRefreshKey((prev) => prev + 1);
-    if (activeTab === 'dashboard') fetchDashboard();
-  }
-
-  function handleCrearSocio() {
-    setSocioForAbm(null);
-    setAbmModalOpen(true);
-  }
-
-  function handleEditarSocio(socio: SocioForAbm) {
-    setSocioForAbm(socio);
-    setAbmModalOpen(true);
-  }
-
-  function handleAbmSuccess() {
-    setAbmModalOpen(false);
-    setSocioForAbm(null);
-    setSociosRefreshKey((prev) => prev + 1);
-    if (activeTab === 'dashboard') fetchDashboard();
-  }
-
-  function handleAbmCancel() {
-    setAbmModalOpen(false);
-    setSocioForAbm(null);
-  }
-
-  function handleVerHistorial(socio: SocioForHistorial) {
-    setSocioForHistorial(socio);
-    setHistorialModalOpen(true);
-  }
-
-  function handlePagoMasivoSuccess() {
-    setPagoMasivoModalOpen(false);
+  function handleSocioRefresh() {
     setSociosRefreshKey((prev) => prev + 1);
     if (activeTab === 'dashboard') fetchDashboard();
   }
@@ -202,30 +161,34 @@ export default function Home() {
       <main className="lg:ml-[260px] min-h-screen">
         <div className="p-4 pt-16 lg:pt-4 lg:p-6 max-w-[1400px] mx-auto">
           {/* Page Title */}
-          <div className="mb-4">
-            <h1 className="text-white text-xl lg:text-2xl font-bold">
-              {pageTitles[activeTab].title}
-            </h1>
-            <p className="text-[#999999] text-sm mt-1">
-              {pageTitles[activeTab].subtitle}
-            </p>
+          <div className="mb-4 flex justify-between items-center">
+            <div>
+                <h1 className="text-white text-xl lg:text-2xl font-bold">
+                {pageTitles[activeTab].title}
+                </h1>
+                <p className="text-[#999999] text-sm mt-1">
+                {pageTitles[activeTab].subtitle}
+                </p>
+            </div>
+            {isReadOnly && (
+                <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
+                    <span className="text-primary text-[10px] font-bold uppercase tracking-wider">Modo Solo Lectura</span>
+                </div>
+            )}
           </div>
 
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-5">
               <KpiCards data={dashboardData?.kpis ?? null} loading={dashLoading} />
-              {/* Fila superior: Morosos Críticos + Actividad Reciente */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <MorososCriticos data={dashboardData?.morosos ?? null} loading={dashLoading} />
                 <ActividadLog />
               </div>
-              {/* Fila media: Ingresos por Categoría (con selector mes) + Distribución por Categoría */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <IngresosPorCategoria data={dashboardData?.ingresosPorCategoria ?? null} loading={dashLoading} />
                 <DistribucionCategorias data={dashboardData?.distribucionCategorias ?? null} loading={dashLoading} />
               </div>
-              {/* Fila inferior: Recaudación Mensual + Evolución de Socios */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <RecaudacionChart data={dashboardData?.recaudacionMensual ?? null} loading={dashLoading} />
                 <CrecimientoChart data={dashboardData?.crecimientoMensual ?? null} loading={dashLoading} />
@@ -239,11 +202,12 @@ export default function Home() {
               key={sociosRefreshKey}
               refreshKey={sociosRefreshKey}
               onRegistrarPago={handleRegistrarPago}
-              onEditarSocio={handleEditarSocio}
-              onCrearSocio={handleCrearSocio}
-              onVerHistorial={handleVerHistorial}
-              onPagoMasivo={() => setPagoMasivoModalOpen(true)}
+              onEditarSocio={(s) => { if (!isReadOnly) { setSocioForAbm(s); setAbmModalOpen(true); } }}
+              onCrearSocio={() => { if (!isReadOnly) { setSocioForAbm(null); setAbmModalOpen(true); } }}
+              onVerHistorial={(s) => { setSocioForHistorial(s); setHistorialModalOpen(true); }}
+              onPagoMasivo={() => { if (!isReadOnly) setPagoMasivoModalOpen(true); }}
               socios={sociosData}
+              readOnly={isReadOnly}
             />
           )}
 
@@ -251,37 +215,39 @@ export default function Home() {
           {activeTab === 'reportes' && <ReportesTable />}
 
           {/* Configuración Tab */}
-          {activeTab === 'configuracion' && <ConfiguracionPanel />}
+          {activeTab === 'configuracion' && <ConfiguracionPanel readOnly={isReadOnly} />}
         </div>
       </main>
 
       {/* Modals */}
-      <RegistrarPagoModal
-        open={pagoModalOpen}
-        onOpenChange={setPagoModalOpen}
-        socio={socioForPago}
-        onSuccess={handlePagoSuccess}
-      />
-
-      <AbmSocioModal
-        key={abmModalOpen ? (socioForAbm?.id || 'new') : 'closed'}
-        open={abmModalOpen}
-        onOpenChange={(v) => { if (!v) handleAbmCancel(); else setAbmModalOpen(true); }}
-        socio={socioForAbm}
-        onSuccess={handleAbmSuccess}
-      />
+      {!isReadOnly && (
+        <>
+          <RegistrarPagoModal
+            open={pagoModalOpen}
+            onOpenChange={setPagoModalOpen}
+            socio={socioForPago}
+            onSuccess={() => { setPagoModalOpen(false); handleSocioRefresh(); }}
+          />
+          <AbmSocioModal
+            key={abmModalOpen ? (socioForAbm?.id || 'new') : 'closed'}
+            open={abmModalOpen}
+            onOpenChange={setAbmModalOpen}
+            socio={socioForAbm}
+            onSuccess={() => { setAbmModalOpen(false); handleSocioRefresh(); }}
+          />
+          <PagoMasivoModal
+            open={pagoMasivoModalOpen}
+            onOpenChange={setPagoMasivoModalOpen}
+            socios={sociosData}
+            onSuccess={() => { setPagoMasivoModalOpen(false); handleSocioRefresh(); }}
+          />
+        </>
+      )}
 
       <HistorialPagosModal
         open={historialModalOpen}
         onOpenChange={setHistorialModalOpen}
         socio={socioForHistorial}
-      />
-
-      <PagoMasivoModal
-        open={pagoMasivoModalOpen}
-        onOpenChange={setPagoMasivoModalOpen}
-        socios={sociosData}
-        onSuccess={handlePagoMasivoSuccess}
       />
     </div>
   );

@@ -9,7 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Tag, GraduationCap, Crown } from 'lucide-react';
 
-export default function ConfiguracionPanel() {
+interface ConfiguracionPanelProps {
+  readOnly?: boolean;
+}
+
+export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPanelProps) {
   const [cuotaSocio, setCuotaSocio] = useState('7000');
   const [cuotaAlumno, setCuotaAlumno] = useState('3500');
   const [cuotaVitalicio, setCuotaVitalicio] = useState('0');
@@ -39,6 +43,7 @@ export default function ConfiguracionPanel() {
   }
 
   async function handleSave() {
+    if (readOnly) return;
     setSaving(true);
     try {
       const res = await fetch('/api/configuracion', {
@@ -124,14 +129,16 @@ export default function ConfiguracionPanel() {
             Definí el valor de la cuota mensual para cada categoría de socio.
           </p>
         </div>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] font-medium"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-          {saving ? 'Guardando...' : 'Guardar'}
-        </Button>
+        {!readOnly && (
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] font-medium"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+            {saving ? 'Guardando...' : 'Guardar'}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

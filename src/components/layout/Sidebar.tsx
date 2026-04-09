@@ -1,7 +1,6 @@
-'use client';
-
-import { LayoutDashboard, Users, FileText, Settings, X, Menu } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { signOut } from 'next-auth/react';
 
 interface SidebarProps {
   activeTab: string;
@@ -100,10 +99,17 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
           })}
         </nav>
 
-        {/* Footer */}
-        <div className="px-4 py-4 border-t border-[#333333]">
-          <p className="text-[#666666] text-xs text-center">
-            © 2026 CAEC
+        {/* Footer with Logout */}
+        <div className="px-4 py-4 border-t border-[#333333] space-y-3">
+          <button 
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors"
+          >
+            <LogOut className="h-5 w-5" />
+            Cerrar Sesión
+          </button>
+          <p className="text-[#666666] text-[10px] text-center uppercase font-bold tracking-wider">
+            © 2026 CAEC · V2.0
           </p>
         </div>
       </aside>
