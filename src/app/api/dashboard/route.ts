@@ -122,6 +122,12 @@ export async function GET(request: Request) {
       take: 20 // Limitamos la búsqueda inicial
     });
 
+    const cuotaPorCategoria: Record<string, number> = {
+      socio: cuotaSocio,
+      alumno: cuotaAlumno,
+      vitalicio: cuotaVitalicio,
+    };
+
     const morosos = sociosSinPago
       .map((socio) => {
         const ultimoPagoMes = socio.pagos[0]?.mesPagado;
@@ -149,11 +155,6 @@ export async function GET(request: Request) {
 
     // 7. Deuda total estimada (basada en morosos críticos por ahora para velocidad)
     const deudaTotalEstimada = morosos.reduce((acc, s) => acc + s.deudaEstimada, 0);
-
-    // 8. Últimas actividades
-    const ultimasActividades = await db.$queryRawUnsafe(
-      `SELECT id, accion, detalle, "socioId", "createdAt" FROM actividades ORDER BY "createdAt" DESC LIMIT 10`
-    ) as Array<{ id: string; accion: string; detalle: string; socioId: string | null; createdAt: string }>;
 
     return NextResponse.json({
       kpis: {
