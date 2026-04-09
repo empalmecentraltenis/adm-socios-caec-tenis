@@ -364,7 +364,7 @@ export default function ReportesTable() {
       {/* Reporte financiero mensual */}
       <div className="bg-[#1E1E1E] border border-[#333333] rounded-lg p-4">
         <h3 className="text-white text-sm font-semibold mb-3">Resumen Financiero por Categoría</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {(() => {
             const categorias = ['socio', 'alumno', 'vitalicio'] as const;
             const colors = { socio: '#FFCC00', alumno: '#3B82F6', vitalicio: '#00AA55' };
@@ -374,20 +374,20 @@ export default function ReportesTable() {
               const deudaCat = deudoresCat.reduce((acc, s) => acc + s.deudaEstimada, 0);
               const totalCat = allSocios.filter(s => s.categoria === cat).length;
               return (
-                <div key={cat} className="bg-[#252525] border border-[#333333] rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[cat] }} />
-                    <span className="text-white text-xs font-medium">{labels[cat]}</span>
-                    <span className="text-[#666666] text-[10px] ml-auto">{totalCat} miembros</span>
+                <div key={cat} className="bg-[#252525] border border-[#333333] rounded-xl p-5 shadow-inner">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-4 h-4 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: colors[cat] }} />
+                    <span className="text-white text-base font-bold tracking-tight">{labels[cat]}</span>
+                    <span className="text-[#999999] text-xs ml-auto font-medium">{totalCat} miembros</span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-[#999999]">Deudores</span>
-                      <span className="text-[#EF4444] font-medium">{deudoresCat.length}</span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-end border-b border-[#333333] pb-2">
+                      <span className="text-[#999999] text-xs uppercase tracking-wider">Deudores</span>
+                      <span className="text-[#EF4444] text-lg font-bold leading-none">{deudoresCat.length}</span>
                     </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-[#999999]">Deuda</span>
-                      <span className="text-[#EF4444] font-medium">${deudaCat.toLocaleString('es-AR')}</span>
+                    <div className="flex justify-between items-end pt-1">
+                      <span className="text-[#999999] text-xs uppercase tracking-wider">Deuda Acumulada</span>
+                      <span className="text-[#EF4444] text-xl font-black leading-none">${deudaCat.toLocaleString('es-AR')}</span>
                     </div>
                   </div>
                 </div>

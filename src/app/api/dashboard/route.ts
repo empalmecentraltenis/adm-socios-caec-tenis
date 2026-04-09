@@ -178,7 +178,7 @@ export async function GET(request: Request) {
 
     // 8. Últimas actividades
     const ultimasActividades = await db.$queryRawUnsafe(
-      `SELECT id, accion, detalle, socioId, createdAt FROM Actividad ORDER BY createdAt DESC LIMIT 10`
+      `SELECT id, accion, detalle, "socioId", "createdAt" FROM actividades ORDER BY "createdAt" DESC LIMIT 10`
     ) as Array<{ id: string; accion: string; detalle: string; socioId: string | null; createdAt: string }>;
 
     return NextResponse.json({

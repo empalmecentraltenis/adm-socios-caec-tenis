@@ -6,7 +6,7 @@ async function logActividad(accion: string, detalle: string, socioId?: string) {
   try {
     const now = new Date().toISOString();
     await db.$executeRawUnsafe(
-      `INSERT INTO Actividad (id, accion, detalle, socioId, createdAt) VALUES (lower(hex(randomblob(8))), ?, ?, ?, ?)`,
+      `INSERT INTO actividades (id, accion, detalle, "socioId", "createdAt") VALUES (gen_random_uuid(), ?, ?, ?, ?)`,
       accion, detalle, socioId || null, now
     );
   } catch (err) {
