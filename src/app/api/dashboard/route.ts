@@ -104,6 +104,7 @@ export async function GET(request: Request) {
       { categoria: "socio", cantidad: 0, cuota: cuotaSocio, color: "#FFCC00" },
       { categoria: "alumno", cantidad: 0, cuota: cuotaAlumno, color: "#3B82F6" },
       { categoria: "vitalicio", cantidad: 0, cuota: cuotaVitalicio, color: "#00AA55" },
+      { categoria: "inactivo", cantidad: totalInactivos, cuota: 0, color: "#999999" },
     ];
     for (const cc of categoriaCounts) {
       const found = distribucionCategorias.find((d) => d.categoria === cc.categoria);
@@ -111,9 +112,7 @@ export async function GET(request: Request) {
     }
 
     // Ingresos por categoría optimizado
-    // En vez de volver a consultar todos los socios, usamos categoryCounts y revenueByCat
     const incomes = { socio: 0, alumno: 0, vitalicio: 0 };
-    // Este cálculo es aproximado basado en los pagos del mes actual
     const pagosMesActual = await db.pagoCuota.findMany({
       where: { mesPagado: mesActual },
       include: { socio: { select: { categoria: true } } }
@@ -132,15 +131,16 @@ export async function GET(request: Request) {
     const recaudacionMensual = recaudacionData;
     const crecimientoMensual = crecimientoData;
 
-    // 6. Morosos Críticos (top 5 que más deben)
+    // 6. Morosos Críticos (top deudores)
+    // Buscamos socios ACTIVOS que NO tengan pago en el mes actual.
+    // Quitamos el límite de 20 para evaluar a todos los candidatos.
     const sociosSinPago = await db.socio.findMany({
       where: {
         estado: "activo",
         categoria: { not: "vitalicio" },
         id: { notIn: (await db.pagoCuota.findMany({ where: { mesPagado: mesActual }, select: { socioId: true } })).map(p => p.socioId) }
       },
-      include: { pagos: { orderBy: { mesPagado: 'desc' }, take: 1 } },
-      take: 20
+      include: { pagos: { orderBy: { mesPagado: 'desc' }, take: 1 } }
     });
 
     const cuotaPorCategoria: Record<string, number> = {
@@ -170,9 +170,9 @@ export async function GET(request: Request) {
           deudaEstimada: Math.max(0, mesesAdeudados) * (cuotaPorCategoria[socio.categoria] || 7000),
         };
       })
-      .filter((s) => s.mesesAdeudados >= 2)
+      .filter((s) => s.mesesAdeudados >= 1) // Umbral de 1 mes para que coincida con Deudores
       .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados)
-      .slice(0, 5);
+      .slice(0, 10);
 
     const deudaTotalEstimada = morosos.reduce((acc, s) => acc + s.deudaEstimada, 0);
 
