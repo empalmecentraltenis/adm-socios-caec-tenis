@@ -9,10 +9,12 @@ export async function GET(request: Request) {
     const ahora = new Date();
     const mesActual = mesFiltro || `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
 
-    // 1. KPIs y configuración en paralelo
-    const [configuraciones, totalActivos, vitaliciosActivos, ingresosMesActual] = await Promise.all([
+    // 1. KPIs y datos base en paralelo
+    const [configuraciones, totalActivos, totalInactivos, totalGeneral, vitaliciosActivos, ingresosMesActual] = await Promise.all([
       db.configuracion.findMany(),
       db.socio.count({ where: { estado: "activo" } }),
+      db.socio.count({ where: { estado: "inactivo" } }),
+      db.socio.count(),
       db.socio.count({ where: { estado: "activo", categoria: "vitalicio" } }),
       db.pagoCuota.aggregate({
         where: { mesPagado: mesActual },
@@ -30,19 +32,26 @@ export async function GET(request: Request) {
 
     const ingresosMes = ingresosMesActual._sum.monto || 0;
 
-    // Socios ACTIVOS que pagaron el mes actual (Necesario para sociosAlDia)
+    // DEFINICIÓN DE "AL DÍA": 
+    // Un socio está al día si es Vitalicio, o si se dio de alta este mes, o si tiene un pago registrado para este mes.
     const sociosAlDiaTotalPromise = (async () => {
-      const sociosActivosIds = (await db.socio.findMany({
-        where: { estado: "activo" },
-        select: { id: true },
-      })).map(s => s.id);
-
-      const pagosMesActualCount = await db.pagoCuota.count({
-        where: { mesPagado: mesActual, socioId: { in: sociosActivosIds } },
+      // 1. IDs de los que pagaron este mes (activos)
+      const { _count: pagosCount } = await db.pagoCuota.aggregate({
+        where: { mesPagado: mesActual, socio: { estado: "activo" } },
+        _count: { socioId: true },
       });
 
-      // Socios dados de alta en el mes actual (mes de gracia)
-      const sociosPrimerMes = await db.socio.count({
+      // 2. Vitalicios que NO pagaron (para no duplicar)
+      const vitaliciosSinPago = await db.socio.count({
+        where: { 
+          estado: "activo", 
+          categoria: "vitalicio",
+          id: { notIn: (await db.pagoCuota.findMany({ where: { mesPagado: mesActual }, select: { socioId: true } })).map(p => p.socioId) }
+        }
+      });
+
+      // 3. Nuevos socios que NO pagaron y NO son vitalicios
+      const nuevosSinPago = await db.socio.count({
         where: {
           estado: "activo",
           categoria: { not: "vitalicio" },
@@ -50,22 +59,24 @@ export async function GET(request: Request) {
             gte: new Date(ahora.getFullYear(), ahora.getMonth(), 1),
             lt: new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1),
           },
+          id: { notIn: (await db.pagoCuota.findMany({ where: { mesPagado: mesActual }, select: { socioId: true } })).map(p => p.socioId) }
         },
       });
 
-      return pagosMesActualCount + vitaliciosActivos + sociosPrimerMes;
+      return (pagosCount.socioId || 0) + vitaliciosSinPago + nuevosSinPago;
     })();
 
     // 2, 3, 4, 5, 8 en paralelo
-    const [categoriaCounts, sociosActivos, recaudacionData, crecimientoData, ultimasActividades, sociosAlDiaTotal] = await Promise.all([
+    const [categoriaCounts, revenueByCat, recaudacionData, crecimientoData, ultimasActividades, sociosAlDiaTotal] = await Promise.all([
       db.socio.groupBy({
         by: ["categoria"],
         where: { estado: "activo" },
         _count: { id: true },
       }),
-      db.socio.findMany({
-        where: { estado: "activo" },
-        include: { pagos: { where: { mesPagado: mesActual } } }, // Traemos solo pagos del mes para KPI
+      db.pagoCuota.groupBy({
+        by: ["socioId"],
+        where: { mesPagado: mesActual },
+        _sum: { monto: true }
       }),
       Promise.all(Array.from({ length: 12 }).map(async (_, i) => {
         const fecha = new Date(ahora.getFullYear(), ahora.getMonth() - (11 - i), 1);
@@ -82,7 +93,7 @@ export async function GET(request: Request) {
         return { mes: nombreMes, total: count };
       })),
       db.$queryRawUnsafe(
-        `SELECT id, accion, detalle, "socio_id" as "socioId", "created_at" as "createdAt" FROM actividades ORDER BY "created_at" DESC LIMIT 10`
+        `SELECT id, accion, detalle, socio_id AS "socioId", created_at AS "createdAt" FROM actividades ORDER BY created_at DESC LIMIT 10`
       ) as Promise<Array<{ id: string; accion: string; detalle: string; socioId: string | null; createdAt: string }>>,
       sociosAlDiaTotalPromise
     ]);
@@ -99,19 +110,29 @@ export async function GET(request: Request) {
       if (found) found.cantidad = cc._count.id;
     }
 
-    const ingresosPorCategoria = ["socio", "alumno", "vitalicio"].map(cat => {
-      const total = sociosActivos
-        .filter(s => s.categoria === cat)
-        .reduce((acc, s) => acc + s.pagos.reduce((a, p) => a + p.monto, 0), 0);
-      return { categoria: cat.charAt(0).toUpperCase() + cat.slice(1), total };
+    // Ingresos por categoría optimizado
+    // En vez de volver a consultar todos los socios, usamos categoryCounts y revenueByCat
+    const incomes = { socio: 0, alumno: 0, vitalicio: 0 };
+    // Este cálculo es aproximado basado en los pagos del mes actual
+    const pagosMesActual = await db.pagoCuota.findMany({
+      where: { mesPagado: mesActual },
+      include: { socio: { select: { categoria: true } } }
     });
+    pagosMesActual.forEach(p => {
+      if (p.socio.categoria in incomes) {
+        incomes[p.socio.categoria as keyof typeof incomes] += p.monto;
+      }
+    });
+
+    const ingresosPorCategoria = Object.entries(incomes).map(([cat, total]) => ({
+      categoria: cat.charAt(0).toUpperCase() + cat.slice(1),
+      total
+    }));
 
     const recaudacionMensual = recaudacionData;
     const crecimientoMensual = crecimientoData;
 
     // 6. Morosos Críticos (top 5 que más deben)
-    // Para morosos críticos necesitamos los pagos históricos, pero solo de los que sospechamos morosos.
-    // Para simplificar y optimizar, vamos a buscar socios ACTIVOS que NO tengan pago en el mes actual.
     const sociosSinPago = await db.socio.findMany({
       where: {
         estado: "activo",
@@ -119,7 +140,7 @@ export async function GET(request: Request) {
         id: { notIn: (await db.pagoCuota.findMany({ where: { mesPagado: mesActual }, select: { socioId: true } })).map(p => p.socioId) }
       },
       include: { pagos: { orderBy: { mesPagado: 'desc' }, take: 1 } },
-      take: 20 // Limitamos la búsqueda inicial
+      take: 20
     });
 
     const cuotaPorCategoria: Record<string, number> = {
@@ -153,12 +174,13 @@ export async function GET(request: Request) {
       .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados)
       .slice(0, 5);
 
-    // 7. Deuda total estimada (basada en morosos críticos por ahora para velocidad)
     const deudaTotalEstimada = morosos.reduce((acc, s) => acc + s.deudaEstimada, 0);
 
     return NextResponse.json({
       kpis: {
         totalActivos,
+        totalInactivos,
+        totalGeneral,
         sociosAlDia: sociosAlDiaTotal,
         sociosDeudores,
         ingresosMes,

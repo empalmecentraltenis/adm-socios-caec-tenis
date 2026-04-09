@@ -5,9 +5,10 @@ import { db } from "@/lib/db";
 async function logActividad(accion: string, detalle: string, socioId?: string) {
   try {
     const now = new Date().toISOString();
+    const lowerHexId = Math.random().toString(36).substring(2, 11); // Fallback unique ID
     await db.$executeRawUnsafe(
-      `INSERT INTO Actividad (id, accion, detalle, socioId, createdAt) VALUES (lower(hex(randomblob(8))), ?, ?, ?, ?)`,
-      accion, detalle, socioId || null, now
+      `INSERT INTO actividades (id, accion, detalle, socio_id, created_at) VALUES (?, ?, ?, ?, ?)`,
+      lowerHexId, accion, detalle, socioId || null, now
     );
   } catch (err) {
     console.warn("No se pudo registrar actividad:", err);

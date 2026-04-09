@@ -5,6 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface KpiData {
   totalActivos: number;
+  totalInactivos: number;
+  totalGeneral: number;
   sociosAlDia: number;
   sociosDeudores: number;
   ingresosMes: number;
@@ -23,11 +25,27 @@ function formatCurrency(value: number): string {
 const kpiConfig = [
   {
     key: 'totalActivos' as const,
-    label: 'Total Activos',
+    label: 'Activos',
     icon: Users,
     accentColor: 'text-[#FFCC00]',
     bgColor: 'bg-[#FFCC00]/10',
     borderColor: 'border-[#FFCC00]/20',
+  },
+  {
+    key: 'totalInactivos' as const,
+    label: 'Inactivos',
+    icon: Users,
+    accentColor: 'text-[#999999]',
+    bgColor: 'bg-[#999999]/10',
+    borderColor: 'border-[#999999]/20',
+  },
+  {
+    key: 'totalGeneral' as const,
+    label: 'Total General',
+    icon: Users,
+    accentColor: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/20',
   },
   {
     key: 'sociosAlDia' as const,
@@ -47,7 +65,7 @@ const kpiConfig = [
   },
   {
     key: 'ingresosMes' as const,
-    label: 'Ingresos del Mes',
+    label: 'Ingresos Mes',
     icon: DollarSign,
     accentColor: 'text-[#FFCC00]',
     bgColor: 'bg-[#FFCC00]/10',
@@ -67,7 +85,7 @@ const kpiConfig = [
 
 export default function KpiCards({ data, loading }: KpiCardsProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
       {kpiConfig.map((kpi) => {
         const Icon = kpi.icon;
         return (
