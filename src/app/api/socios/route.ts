@@ -90,8 +90,9 @@ export async function GET(request: Request) {
       const valorCuota = cuotaPorCategoria[socio.categoria] || 8000;
       const esVitalicio = socio.categoria === "vitalicio";
       
-      // alDia: no tiene cuotas pendientes (o es vitalicio)
-      const alDia = esVitalicio || mesesAdeudados === 0;
+      // alDia: tiene menos de 2 cuotas pendientes (o es vitalicio)
+      // Un solo mes de deuda se considera dentro de la tolerancia de 'Al día' para reserva de turnos
+      const alDia = esVitalicio || mesesAdeudados < 2;
 
       return {
         ...socio,

@@ -23,6 +23,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -89,6 +95,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
   const [deleteType, setDeleteType] = useState<'soft' | 'hard'>('soft');
   const [reactivateTarget, setReactivateTarget] = useState<Socio | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
 
   // Fetch inactive socios when toggled
@@ -278,35 +285,90 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
   }
 
   const deudoresCount = socios.filter(s => s.mesesAdeudados >= 2).length;
+  const alDiaCount = socios.filter(s => s.alDia || s.categoria === 'vitalicio').length;
 
-  const handleExportExcel = () => {
-    // Combinamos activos e inactivos para una exportación completa
-    const allData = [...socios, ...inactivosData].map(s => ({
-      Apellido: s.apellido,
-      Nombre: s.nombre,
-      DNI: s.dni,
-      Email: s.email,
-      Teléfono: s.telefono || 'N/A',
-      Categoría: s.categoria.charAt(0).toUpperCase() + s.categoria.slice(1),
-      Rol: s.rol === 'admin' ? 'Administrador' : 'Socio',
-      Estado: s.estado === 'activo' ? 'Activo' : 'Inactivo',
-      'Al Día': s.alDia ? 'Sí' : 'No',
-      'Meses Adeudados': s.mesesAdeudados,
-      'Total Pagado': s.totalPagado,
-      'Última Alta': new Date(s.fechaAlta).toLocaleDateString('es-AR')
-    }));
+  const handleExportExcel = async (filterType: 'todos' | 'activos' | 'inactivos' | 'morosos' | 'al_dia') => {
+    setExporting(true);
+    try {
+      let dataToExport: Socio[] = [];
+      let label = "";
 
-    const worksheet = XLSX.utils.json_to_sheet(allData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Socios");
+      // Si necesitamos inactivos y no están cargados, los traemos
+      let currentInactivos = inactivosData;
+      if ((filterType === 'todos' || filterType === 'inactivos') && currentInactivos.length === 0) {
+        const res = await fetch('/api/socios?activos=false');
+        if (res.ok) {
+          currentInactivos = await res.json();
+        }
+      }
 
-    // Generar archivo y descargar
-    XLSX.writeFile(workbook, `Lista_Socios_CAEC_${new Date().toISOString().split('T')[0]}.xlsx`);
-    
-    toast({
-      title: "Exportación exitosa",
-      description: "La lista de socios se ha descargado correctamente.",
-    });
+      switch (filterType) {
+        case 'todos':
+          dataToExport = [...socios, ...currentInactivos];
+          label = "Completa";
+          break;
+        case 'activos':
+          dataToExport = socios;
+          label = "Activos";
+          break;
+        case 'inactivos':
+          dataToExport = currentInactivos;
+          label = "Inactivos";
+          break;
+        case 'morosos':
+          dataToExport = socios.filter(s => s.mesesAdeudados >= 2);
+          label = "Morosos";
+          break;
+        case 'al_dia':
+          dataToExport = socios.filter(s => s.alDia || s.categoria === 'vitalicio');
+          label = "Al_Día";
+          break;
+      }
+
+      if (dataToExport.length === 0) {
+        toast({
+          title: "Sin datos",
+          description: `No hay socios en la categoría "${label}" para exportar.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const allData = dataToExport.map(s => ({
+        Apellido: s.apellido,
+        Nombre: s.nombre,
+        DNI: s.dni,
+        Email: s.email,
+        Teléfono: s.telefono || 'N/A',
+        Categoría: s.categoria.charAt(0).toUpperCase() + s.categoria.slice(1),
+        Rol: s.rol === 'admin' ? 'Administrador' : 'Socio',
+        Estado: s.estado === 'activo' ? 'Activo' : 'Inactivo',
+        'Al Día': (s.alDia || s.categoria === 'vitalicio') ? 'Sí' : 'No',
+        'Meses Adeudados': s.mesesAdeudados,
+        'Total Pagado': s.totalPagado,
+        'Última Alta': new Date(s.fechaAlta).toLocaleDateString('es-AR')
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(allData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Socios");
+
+      XLSX.writeFile(workbook, `Lista_Socios_CAEC_${label}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      toast({
+        title: "Exportación exitosa",
+        description: `Se han exportado ${dataToExport.length} socios (${label}).`,
+      });
+    } catch (error) {
+      console.error('Error exportando:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo realizar la exportación.",
+        variant: "destructive"
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (loading) {
@@ -338,15 +400,40 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                 Nuevo
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleExportExcel}
-              className="border-[#CCCCCC]/30 text-[#CCCCCC] hover:bg-[#CCCCCC]/10 text-xs h-7 px-2.5"
-            >
-              <FileDown className="h-3.5 w-3.5 mr-1" />
-              Exportar
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={exporting}
+                  className="border-[#CCCCCC]/30 text-[#CCCCCC] hover:bg-[#CCCCCC]/10 text-xs h-7 px-2.5"
+                >
+                  {exporting ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <FileDown className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-[#1E1E1E] border-[#333333] text-[#CCCCCC]">
+                <DropdownMenuItem onClick={() => handleExportExcel('todos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer">
+                  Exportar Todos (Activos + Inactivos)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportExcel('activos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer">
+                  Solo Activos ({socios.length})
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportExcel('inactivos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer">
+                  Solo Inactivos
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportExcel('morosos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer text-red-400 focus:text-red-300">
+                  Solo Morosos ({deudoresCount})
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportExcel('al_dia')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer text-green-400 focus:text-green-300">
+                  Solo Al Día ({alDiaCount})
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {deudoresCount > 0 && !readOnly && (
               <Button
                 size="sm"

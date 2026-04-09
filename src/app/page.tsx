@@ -57,7 +57,7 @@ interface SocioFull {
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>('socios');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [dashLoading, setDashLoading] = useState(true);

@@ -33,37 +33,34 @@ export async function GET(request: Request) {
     const ingresosMes = ingresosMesActual._sum.monto || 0;
 
     // DEFINICIÓN DE "AL DÍA": 
-    // Un socio está al día si es Vitalicio, o si se dio de alta este mes, o si tiene un pago registrado para este mes.
+    // Un socio está al día si tiene 0 o 1 mes de deuda (umbral de 2 meses para morosidad).
+    // Calculamos este KPI de forma precisa analizando a todos los socios activos.
     const sociosAlDiaTotalPromise = (async () => {
-      // 1. IDs de los que pagaron este mes (activos)
-      const { _count: pagosCount } = await db.pagoCuota.aggregate({
-        where: { mesPagado: mesActual, socio: { estado: "activo" } },
-        _count: { socioId: true },
+      const sociosActivos = await db.socio.findMany({
+        where: { estado: "activo" },
+        include: { pagos: { orderBy: { mesPagado: 'desc' }, take: 1 } }
       });
 
-      // 2. Vitalicios que NO pagaron (para no duplicar)
-      const vitaliciosSinPago = await db.socio.count({
-        where: { 
-          estado: "activo", 
-          categoria: "vitalicio",
-          id: { notIn: (await db.pagoCuota.findMany({ where: { mesPagado: mesActual }, select: { socioId: true } })).map(p => p.socioId) }
+      const [yA, mA] = mesActual.split("-").map(Number);
+      
+      const alDiaCount = sociosActivos.filter(socio => {
+        if (socio.categoria === "vitalicio") return true;
+        
+        const ultimoPagoMes = socio.pagos[0]?.mesPagado;
+        let mesesAdeudados = 0;
+        
+        if (ultimoPagoMes) {
+          const [y, m] = ultimoPagoMes.split("-").map(Number);
+          mesesAdeudados = (yA - y) * 12 + (mA - m);
+        } else {
+          // Si no tiene pagos, calculamos desde la fecha de alta
+          mesesAdeudados = (yA - socio.fechaAlta.getFullYear()) * 12 + (mA - (socio.fechaAlta.getMonth() + 1));
         }
-      });
 
-      // 3. Nuevos socios que NO pagaron y NO son vitalicios
-      const nuevosSinPago = await db.socio.count({
-        where: {
-          estado: "activo",
-          categoria: { not: "vitalicio" },
-          fechaAlta: {
-            gte: new Date(ahora.getFullYear(), ahora.getMonth(), 1),
-            lt: new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1),
-          },
-          id: { notIn: (await db.pagoCuota.findMany({ where: { mesPagado: mesActual }, select: { socioId: true } })).map(p => p.socioId) }
-        },
-      });
+        return Math.max(0, mesesAdeudados) < 2;
+      }).length;
 
-      return (pagosCount.socioId || 0) + vitaliciosSinPago + nuevosSinPago;
+      return alDiaCount;
     })();
 
     // 2, 3, 4, 5, 8 en paralelo
@@ -170,7 +167,7 @@ export async function GET(request: Request) {
           deudaEstimada: Math.max(0, mesesAdeudados) * (cuotaPorCategoria[socio.categoria] || 7000),
         };
       })
-      .filter((s) => s.mesesAdeudados >= 1) // Umbral de 1 mes para que coincida con Deudores
+      .filter((s) => s.mesesAdeudados >= 2) // Umbral de 2 meses (un mes de deuda se considera 'Al día' o en tolerancia)
       .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados)
       .slice(0, 10);
 
