@@ -115,7 +115,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { nombre, apellido, email, dni, telefono, categoria, rol } = body;
+    const { nombre, apellido, email, dni, telefono, categoria, rol, fechaAlta, cuotasAdeudadas } = body;
 
     if (!nombre || !apellido || !email || !dni) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
@@ -130,11 +130,51 @@ export async function POST(request: Request) {
         telefono: telefono || "",
         categoria: categoria || "socio",
         rol: rol || "socio",
+        fechaAlta: fechaAlta ? new Date(fechaAlta) : undefined,
       },
     });
 
+    // Generar cuotas pendientes si se especificó deuda inicial (Opción A)
+    if (cuotasAdeudadas && parseInt(cuotasAdeudadas) > 0) {
+      const cantidad = parseInt(cuotasAdeudadas);
+      
+      // Obtener valor de cuota según categoría
+      const configuraciones = await db.configuracion.findMany();
+      const getValor = (clave: string) => {
+        const c = configuraciones.find((c) => c.clave === clave);
+        return c ? parseFloat(c.valor) : 0;
+      };
+
+      const cuotaSocio = getValor("cuota_socio") || 7000;
+      const cuotaAlumno = getValor("cuota_alumno") || 3500;
+      const monto = categoria === "alumno" ? cuotaAlumno : (categoria === "vitalicio" ? 0 : cuotaSocio);
+
+      if (monto > 0) {
+        const ahora = new Date();
+        let creadas = 0;
+        let mesesAtras = 1; // Empezamos desde el mes pasado
+
+        while (creadas < cantidad && mesesAtras < 60) { // Límite de 5 años por seguridad
+          const fechaCuota = new Date(ahora.getFullYear(), ahora.getMonth() - mesesAtras, 1);
+          const mesStr = `${fechaCuota.getFullYear()}-${String(fechaCuota.getMonth() + 1).padStart(2, "0")}`;
+          
+          await db.cuota.create({
+            data: {
+              socioId: socio.id,
+              mes: mesStr,
+              monto: monto,
+              estado: 'pendiente'
+            }
+          });
+          
+          creadas++;
+          mesesAtras++;
+        }
+      }
+    }
+
     // Registrar actividad
-    await logActividad("socio_creado", `Alta de socio: ${nombre} ${apellido} (${categoria || "socio"})`, socio.id);
+    await logActividad("socio_creado", `Alta de socio: ${nombre} ${apellido} (${categoria || "socio"})${cuotasAdeudadas ? ` con ${cuotasAdeudadas} cuotas de deuda` : ""}`, socio.id);
 
     return NextResponse.json(socio, { status: 201 });
   } catch (error: unknown) {
@@ -151,13 +191,17 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, nombre, apellido, email, dni, telefono, estado, categoria, rol } = body;
+    const { id, nombre, apellido, email, dni, telefono, estado, categoria, rol, fechaAlta, cuotasAdeudadas } = body;
 
     if (!id || !nombre || !apellido || !email || !dni) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
     }
 
-    const socioAnterior = await db.socio.findUnique({ where: { id } });
+    const socioAnterior = await db.socio.findUnique({ 
+      where: { id },
+      include: { cuotas: true }
+    });
+    
     if (!socioAnterior) {
       return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
     }
@@ -177,16 +221,66 @@ export async function PUT(request: Request) {
         activo: activoSync,
         categoria: categoria || undefined,
         rol: rol || undefined,
+        fechaAlta: fechaAlta ? new Date(fechaAlta) : undefined,
       },
     });
+
+    // Lógica Opción A: Asegurar que tenga X cuotas pendientes en total
+    if (cuotasAdeudadas !== undefined) {
+      const targetPendientes = parseInt(cuotasAdeudadas);
+      const actualesPendientes = socioAnterior.cuotas.filter(c => c.estado === 'pendiente');
+      
+      if (targetPendientes > actualesPendientes.length) {
+        const faltantes = targetPendientes - actualesPendientes.length;
+        
+        // Obtener monto
+        const configuraciones = await db.configuracion.findMany();
+        const getValor = (clave: string) => {
+          const c = configuraciones.find((c) => c.clave === clave);
+          return c ? parseFloat(c.valor) : 0;
+        };
+
+        const cuotaSocio = getValor("cuota_socio") || 7000;
+        const cuotaAlumno = getValor("cuota_alumno") || 3500;
+        const catActual = categoria || socioAnterior.categoria;
+        const monto = catActual === "alumno" ? cuotaAlumno : (catActual === "vitalicio" ? 0 : cuotaSocio);
+
+        if (monto > 0) {
+          const ahora = new Date();
+          let creadas = 0;
+          let mesesAtras = 1;
+          const mesesExistentes = socioAnterior.cuotas.map(c => c.mes);
+
+          while (creadas < faltantes && mesesAtras < 60) {
+            const fechaCuota = new Date(ahora.getFullYear(), ahora.getMonth() - mesesAtras, 1);
+            const mesStr = `${fechaCuota.getFullYear()}-${String(fechaCuota.getMonth() + 1).padStart(2, "0")}`;
+            
+            if (!mesesExistentes.includes(mesStr)) {
+              await db.cuota.create({
+                data: {
+                  socioId: id,
+                  mes: mesStr,
+                  monto: monto,
+                  estado: 'pendiente'
+                }
+              });
+              creadas++;
+            }
+            mesesAtras++;
+          }
+        }
+      }
+    }
 
     // Registrar actividad
     const cambios: string[] = [];
     if (socioAnterior.nombre !== nombre || socioAnterior.apellido !== apellido) cambios.push("datos personales");
     if (socioAnterior.telefono !== telefono) cambios.push("teléfono");
-    if (socioAnterior.estado !== estado) cambios.push(`estado: ${socioAnterior.estado} → ${estado}`);
+    if (socioAnterior.estado !== estado && estado) cambios.push(`estado: ${socioAnterior.estado} → ${estado}`);
     if (socioAnterior.categoria !== categoria && categoria) cambios.push(`categoría: ${socioAnterior.categoria} → ${categoria}`);
     if (socioAnterior.rol !== rol && rol) cambios.push(`rol: ${socioAnterior.rol} → ${rol}`);
+    if (fechaAlta) cambios.push("fecha de alta");
+    if (cuotasAdeudadas !== undefined) cambios.push(`deuda ajustada a ${cuotasAdeudadas} meses`);
 
     // Registrar actividad
     if (cambios.length > 0) {

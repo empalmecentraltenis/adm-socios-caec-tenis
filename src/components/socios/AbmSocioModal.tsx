@@ -31,6 +31,8 @@ interface SocioFormData {
   estado?: string;
   categoria?: string;
   rol?: string;
+  fechaAlta?: string;
+  cuotasAdeudadas?: string;
 }
 
 interface AbmSocioModalProps {
@@ -49,6 +51,8 @@ const EMPTY_FORM: SocioFormData = {
   estado: 'activo',
   categoria: 'socio',
   rol: 'socio',
+  fechaAlta: new Date().toISOString().split('T')[0],
+  cuotasAdeudadas: '0',
 };
 
 export default function AbmSocioModal({
@@ -75,6 +79,8 @@ export default function AbmSocioModal({
         estado: socio.estado || 'activo',
         categoria: socio.categoria || 'socio',
         rol: socio.rol || 'socio',
+        fechaAlta: socio.fechaAlta ? new Date(socio.fechaAlta).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        cuotasAdeudadas: '0', // Siempre empezamos en 0 para inyectar si es necesario
       });
     } else if (open && !socio) {
       setForm({ ...EMPTY_FORM });
@@ -137,7 +143,7 @@ export default function AbmSocioModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1E1E1E] border-[#333333] sm:max-w-md">
+      <DialogContent className="bg-[#1E1E1E] border-[#333333] sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-white">
             {isEditing ? 'Modificar Socio' : 'Nuevo Socio'}
@@ -201,6 +207,30 @@ export default function AbmSocioModal({
               placeholder="email@ejemplo.com"
               className="bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] h-9 text-sm"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[#CCCCCC] text-xs">Fecha de Alta</Label>
+              <Input
+                type="date"
+                value={form.fechaAlta}
+                onChange={(e) => setForm({ ...form, fechaAlta: e.target.value })}
+                className="bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] h-9 text-sm [color-scheme:dark]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[#CCCCCC] text-xs">Ajustar Deuda (meses)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="60"
+                value={form.cuotasAdeudadas}
+                onChange={(e) => setForm({ ...form, cuotasAdeudadas: e.target.value })}
+                className="bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] h-9 text-sm"
+              />
+              <p className="text-[10px] text-[#666666] leading-tight">Mínimo meses pendientes a asegurar.</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
