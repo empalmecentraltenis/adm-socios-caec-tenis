@@ -133,7 +133,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
           s.nombre.toLowerCase().includes(q) ||
           s.apellido.toLowerCase().includes(q) ||
           s.dni.includes(q) ||
-          s.email.toLowerCase().includes(q) ||
+          (s.email && s.email.toLowerCase().includes(q)) ||
           (s.telefono && s.telefono.includes(q))
       );
     }
@@ -162,7 +162,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
           cmp = a.dni.localeCompare(b.dni);
           break;
         case 'email':
-          cmp = a.email.localeCompare(b.email);
+          cmp = (a.email || '').localeCompare(b.email || '');
           break;
         case 'estado':
           cmp = (a.alDia ? 0 : 1) - (b.alDia ? 0 : 1);
@@ -187,7 +187,8 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
         s.nombre.toLowerCase().includes(q) ||
         s.apellido.toLowerCase().includes(q) ||
         s.dni.includes(q) ||
-        s.email.toLowerCase().includes(q)
+        (s.email && s.email.toLowerCase().includes(q)) ||
+        (s.telefono && s.telefono.includes(q))
     );
   }, [inactivosData, search]);
 
