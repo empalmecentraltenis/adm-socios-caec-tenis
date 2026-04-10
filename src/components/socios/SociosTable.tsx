@@ -780,6 +780,15 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                                 <Button
                                   size="sm"
                                   variant="ghost"
+                                  onClick={() => onEditarSocio(socio)}
+                                  className="h-7 w-7 p-0 text-[#999999] hover:text-white hover:bg-[#2A2A2A]"
+                                  title="Editar socio"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
                                   onClick={() => setReactivateTarget(socio)}
                                   className="h-7 w-7 p-0 text-[#00AA55] hover:text-[#00CC66] hover:bg-[#00AA55]/10"
                                   title="Reactivar socio"
@@ -818,6 +827,9 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                       </div>
                         {!readOnly && (
                           <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-[#333333]">
+                            <Button size="sm" variant="ghost" onClick={() => onEditarSocio(socio)} className="h-7 px-2 text-[#999999] hover:text-white hover:bg-[#2A2A2A] text-[10px]">
+                              <Pencil className="h-3 w-3 mr-0.5" /> Editar
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => setReactivateTarget(socio)} className="h-7 px-2 text-[#00AA55] hover:bg-[#00AA55]/10 text-[10px]">
                               <UserCheck className="h-3 w-3 mr-0.5" /> Reactivar
                             </Button>
