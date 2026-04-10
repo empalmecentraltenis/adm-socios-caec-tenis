@@ -8,13 +8,13 @@ export async function GET(request: Request) {
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    const actividades = await db.$queryRawUnsafe(
-      `SELECT id, accion, detalle, socioId, createdAt FROM Actividad ORDER BY createdAt DESC LIMIT ? OFFSET ?`,
-      limit, offset
-    ) as Array<{ id: string; accion: string; detalle: string; socioId: string | null; createdAt: string }>;
+    const actividades = await db.actividad.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
 
-    const totalResult = await db.$queryRawUnsafe(`SELECT COUNT(*) as count FROM Actividad`) as Array<{ count: bigint }>;
-    const total = Number(totalResult[0]?.count || 0);
+    const total = await db.actividad.count();
 
     return NextResponse.json({
       actividades,
