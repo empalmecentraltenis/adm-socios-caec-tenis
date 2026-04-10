@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, Calendar, CreditCard } from 'lucide-react';
+import { DollarSign, Calendar, CreditCard, AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface Pago {
   id: string;
@@ -37,6 +37,7 @@ function formatMetodo(metodo: string): string {
     case 'efectivo': return '💵 Efectivo';
     case 'transferencia': return '🏦 Transferencia';
     case 'mercadopago': return '📱 MercadoPago';
+    case 'pendiente': return 'Deuda Pendiente';
     default: return metodo;
   }
 }
@@ -46,6 +47,7 @@ function getMetodoColor(metodo: string): string {
     case 'efectivo': return 'text-green-400';
     case 'transferencia': return 'text-blue-400';
     case 'mercadopago': return 'text-cyan-400';
+    case 'pendiente': return 'text-red-400 font-bold';
     default: return 'text-gray-400';
   }
 }
@@ -67,7 +69,8 @@ export default function HistorialPagosModal({ open, onOpenChange, socio }: Histo
     }
   }, [open, socio]);
 
-  const totalPagado = pagos.reduce((acc, p) => acc + p.monto, 0);
+  const totalPagado = pagos.reduce((acc, p) => acc + (p.metodoPago !== 'pendiente' ? p.monto : 0), 0);
+  const totalPendiente = pagos.reduce((acc, p) => acc + (p.metodoPago === 'pendiente' ? p.monto : 0), 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,19 +93,28 @@ export default function HistorialPagosModal({ open, onOpenChange, socio }: Histo
         ) : pagos.length === 0 ? (
           <div className="text-center py-8">
             <DollarSign className="h-10 w-10 text-[#333333] mx-auto mb-2" />
-            <p className="text-[#999999] text-sm">Sin pagos registrados</p>
+            <p className="text-[#999999] text-sm">Sin registros</p>
           </div>
         ) : (
           <>
             {/* Resumen */}
-            <div className="bg-[#252525] border border-[#333333] rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-[#FFCC00]" />
-                <span className="text-[#CCCCCC] text-xs">{pagos.length} pagos registrados</span>
+            <div className="bg-[#252525] border border-[#333333] rounded-lg p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-[#FFCC00]" />
+                  <span className="text-[#CCCCCC] text-xs font-semibold">{pagos.length} registros en total</span>
+                </div>
               </div>
-              <span className="text-[#FFCC00] font-bold text-sm">
-                Total: ${totalPagado.toLocaleString('es-AR')}
-              </span>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div className="bg-[#1E1E1E] rounded p-2 text-center border border-[#333333]">
+                  <p className="text-[#999999] text-[10px] uppercase">Total Pagado</p>
+                  <p className="text-[#00AA55] font-bold text-sm">${totalPagado.toLocaleString('es-AR')}</p>
+                </div>
+                <div className="bg-[#1E1E1E] rounded p-2 text-center border border-[#333333]">
+                  <p className="text-[#999999] text-[10px] uppercase">Deuda Pendiente</p>
+                  <p className="text-red-400 font-bold text-sm">${totalPendiente.toLocaleString('es-AR')}</p>
+                </div>
+              </div>
             </div>
 
             {/* Lista de pagos */}
@@ -110,22 +122,39 @@ export default function HistorialPagosModal({ open, onOpenChange, socio }: Histo
               {pagos.map((pago) => (
                 <div
                   key={pago.id}
-                  className="flex items-center justify-between p-3 bg-[#252525] border border-[#333333] rounded-lg"
+                  className={`flex items-center justify-between p-3 border rounded-lg ${
+                    pago.metodoPago === 'pendiente'
+                      ? 'bg-red-400/5 border-red-400/20'
+                      : 'bg-[#252525] border-[#333333]'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[#FFCC00]/10 flex items-center justify-center">
-                      <CreditCard className="h-4 w-4 text-[#FFCC00]" />
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                      pago.metodoPago === 'pendiente' ? 'bg-red-400/10' : 'bg-[#FFCC00]/10'
+                    }`}>
+                      {pago.metodoPago === 'pendiente' ? (
+                        <AlertCircle className="h-4 w-4 text-red-400" />
+                      ) : (
+                        <CreditCard className="h-4 w-4 text-[#FFCC00]" />
+                      )}
                     </div>
                     <div>
-                      <p className="text-white text-sm font-medium">{formatMes(pago.mesPagado)}</p>
-                      <p className={`text-xs ${getMetodoColor(pago.metodoPago)}`}>
+                      <p className={`text-sm font-medium ${pago.metodoPago === 'pendiente' ? 'text-red-400' : 'text-white'}`}>
+                        {formatMes(pago.mesPagado)}
+                      </p>
+                      <p className={`text-[11px] ${getMetodoColor(pago.metodoPago)}`}>
                         {formatMetodo(pago.metodoPago)}
                       </p>
                     </div>
                   </div>
-                  <span className="text-white text-sm font-semibold">
-                    ${pago.monto.toLocaleString('es-AR')}
-                  </span>
+                  <div className="text-right">
+                    <span className={`text-sm font-semibold ${pago.metodoPago === 'pendiente' ? 'text-red-400' : 'text-white'}`}>
+                      ${pago.monto.toLocaleString('es-AR')}
+                    </span>
+                    {pago.metodoPago !== 'pendiente' && (
+                      <p className="text-[#666666] text-[10px] mt-0.5">Pagado</p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

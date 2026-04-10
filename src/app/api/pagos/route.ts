@@ -49,6 +49,18 @@ export async function POST(request: Request) {
       },
     });
 
+    // Sincronizar: si había una cuota pendiente para ese mes, marcarla como pagada
+    const cuotaPendiente = await db.cuota.findFirst({
+      where: { socioId, mes: mesPagado, estado: 'pendiente' },
+    });
+    
+    if (cuotaPendiente) {
+      await db.cuota.update({
+        where: { id: cuotaPendiente.id },
+        data: { estado: 'pagada' },
+      });
+    }
+
     // Registrar actividad
     if (socio) {
       const [year, month] = mesPagado.split("-");
@@ -120,6 +132,19 @@ export async function PUT(request: Request) {
             metodoPago: metodoPago || "efectivo",
           },
         });
+        
+        // Sincronizar
+        const cuotaPendiente = await db.cuota.findFirst({
+          where: { socioId, mes: mesPagado, estado: 'pendiente' },
+        });
+        
+        if (cuotaPendiente) {
+          await db.cuota.update({
+            where: { id: cuotaPendiente.id },
+            data: { estado: 'pagada' },
+          });
+        }
+
         resultados.push({ socioId, exito: true });
         exitosos++;
       } catch {
@@ -158,7 +183,26 @@ export async function GET(request: Request) {
       orderBy: { mesPagado: "desc" },
     });
 
-    return NextResponse.json(pagos);
+    const cuotasPendientes = await db.cuota.findMany({
+      where: { ...where, estado: 'pendiente' },
+    });
+
+    // Formatear cuotas pendientes para que la UI las entienda como ítems del historial
+    const pendientesAdaptadas = cuotasPendientes.map((c) => ({
+      id: c.id,
+      socioId: c.socioId,
+      mesPagado: c.mes,
+      monto: c.monto,
+      metodoPago: 'pendiente',
+      fechaRegistro: c.createdAt.toISOString(),
+    }));
+
+    // Combinar pagos realizados y cuotas pendientes, y ordenar cronológicamente
+    const historialUnificado = [...pagos, ...pendientesAdaptadas].sort((a, b) => {
+      return b.mesPagado.localeCompare(a.mesPagado);
+    });
+
+    return NextResponse.json(historialUnificado);
   } catch (error) {
     console.error("Error al obtener pagos:", error);
     return NextResponse.json({ error: "Error al obtener pagos" }, { status: 500 });
