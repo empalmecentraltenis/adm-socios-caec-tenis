@@ -89,10 +89,10 @@ export default function AbmSocioModal({
   }, [open, socio]);
 
   async function handleSubmit() {
-    if (!form.nombre || !form.apellido || !form.email || !form.dni) {
+    if (!form.nombre || !form.apellido || !form.dni) {
       toast({
         title: 'Campos incompletos',
-        description: 'Nombre, Apellido, Email y DNI son obligatorios.',
+        description: 'Nombre, Apellido y DNI son obligatorios.',
         variant: 'destructive',
       });
       return;
@@ -199,7 +199,7 @@ export default function AbmSocioModal({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[#CCCCCC] text-xs">Email *</Label>
+            <Label className="text-[#CCCCCC] text-xs">Email</Label>
             <Input
               type="email"
               value={form.email}

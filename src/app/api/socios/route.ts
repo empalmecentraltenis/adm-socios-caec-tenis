@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { nombre, apellido, email, dni, telefono, categoria, rol, fechaAlta, cuotasAdeudadas } = body;
 
-    if (!nombre || !apellido || !email || !dni) {
+    if (!nombre || !apellido || !dni) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
     }
 
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const err = error as { code?: string };
     if (err.code === "P2002") {
-      return NextResponse.json({ error: "El email o DNI ya existe" }, { status: 409 });
+      return NextResponse.json({ error: "El DNI u otro dato único ya está registrado en otro socio" }, { status: 409 });
     }
     console.error("Error al crear socio:", error);
     return NextResponse.json({ error: "Error al crear socio" }, { status: 500 });
@@ -194,7 +194,7 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, nombre, apellido, email, dni, telefono, estado, categoria, rol, fechaAlta, cuotasAdeudadas } = body;
 
-    if (!id || !nombre || !apellido || !email || !dni) {
+    if (!id || !nombre || !apellido || !dni) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
     }
 
@@ -295,7 +295,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
     }
     if (err.code === "P2002") {
-      return NextResponse.json({ error: "El email o DNI ya existe" }, { status: 409 });
+      return NextResponse.json({ error: "El DNI u otro dato único ya está registrado en otro socio" }, { status: 409 });
     }
     console.error("Error al modificar socio:", error);
     return NextResponse.json({ error: "Error al modificar socio" }, { status: 500 });
