@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { nombre, apellido, email, dni, telefono, categoria, rol, fechaAlta, cuotasAdeudadas } = body;
 
-    if (!nombre || !apellido || !dni) {
+    if (!nombre || !apellido || !email || !dni) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
     }
 
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
       data: {
         nombre,
         apellido,
-        email,
+        email: email || null,
         dni,
         telefono: telefono || "",
         categoria: categoria || "socio",
@@ -194,7 +194,7 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, nombre, apellido, email, dni, telefono, estado, categoria, rol, fechaAlta, cuotasAdeudadas } = body;
 
-    if (!id || !nombre || !apellido || !dni) {
+    if (!id || !nombre || !apellido || !email || !dni) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
     }
 
