@@ -215,7 +215,7 @@ export async function PUT(request: Request) {
       data: {
         nombre,
         apellido,
-        email,
+        email: email || null,
         dni,
         telefono: telefono !== undefined ? telefono : undefined,
         estado: estado || undefined,
