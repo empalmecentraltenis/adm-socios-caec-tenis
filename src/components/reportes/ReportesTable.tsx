@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { FileSpreadsheet, FileDown } from 'lucide-react';
+import { FileSpreadsheet, FileDown, MessageCircle, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
 interface Socio {
@@ -21,6 +22,7 @@ interface Socio {
   apellido: string;
   email: string;
   dni: string;
+  telefono: string;
   fechaAlta: string;
   estado: string;
   categoria: string;
@@ -34,6 +36,7 @@ interface Socio {
 export default function ReportesTable() {
   const [allSocios, setAllSocios] = useState<Socio[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchSocios();
@@ -56,7 +59,7 @@ export default function ReportesTable() {
 
   const deudores = useMemo(() => {
     return allSocios
-      .filter((s) => s.mesesAdeudados >= 2)
+      .filter((s) => s.mesesAdeudados >= 2 && s.estado === 'activo')
       .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados);
   }, [allSocios]);
 
@@ -77,6 +80,24 @@ export default function ReportesTable() {
     }
   }
 
+  function handleWhatsApp(socio: Socio) {
+    const phone = socio.telefono?.replace(/[^\d]/g, '');
+    if (!phone) {
+      toast({
+        title: 'Sin teléfono',
+        description: `${socio.nombre} ${socio.apellido} no tiene teléfono registrado.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    const deuda = socio.deudaEstimada;
+    const meses = socio.mesesAdeudados;
+    const msg = encodeURIComponent(
+      `Hola ${socio.nombre} ${socio.apellido} 👋\n\nTe escribimos del club CAEC para recordarte que tenés ${meses} cuota${meses > 1 ? 's' : ''} pendiente${meses > 1 ? 's' : ''} por un total de $${deuda.toLocaleString('es-AR')}.\n\nPor favor acercate a la sede o comunicate con nosotros para regularizar tu situación. ¡Gracias! 🎾`
+    );
+    window.open(`https://wa.me/54${phone.startsWith('0') ? phone.slice(1) : phone}?text=${msg}`, '_blank');
+  }
+
   function exportToExcel() {
     const ahora = new Date();
     const nombreMes = ahora.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
@@ -87,10 +108,9 @@ export default function ReportesTable() {
       Nombre: s.nombre,
       DNI: s.dni,
       Email: s.email,
+      Teléfono: s.telefono || 'N/A',
       Categoría: s.categoria.charAt(0).toUpperCase() + s.categoria.slice(1),
-      Estado: s.estado === 'activo' ? 'Activo' : 'Inactivo',
       'Meses Adeudados': s.mesesAdeudados,
-      'Cuota ($)': s.valorCuota,
       'Deuda ($)': s.deudaEstimada,
     }));
 
@@ -100,10 +120,9 @@ export default function ReportesTable() {
       Nombre: '',
       DNI: '',
       Email: 'TOTAL',
+      Teléfono: '',
       Categoría: `${deudores.length} deudores`,
-      Estado: '',
       'Meses Adeudados': totalMesesAdeudados,
-      'Cuota ($)': '',
       'Deuda ($)': deudaTotal,
     };
     exportData.push(totalRow as (typeof exportData)[number]);
@@ -111,7 +130,7 @@ export default function ReportesTable() {
     const ws = XLSX.utils.json_to_sheet(exportData);
     ws['!cols'] = [
       { wch: 4 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 25 },
-      { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
+      { wch: 15 }, { wch: 12 }, { wch: 16 }, { wch: 14 },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -130,7 +149,7 @@ export default function ReportesTable() {
         <td style="padding:6px 8px;border-bottom:1px solid #ddd;color:#333;">${s.dni}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #ddd;color:#333;text-align:center;">${s.categoria.charAt(0).toUpperCase() + s.categoria.slice(1)}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #ddd;color:#333;text-align:center;">${s.mesesAdeudados}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #ddd;color:#333;text-align:right;">$${s.valorCuota.toLocaleString('es-AR')}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #ddd;color:#333;text-align:center;">${s.telefono || '—'}</td>
         <td style="padding:6px 8px;border-bottom:1px solid #ddd;color:#d32f2f;text-align:right;font-weight:500;">$${s.deudaEstimada.toLocaleString('es-AR')}</td>
       </tr>
     `).join('');
@@ -169,8 +188,8 @@ export default function ReportesTable() {
               <th>Socio</th>
               <th style="width:90px;">DNI</th>
               <th style="width:80px;text-align:center;">Categoría</th>
-              <th style="width:100px;text-align:center;">Meses</th>
-              <th style="width:90px;text-align:right;">Cuota</th>
+              <th style="width:60px;text-align:center;">Meses</th>
+              <th style="width:100px;text-align:center;">Teléfono</th>
               <th style="width:100px;text-align:right;">Deuda</th>
             </tr>
           </thead>
@@ -212,7 +231,7 @@ export default function ReportesTable() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
           <div>
             <h3 className="text-white text-sm font-semibold">
-              Reporte de Morosidad
+              Reporte de Morosidad (Activos)
             </h3>
             <div className="flex items-center gap-3 mt-0.5">
               <span className="text-[#999999] text-[11px]">
@@ -254,14 +273,15 @@ export default function ReportesTable() {
                 <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">DNI</TableHead>
                 <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Cat.</TableHead>
                 <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Meses</TableHead>
-                <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Cuota</TableHead>
+                <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Teléfono</TableHead>
                 <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Deuda</TableHead>
+                <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Aviso</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {deudores.length === 0 ? (
                 <TableRow className="border-[#333333]">
-                  <TableCell colSpan={7} className="text-center py-8 text-[#999999] text-xs">
+                  <TableCell colSpan={8} className="text-center py-8 text-[#999999] text-xs">
                     No hay socios deudores 🎉
                   </TableCell>
                 </TableRow>
@@ -285,14 +305,26 @@ export default function ReportesTable() {
                       </span>
                     </TableCell>
                     <TableCell className="text-center py-2">
-                      <span className="text-[#999999] text-xs">
-                        ${socio.valorCuota.toLocaleString('es-AR')}
+                      <span className="text-[#999999] text-xs flex items-center justify-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        {socio.telefono || '—'}
                       </span>
                     </TableCell>
                     <TableCell className="text-right py-2">
                       <span className="text-[#EF4444] text-xs font-medium">
                         ${socio.deudaEstimada.toLocaleString('es-AR')}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-center py-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleWhatsApp(socio)}
+                        className="h-7 w-7 p-0 text-green-400 hover:text-green-300 hover:bg-green-400/10"
+                        title="Enviar WhatsApp"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -310,6 +342,7 @@ export default function ReportesTable() {
                   <TableCell className="text-right py-2">
                     <span className="text-[#EF4444] text-xs font-bold">${deudaTotal.toLocaleString('es-AR')}</span>
                   </TableCell>
+                  <TableCell className="py-2" />
                 </TableRow>
               )}
             </TableBody>
@@ -334,13 +367,21 @@ export default function ReportesTable() {
                       <p className="text-white text-sm font-medium truncate">
                         {index + 1}. {socio.apellido}, {socio.nombre}
                       </p>
-                      <p className="text-[#999999] text-[11px]">DNI: {socio.dni}</p>
+                      <p className="text-[#999999] text-[11px]">DNI: {socio.dni} · {socio.telefono || 'Sin tel.'}</p>
                     </div>
                     <div className="text-right ml-2">
                       <Badge variant="outline" className={`text-[9px] px-1.5 py-0 mb-1 ${getCategoriaBadge(socio.categoria)}`}>
                         {socio.categoria.charAt(0).toUpperCase() + socio.categoria.slice(1)}
                       </Badge>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 justify-end">
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleWhatsApp(socio)}
+                            className="h-6 w-6 p-0 text-green-400 hover:bg-green-400/10"
+                        >
+                            <MessageCircle className="h-3.5 w-3.5" />
+                        </Button>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[10px] font-medium">
                           {socio.mesesAdeudados}m
                         </span>
@@ -363,22 +404,22 @@ export default function ReportesTable() {
 
       {/* Reporte financiero mensual */}
       <div className="bg-[#1E1E1E] border border-[#333333] rounded-lg p-4">
-        <h3 className="text-white text-sm font-semibold mb-3">Resumen Financiero por Categoría</h3>
+        <h3 className="text-white text-sm font-semibold mb-3">Resumen Financiero por Categoría (Activos)</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {(() => {
             const categorias = ['socio', 'alumno', 'vitalicio'] as const;
             const colors = { socio: '#FFCC00', alumno: '#3B82F6', vitalicio: '#00AA55' };
             const labels = { socio: 'Socio', alumno: 'Alumno', vitalicio: 'Vitalicio' };
             return categorias.map(cat => {
-              const deudoresCat = allSocios.filter(s => s.categoria === cat && s.mesesAdeudados >= 2);
+              const deudoresCat = allSocios.filter(s => s.categoria === cat && s.mesesAdeudados >= 2 && s.estado === 'activo');
               const deudaCat = deudoresCat.reduce((acc, s) => acc + s.deudaEstimada, 0);
-              const totalCat = allSocios.filter(s => s.categoria === cat).length;
+              const totalCat = allSocios.filter(s => s.categoria === cat && s.estado === 'activo').length;
               return (
                 <div key={cat} className="bg-[#252525] border border-[#333333] rounded-xl p-5 shadow-inner">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-4 h-4 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: colors[cat] }} />
                     <span className="text-white text-base font-bold tracking-tight">{labels[cat]}</span>
-                    <span className="text-[#999999] text-xs ml-auto font-medium">{totalCat} miembros</span>
+                    <span className="text-[#999999] text-xs ml-auto font-medium">{totalCat} activos</span>
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between items-end border-b border-[#333333] pb-2">

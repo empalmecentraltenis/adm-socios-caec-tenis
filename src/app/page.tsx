@@ -183,15 +183,10 @@ export default function Home() {
               <KpiCards data={dashboardData?.kpis ?? null} loading={dashLoading} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <MorososCriticos data={dashboardData?.morosos ?? null} loading={dashLoading} />
-                <ActividadLog />
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <IngresosPorCategoria data={dashboardData?.ingresosPorCategoria ?? null} loading={dashLoading} />
-                <DistribucionCategorias data={dashboardData?.distribucionCategorias ?? null} loading={dashLoading} />
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <RecaudacionChart data={dashboardData?.recaudacionMensual ?? null} loading={dashLoading} />
                 <CrecimientoChart data={dashboardData?.crecimientoMensual ?? null} loading={dashLoading} />
+              </div>
+              <div className="grid grid-cols-1 gap-5">
+                <RecaudacionChart data={dashboardData?.recaudacionMensual ?? null} loading={dashLoading} />
               </div>
             </div>
           )}

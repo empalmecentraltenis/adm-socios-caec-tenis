@@ -8,20 +8,28 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface CrecimientoChartProps {
-  data: { mes: string; total: number }[] | null;
+  data: { mes: string; activos: number; inactivos: number }[] | null;
   loading: boolean;
 }
 
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
   if (active && payload && payload.length) {
     return (
       <div className="bg-[#2A2A2A] border border-[#444444] rounded-lg px-3 py-2 shadow-lg">
-        <p className="text-[#999999] text-xs">{label}</p>
-        <p className="text-[#FFCC00] text-sm font-bold">{payload[0].value} socios</p>
+        <p className="text-[#999999] text-xs mb-1">{label}</p>
+        <div className="space-y-1">
+          {payload.map((item: any, index: number) => (
+            <p key={index} className="text-sm font-bold flex items-center gap-2" style={{ color: item.color }}>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+              {item.value} {item.name}
+            </p>
+          ))}
+        </div>
       </div>
     );
   }
@@ -41,9 +49,13 @@ export default function CrecimientoChart({ data, loading }: CrecimientoChartProp
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
             <defs>
-              <linearGradient id="sociosGradient" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="activosGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#FFCC00" stopOpacity={0.4} />
                 <stop offset="100%" stopColor="#FFCC00" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="inactivosGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#EF4444" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
@@ -59,13 +71,23 @@ export default function CrecimientoChart({ data, loading }: CrecimientoChartProp
               tickLine={{ stroke: '#333333' }}
               width={40}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#FFCC00', strokeOpacity: 0.2 }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'white', strokeOpacity: 0.1 }} />
+            <Legend verticalAlign="top" height={36} iconType="circle" />
             <Area
               type="monotone"
-              dataKey="total"
+              dataKey="activos"
+              name="Activos"
               stroke="#FFCC00"
               strokeWidth={2}
-              fill="url(#sociosGradient)"
+              fill="url(#activosGradient)"
+            />
+            <Area
+              type="monotone"
+              dataKey="inactivos"
+              name="Inactivos"
+              stroke="#EF4444"
+              strokeWidth={2}
+              fill="url(#inactivosGradient)"
             />
           </AreaChart>
         </ResponsiveContainer>

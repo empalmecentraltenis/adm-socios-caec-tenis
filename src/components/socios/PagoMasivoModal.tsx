@@ -74,8 +74,9 @@ export default function PagoMasivoModal({ open, onOpenChange, socios, onSuccess 
     }
   }, [open]);
 
-  const deudores = useMemo(() => {
-    return socios.filter(s => !s.alDia && s.categoria !== 'vitalicio');
+  const sociosFiltrados = useMemo(() => {
+    // Permitir todos los socios activos (excepto vitalicios que no pagan cuota)
+    return socios.filter(s => s.categoria !== 'vitalicio');
   }, [socios]);
 
   function toggleSocio(id: string) {
@@ -88,10 +89,10 @@ export default function PagoMasivoModal({ open, onOpenChange, socios, onSuccess 
   }
 
   function toggleAll() {
-    if (selectedIds.size === deudores.length) {
+    if (selectedIds.size === sociosFiltrados.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(deudores.map(s => s.id)));
+      setSelectedIds(new Set(sociosFiltrados.map(s => s.id)));
     }
   }
 
@@ -132,7 +133,7 @@ export default function PagoMasivoModal({ open, onOpenChange, socios, onSuccess 
             Pago Masivo
           </DialogTitle>
           <DialogDescription className="text-[#999999]">
-            Seleccionar socios deudores para registrar pago del mes seleccionado. El monto se calcula según la categoría.
+            Seleccionar socios para registrar pago del mes seleccionado. El monto se calcula según la categoría.
           </DialogDescription>
         </DialogHeader>
 
@@ -189,19 +190,19 @@ export default function PagoMasivoModal({ open, onOpenChange, socios, onSuccess 
             {/* Selection header */}
             <div className="flex items-center justify-between border-b border-[#333333] pb-2">
               <Button variant="ghost" size="sm" onClick={toggleAll} className="text-[#FFCC00] hover:text-[#E6B800] text-xs h-7">
-                {selectedIds.size === deudores.length ? 'Desmarcar todos' : 'Seleccionar todos'}
+                {selectedIds.size === sociosFiltrados.length ? 'Desmarcar todos' : 'Seleccionar todos'}
               </Button>
               <Badge variant="outline" className="border-[#FFCC00]/30 text-[#FFCC00] text-xs">
                 {selectedIds.size} seleccionados
               </Badge>
             </div>
 
-            {/* Lista de deudores */}
+            {/* Lista de socios */}
             <div className="flex-1 overflow-y-auto space-y-1 max-h-[300px] pr-1">
-              {deudores.length === 0 ? (
-                <p className="text-center text-[#999999] text-sm py-6">No hay socios deudores</p>
+              {sociosFiltrados.length === 0 ? (
+                <p className="text-center text-[#999999] text-sm py-6">No hay socios disponibles</p>
               ) : (
-                deudores.map(socio => (
+                sociosFiltrados.map(socio => (
                   <div
                     key={socio.id}
                     className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
@@ -212,7 +213,14 @@ export default function PagoMasivoModal({ open, onOpenChange, socios, onSuccess 
                     <Checkbox checked={selectedIds.has(socio.id)} className="border-[#666666] data-[state=checked]:bg-[#FFCC00] data-[state=checked]:border-[#FFCC00]" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[#CCCCCC] text-xs font-medium truncate">{socio.apellido}, {socio.nombre}</p>
-                      <Badge variant="outline" className="text-[10px] border-[#333333] text-[#666666] mt-0.5">{socio.categoria}</Badge>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant="outline" className="text-[10px] border-[#333333] text-[#666666]">{socio.categoria}</Badge>
+                        {socio.alDia ? (
+                            <span className="text-[9px] text-green-500 font-medium">Al día</span>
+                        ) : (
+                            <span className="text-[9px] text-amber-500 font-medium">Deuda</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))

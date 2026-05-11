@@ -557,9 +557,15 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                     </TableCell>
                     <TableCell className="text-center py-2">
                       {socio.alDia ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#00AA55]/15 text-[#00AA55] text-[10px] font-medium">
-                          Al día
-                        </span>
+                        socio.mesesAdeudados > 0 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] text-[10px] font-medium">
+                            Al día (Debe mes)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#00AA55]/15 text-[#00AA55] text-[10px] font-medium">
+                            Al día
+                          </span>
+                        )
                       ) : socio.mesesAdeudados >= 2 ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[10px] font-medium">
                           {socio.mesesAdeudados}m
@@ -590,17 +596,6 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                             title="Registrar Pago"
                           >
                             <DollarSign className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {socio.mesesAdeudados >= 2 && socio.categoria !== 'vitalicio' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleWhatsApp(socio)}
-                            className="h-7 w-7 p-0 text-green-400 hover:text-green-300 hover:bg-green-400/10"
-                            title="Enviar WhatsApp"
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         {!readOnly && (
@@ -664,9 +659,15 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                       {socio.categoria.charAt(0).toUpperCase() + socio.categoria.slice(1)}
                     </Badge>
                     {socio.alDia ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#00AA55]/15 text-[#00AA55] text-[10px] font-medium">
-                        Al día
-                      </span>
+                      socio.mesesAdeudados > 0 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] text-[10px] font-medium">
+                          Al día (Debe mes)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#00AA55]/15 text-[#00AA55] text-[10px] font-medium">
+                          Al día
+                        </span>
+                      )
                     ) : socio.mesesAdeudados >= 2 ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[10px] font-medium">
                         {socio.mesesAdeudados}m
@@ -685,11 +686,6 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                   {!readOnly && (
                     <Button size="sm" variant="ghost" onClick={() => onRegistrarPago({ id: socio.id, nombre: socio.nombre, apellido: socio.apellido })} className="h-7 px-2 text-[#FFCC00] hover:bg-[#FFCC00]/10 text-[10px]">
                       <DollarSign className="h-3 w-3 mr-0.5" /> Pago
-                    </Button>
-                  )}
-                  {socio.mesesAdeudados >= 2 && socio.categoria !== 'vitalicio' && (
-                    <Button size="sm" variant="ghost" onClick={() => handleWhatsApp(socio)} className="h-7 px-2 text-green-400 hover:bg-green-400/10 text-[10px]">
-                      <MessageCircle className="h-3 w-3 mr-0.5" /> WhatsApp
                     </Button>
                   )}
                   {!readOnly && (

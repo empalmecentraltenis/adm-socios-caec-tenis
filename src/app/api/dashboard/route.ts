@@ -86,8 +86,11 @@ export async function GET(request: Request) {
         const fecha = new Date(ahora.getFullYear(), ahora.getMonth() - (11 - i), 1);
         const finMes = new Date(ahora.getFullYear(), ahora.getMonth() - (11 - i) + 1, 0);
         const nombreMes = fecha.toLocaleDateString("es-AR", { month: "short", year: "2-digit" });
-        const count = await db.socio.count({ where: { estado: "activo", fechaAlta: { lte: finMes } } });
-        return { mes: nombreMes, total: count };
+        const [activos, inactivos] = await Promise.all([
+          db.socio.count({ where: { estado: "activo", fechaAlta: { lte: finMes } } }),
+          db.socio.count({ where: { estado: "inactivo", fechaAlta: { lte: finMes } } }),
+        ]);
+        return { mes: nombreMes, activos, inactivos };
       })),
       db.$queryRawUnsafe(
         `SELECT id, accion, detalle, socio_id AS "socioId", created_at AS "createdAt" FROM actividades ORDER BY created_at DESC LIMIT 10`
