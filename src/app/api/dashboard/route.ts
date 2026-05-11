@@ -75,16 +75,24 @@ export async function GET(request: Request) {
         where: { mesPagado: mesActual },
         _sum: { monto: true }
       }),
-      Promise.all(Array.from({ length: 12 }).map(async (_, i) => {
-        const fecha = new Date(ahora.getFullYear(), ahora.getMonth() - (11 - i), 1);
+    // Charts starting from March 2026
+    const fechaInicio = new Date(2026, 2, 1); // Marzo 2026
+    const mesesParaGrafico: Date[] = [];
+    let d = new Date(fechaInicio);
+    while (d <= ahora) {
+      mesesParaGrafico.push(new Date(d));
+      d.setMonth(d.getMonth() + 1);
+    }
+
+    const [recaudacionData, crecimientoData] = await Promise.all([
+      Promise.all(mesesParaGrafico.map(async (fecha) => {
         const mesStr = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
         const nombreMes = fecha.toLocaleDateString("es-AR", { month: "short", year: "2-digit" });
         const res = await db.pagoCuota.aggregate({ where: { mesPagado: mesStr }, _sum: { monto: true } });
         return { mes: nombreMes, total: res._sum.monto || 0 };
       })),
-      Promise.all(Array.from({ length: 12 }).map(async (_, i) => {
-        const fecha = new Date(ahora.getFullYear(), ahora.getMonth() - (11 - i), 1);
-        const finMes = new Date(ahora.getFullYear(), ahora.getMonth() - (11 - i) + 1, 0);
+      Promise.all(mesesParaGrafico.map(async (fecha) => {
+        const finMes = new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0);
         const nombreMes = fecha.toLocaleDateString("es-AR", { month: "short", year: "2-digit" });
         const [activos, inactivos] = await Promise.all([
           db.socio.count({ where: { estado: "activo", fechaAlta: { lte: finMes } } }),
@@ -92,6 +100,7 @@ export async function GET(request: Request) {
         ]);
         return { mes: nombreMes, activos, inactivos };
       })),
+    ]);
       db.$queryRawUnsafe(
         `SELECT id, accion, detalle, socio_id AS "socioId", created_at AS "createdAt" FROM actividades ORDER BY created_at DESC LIMIT 10`
       ) as Promise<Array<{ id: string; accion: string; detalle: string; socioId: string | null; createdAt: string }>>,

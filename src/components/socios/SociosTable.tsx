@@ -559,7 +559,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                       {socio.alDia ? (
                         socio.mesesAdeudados > 0 ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] text-[10px] font-medium">
-                            Al día (Debe mes)
+                            Al día
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#00AA55]/15 text-[#00AA55] text-[10px] font-medium">
@@ -661,7 +661,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                     {socio.alDia ? (
                       socio.mesesAdeudados > 0 ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] text-[10px] font-medium">
-                          Al día (Debe mes)
+                          Al día
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#00AA55]/15 text-[#00AA55] text-[10px] font-medium">
