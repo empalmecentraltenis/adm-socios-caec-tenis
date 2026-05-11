@@ -64,6 +64,16 @@ export async function GET(request: Request) {
     })();
 
     // 2, 3, 4, 5, 8 en paralelo
+    // Charts starting from March 2026
+    const fechaInicio = new Date(2026, 2, 1); // Marzo 2026
+    const mesesParaGrafico: Date[] = [];
+    let d = new Date(fechaInicio);
+    while (d <= ahora) {
+      mesesParaGrafico.push(new Date(d));
+      d.setMonth(d.getMonth() + 1);
+    }
+
+    // 2, 3, 4, 5, 8 en paralelo
     const [categoriaCounts, revenueByCat, recaudacionData, crecimientoData, ultimasActividades, sociosAlDiaTotal] = await Promise.all([
       db.socio.groupBy({
         by: ["categoria"],
@@ -75,16 +85,6 @@ export async function GET(request: Request) {
         where: { mesPagado: mesActual },
         _sum: { monto: true }
       }),
-    // Charts starting from March 2026
-    const fechaInicio = new Date(2026, 2, 1); // Marzo 2026
-    const mesesParaGrafico: Date[] = [];
-    let d = new Date(fechaInicio);
-    while (d <= ahora) {
-      mesesParaGrafico.push(new Date(d));
-      d.setMonth(d.getMonth() + 1);
-    }
-
-    const [recaudacionData, crecimientoData] = await Promise.all([
       Promise.all(mesesParaGrafico.map(async (fecha) => {
         const mesStr = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
         const nombreMes = fecha.toLocaleDateString("es-AR", { month: "short", year: "2-digit" });
@@ -100,7 +100,6 @@ export async function GET(request: Request) {
         ]);
         return { mes: nombreMes, activos, inactivos };
       })),
-    ]);
       db.$queryRawUnsafe(
         `SELECT id, accion, detalle, socio_id AS "socioId", created_at AS "createdAt" FROM actividades ORDER BY created_at DESC LIMIT 10`
       ) as Promise<Array<{ id: string; accion: string; detalle: string; socioId: string | null; createdAt: string }>>,
