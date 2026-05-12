@@ -169,23 +169,19 @@ export const exportBalanceToPDF = async (
   const finalY = (doc as any).lastAutoTable.finalY || 52;
 
   // Bottom Summary (Normalizing to Yellow background with Black text)
-  doc.setFont('helvetica', 'bold');
-  
-  // RESULTADO NETO
-  doc.setFillColor(255, 204, 0); // Yellow
-  doc.rect(10, finalY + 5, 130, 8, 'F');
-  doc.setTextColor(0, 0, 0); // Black
-  doc.text('RESULTADO NETO DEL MES:', 125, finalY + 10.5, { align: 'right' });
-  
-  doc.rect(140, finalY + 5, 60, 8, 'F'); // Yellow
-  doc.text(`${formatARS(summary.totalIngresos - summary.totalEgresos)}`, 195, finalY + 10.5, { align: 'right' });
+  const drawSummaryRow = (label: string, value: string, y: number) => {
+    doc.setFillColor(255, 204, 0); // Always Yellow
+    doc.rect(10, y, 130, 8, 'F');
+    doc.rect(140, y, 60, 8, 'F');
+    
+    doc.setTextColor(0, 0, 0); // Always Black
+    doc.setFont('helvetica', 'bold');
+    doc.text(label, 125, y + 5.5, { align: 'right' });
+    doc.text(value, 195, y + 5.5, { align: 'right' });
+  };
 
-  // SALDO AL CIERRE
-  doc.rect(10, finalY + 13, 130, 8, 'F'); // Yellow
-  doc.text('SALDO AL CIERRE DEL MES:', 125, finalY + 18.5, { align: 'right' });
-  
-  doc.rect(140, finalY + 13, 60, 8, 'F'); // Yellow
-  doc.text(`${formatARS(summary.saldoCierre)}`, 195, finalY + 18.5, { align: 'right' });
+  drawSummaryRow('RESULTADO NETO DEL MES (V5):', formatARS(summary.totalIngresos - summary.totalEgresos), finalY + 5);
+  drawSummaryRow('SALDO AL CIERRE DEL MES (V5):', formatARS(summary.saldoCierre), finalY + 13);
 
   // Signatures at the bottom of the page
   const pageHeight = doc.internal.pageSize.height;
