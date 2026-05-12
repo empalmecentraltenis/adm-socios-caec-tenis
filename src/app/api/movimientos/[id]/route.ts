@@ -5,8 +5,9 @@ import { authOptions } from '@/lib/auth';
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
@@ -15,30 +16,47 @@ export async function PUT(
 
   try {
     const data = await request.json();
+    console.log('Actualizando movimiento:', { id, data });
+    
     const { fecha, descripcion, responsable, tipo, monto } = data;
 
+    // Aseguramos que el monto sea un número limpio
+    const montoNumerico = typeof monto === 'number' ? monto : parseFloat(String(monto).replace(',', '.'));
+
     const movimiento = await db.movimiento.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         fecha: new Date(fecha),
         descripcion,
         responsable,
         tipo,
-        monto: parseFloat(monto),
+        monto: montoNumerico,
+      },
+    });
+
+    // Registrar actividad
+    await db.actividad.create({
+      data: {
+        accion: 'movimiento_editado',
+        detalle: `Movimiento editado: ${descripcion} (${tipo}) por $${montoNumerico}`,
       },
     });
 
     return NextResponse.json(movimiento);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating movimiento:', error);
-    return NextResponse.json({ error: 'Error al actualizar movimiento' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Error al actualizar movimiento', 
+      details: error.message 
+    }, { status: 500 });
   }
 }
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
@@ -46,13 +64,24 @@ export async function DELETE(
   if (isReadOnly) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
 
   try {
-    await db.movimiento.delete({
-      where: { id: params.id },
+    const movimiento = await db.movimiento.delete({
+      where: { id },
+    });
+
+    // Registrar actividad
+    await db.actividad.create({
+      data: {
+        accion: 'movimiento_eliminado',
+        detalle: `Movimiento eliminado: ${movimiento.descripcion}`,
+      },
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting movimiento:', error);
-    return NextResponse.json({ error: 'Error al eliminar movimiento' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Error al eliminar movimiento',
+      details: error.message
+    }, { status: 500 });
   }
 }

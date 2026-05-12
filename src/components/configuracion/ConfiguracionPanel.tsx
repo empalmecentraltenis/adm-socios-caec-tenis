@@ -63,8 +63,12 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
       if (res.ok) {
         toast({
           title: 'Configuración guardada',
-          description: 'Los valores de cuota se actualizaron correctamente.',
+          description: 'Los valores se actualizaron correctamente.',
         });
+        // Recargar para confirmar persistencia
+        fetchConfig();
+      } else {
+        throw new Error('Error al guardar');
       }
     } catch {
       toast({

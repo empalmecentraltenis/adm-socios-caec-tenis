@@ -89,29 +89,23 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
   async function calculateSaldoInicial() {
     if (!config) return;
     
-    const baseSaldo = parseFloat(config.saldo_inicial_enero_2026 || '0');
     const startDate = new Date('2026-01-01T00:00:00Z');
     
+    // Si es enero 2026 o antes, el saldo inicial es el base
     if (isSameMonth(currentMonth, startDate) || currentMonth < startDate) {
-      setSaldoInicial(baseSaldo);
+      setSaldoInicial(parseFloat(config.saldo_inicial_enero_2026 || '0'));
       return;
     }
 
-    // Fetch all movements from Jan 2026 up to the start of current month
     try {
-      const mesAnterior = subMonths(currentMonth, 1);
-      // This is a bit inefficient for many movements, but works for now.
-      // In a real app, we might want an API endpoint for "get balance at date"
       const res = await fetch(`/api/movimientos/balance-at?date=${format(currentMonth, 'yyyy-MM-01')}`);
       if (res.ok) {
         const { balance } = await res.json();
-        setSaldoInicial(baseSaldo + balance);
-      } else {
-        // Fallback: manually fetch all and sum (not recommended for production)
-        setSaldoInicial(baseSaldo);
+        // La API balance-at ya incluye el saldo inicial histórico
+        setSaldoInicial(balance);
       }
-    } catch {
-      setSaldoInicial(baseSaldo);
+    } catch (error) {
+      console.error('Error calculating balance:', error);
     }
   }
 

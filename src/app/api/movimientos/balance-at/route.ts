@@ -25,9 +25,15 @@ export async function GET(request: Request) {
       },
     });
 
+    // Obtener saldo inicial de la configuración
+    const config = await db.configuracion.findUnique({
+      where: { clave: 'saldo_inicial_enero_2026' }
+    });
+    const saldoInicial = parseFloat(config?.valor || '0');
+
     const totalBalance = movimientos.reduce((acc, m) => {
       return acc + (m.tipo === 'ingreso' ? m.monto : -m.monto);
-    }, 0);
+    }, saldoInicial);
 
     return NextResponse.json({ balance: totalBalance });
   } catch (error) {

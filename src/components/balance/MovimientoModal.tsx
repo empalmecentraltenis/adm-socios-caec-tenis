@@ -99,10 +99,15 @@ export default function MovimientoModal({
         toast({ title: `Movimiento ${movimiento ? 'actualizado' : 'registrado'}` });
         onSuccess();
       } else {
-        throw new Error('Error en el servidor');
+        const errorData = await res.json();
+        throw new Error(errorData.details || errorData.error || 'Error en el servidor');
       }
-    } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo guardar el movimiento', variant: 'destructive' });
+    } catch (error: any) {
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'No se pudo guardar el movimiento', 
+        variant: 'destructive' 
+      });
     } finally {
       setLoading(false);
     }

@@ -48,7 +48,11 @@ export async function POST(request: Request) {
 
   try {
     const data = await request.json();
+    console.log('Creando movimiento:', data);
     const { fecha, descripcion, responsable, tipo, monto } = data;
+
+    // Aseguramos que el monto sea un número limpio
+    const montoNumerico = typeof monto === 'number' ? monto : parseFloat(String(monto).replace(',', '.'));
 
     const movimiento = await db.movimiento.create({
       data: {
@@ -56,7 +60,7 @@ export async function POST(request: Request) {
         descripcion,
         responsable,
         tipo,
-        monto: parseFloat(monto),
+        monto: montoNumerico,
       },
     });
 
@@ -64,13 +68,16 @@ export async function POST(request: Request) {
     await db.actividad.create({
       data: {
         accion: 'movimiento_creado',
-        detalle: `${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} registrado: ${descripcion} por $${monto}`,
+        detalle: `${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} registrado: ${descripcion} por $${montoNumerico}`,
       },
     });
 
     return NextResponse.json(movimiento);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating movimiento:', error);
-    return NextResponse.json({ error: 'Error al crear movimiento' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Error al crear movimiento',
+      details: error.message 
+    }, { status: 500 });
   }
 }
