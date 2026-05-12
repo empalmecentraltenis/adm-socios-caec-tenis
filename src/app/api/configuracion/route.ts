@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-// Helper para registrar actividad usando raw SQL (evita bug de Turbopack con Prisma Client)
+// Helper para registrar actividad usando Prisma
 async function logActividad(accion: string, detalle: string, socioId?: string) {
   try {
-    const now = new Date().toISOString();
-    await db.$executeRawUnsafe(
-      `INSERT INTO Actividad (id, accion, detalle, socioId, createdAt) VALUES (lower(hex(randomblob(8))), ?, ?, ?, ?)`,
-      accion, detalle, socioId || null, now
-    );
+    await db.actividad.create({
+      data: {
+        accion,
+        detalle,
+        socioId: socioId || null,
+      }
+    });
   } catch (err) {
     console.warn("No se pudo registrar actividad:", err);
   }

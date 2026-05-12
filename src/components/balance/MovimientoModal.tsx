@@ -21,6 +21,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatCurrency, parseCurrency, formatInputCurrency } from '@/lib/formatters';
 
 interface Movimiento {
   id: string;
@@ -64,7 +65,7 @@ export default function MovimientoModal({
         descripcion: movimiento.descripcion,
         responsable: movimiento.responsable,
         tipo: movimiento.tipo,
-        monto: String(movimiento.monto)
+        monto: formatCurrency(movimiento.monto).replace('$ ', '')
       });
     } else {
       setFormData({
@@ -90,7 +91,7 @@ export default function MovimientoModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          monto: parseFloat(formData.monto)
+          monto: parseCurrency(formData.monto)
         })
       });
 
@@ -172,16 +173,18 @@ export default function MovimientoModal({
 
           <div className="space-y-2">
             <Label htmlFor="monto" className="text-[#999999]">Importe ($)</Label>
-            <Input 
-              id="monto"
-              type="number"
-              step="0.01"
-              required
-              placeholder="0.00"
-              value={formData.monto}
-              onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
-              className="bg-[#2A2A2A] border-[#333333] text-white focus:border-[#FFCC00]"
-            />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
+              <Input 
+                id="monto"
+                type="text"
+                required
+                placeholder="0,00"
+                value={formData.monto}
+                onChange={(e) => setFormData({ ...formData, monto: formatInputCurrency(e.target.value) })}
+                className="bg-[#2A2A2A] border-[#333333] text-white pl-7 focus:border-[#FFCC00]"
+              />
+            </div>
           </div>
 
           <DialogFooter className="pt-4">

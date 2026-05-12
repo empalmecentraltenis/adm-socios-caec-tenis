@@ -28,6 +28,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import MovimientoModal from './MovimientoModal';
 import { exportBalanceToPDF } from '@/lib/pdf-export';
+import { formatCurrency } from '@/lib/formatters';
 
 interface Movimiento {
   id: string;
@@ -144,14 +145,19 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
     }
   };
 
-  const handleExportPDF = () => {
-    exportBalanceToPDF(movimientos, {
-      mesYear: format(currentMonth, 'MMMM yyyy', { locale: es }),
-      saldoInicial,
-      totalIngresos,
-      totalEgresos,
-      saldoCierre: saldoFinal
-    });
+  const handleExportPDF = async () => {
+    try {
+      await exportBalanceToPDF(movimientos, {
+        mesYear: format(currentMonth, 'MMMM yyyy', { locale: es }),
+        saldoInicial,
+        totalIngresos,
+        totalEgresos,
+        saldoCierre: saldoFinal
+      });
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast({ title: 'Error al generar PDF', variant: 'destructive' });
+    }
   };
 
   const tableWithBalances = useMemo(() => {
@@ -220,7 +226,7 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
             </div>
             <div>
               <p className="text-[#999999] text-xs font-medium uppercase tracking-wider">Saldo Inicial</p>
-              <h4 className="text-white text-xl font-bold mt-0.5">$ {saldoInicial.toLocaleString('es-AR')}</h4>
+              <h4 className="text-white text-xl font-bold mt-0.5">{formatCurrency(saldoInicial)}</h4>
             </div>
           </CardContent>
         </Card>
@@ -232,7 +238,7 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
             </div>
             <div>
               <p className="text-[#999999] text-xs font-medium uppercase tracking-wider">Ingresos</p>
-              <h4 className="text-green-500 text-xl font-bold mt-0.5">+$ {totalIngresos.toLocaleString('es-AR')}</h4>
+              <h4 className="text-green-500 text-xl font-bold mt-0.5">+{formatCurrency(totalIngresos)}</h4>
             </div>
           </CardContent>
         </Card>
@@ -244,7 +250,7 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
             </div>
             <div>
               <p className="text-[#999999] text-xs font-medium uppercase tracking-wider">Egresos</p>
-              <h4 className="text-red-500 text-xl font-bold mt-0.5">-$ {totalEgresos.toLocaleString('es-AR')}</h4>
+              <h4 className="text-red-500 text-xl font-bold mt-0.5">-{formatCurrency(totalEgresos)}</h4>
             </div>
           </CardContent>
         </Card>
@@ -257,7 +263,7 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
             </div>
             <div>
               <p className="text-[#999999] text-xs font-medium uppercase tracking-wider">Saldo Final</p>
-              <h4 className="text-white text-xl font-bold mt-0.5">$ {saldoFinal.toLocaleString('es-AR')}</h4>
+              <h4 className="text-white text-xl font-bold mt-0.5">{formatCurrency(saldoFinal)}</h4>
             </div>
           </CardContent>
         </Card>
@@ -301,10 +307,10 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
                       {m.responsable}
                     </td>
                     <td className={`px-4 py-3.5 text-right font-bold text-sm ${m.tipo === 'ingreso' ? 'text-green-500' : 'text-red-500'}`}>
-                      {m.tipo === 'ingreso' ? '+' : '-'}$ {m.monto.toLocaleString('es-AR')}
+                      {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.monto)}
                     </td>
                     <td className="px-4 py-3.5 text-right text-[#FFCC00] font-bold text-sm">
-                      $ {m.saldoAcumulado.toLocaleString('es-AR')}
+                      {formatCurrency(m.saldoAcumulado)}
                     </td>
                     <td className="px-4 py-3.5">
                       {!readOnly && (

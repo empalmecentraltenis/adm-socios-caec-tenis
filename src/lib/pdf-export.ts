@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -19,7 +19,15 @@ interface SummaryData {
   saldoCierre: number;
 }
 
-export const exportBalanceToPDF = (
+const formatARS = (val: number) => {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+  }).format(val);
+};
+
+export const exportBalanceToPDF = async (
   movimientos: Movimiento[],
   summary: SummaryData
 ) => {
@@ -27,7 +35,22 @@ export const exportBalanceToPDF = (
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
-  }) as any;
+  });
+
+  // Load Logo
+  try {
+    const logoImg = new Image();
+    logoImg.src = '/logo-caec.png';
+    await new Promise((resolve) => {
+      logoImg.onload = resolve;
+      logoImg.onerror = resolve; // Continue anyway if logo fails
+    });
+    if (logoImg.complete && logoImg.naturalWidth > 0) {
+      doc.addImage(logoImg, 'PNG', 12, 11, 10, 10);
+    }
+  } catch (e) {
+    console.warn('Could not load logo for PDF');
+  }
 
   // Header Colors (Black background, Yellow text)
   doc.setFillColor(26, 26, 26);
@@ -50,49 +73,53 @@ export const exportBalanceToPDF = (
   
   // Saldo Inicial
   doc.setFillColor(255, 204, 0);
-  doc.rect(10, 30, 95, 6, 'S'); // Border only
-  doc.text(`SALDO INICIAL DEL EJERCICIO (${summary.mesYear}):`, 95, 34.5, { align: 'right' });
-  doc.text(`$ ${summary.saldoInicial.toLocaleString('es-AR')}`, 150, 34.5, { align: 'right' });
+  doc.rect(10, 30, 130, 6); // Border
+  doc.text(`SALDO INICIAL DEL EJERCICIO (${summary.mesYear}):`, 125, 34.5, { align: 'right' });
+  doc.rect(140, 30, 60, 6);
+  doc.text(`${formatARS(summary.saldoInicial)}`, 195, 34.5, { align: 'right' });
 
   // Ingresos
-  doc.text('TOTAL INGRESOS DEL MES:', 95, 40.5, { align: 'right' });
+  doc.rect(10, 36, 130, 6);
+  doc.text('TOTAL INGRESOS DEL MES:', 125, 40.5, { align: 'right' });
+  doc.rect(140, 36, 60, 6);
   doc.setTextColor(34, 197, 94); // Green
-  doc.text(`$ ${summary.totalIngresos.toLocaleString('es-AR')}`, 150, 40.5, { align: 'right' });
+  doc.text(`${formatARS(summary.totalIngresos)}`, 195, 40.5, { align: 'right' });
   doc.setTextColor(0, 0, 0);
 
   // Egresos
-  doc.text('TOTAL EGRESOS DEL MES:', 95, 46.5, { align: 'right' });
+  doc.rect(10, 42, 130, 6);
+  doc.text('TOTAL EGRESOS DEL MES:', 125, 46.5, { align: 'right' });
+  doc.rect(140, 42, 60, 6);
   doc.setTextColor(239, 68, 68); // Red
-  doc.text(`$ ${summary.totalEgresos.toLocaleString('es-AR')}`, 150, 46.5, { align: 'right' });
+  doc.text(`${formatARS(summary.totalEgresos)}`, 195, 46.5, { align: 'right' });
   doc.setTextColor(0, 0, 0);
 
-  // Borders for summary
-  doc.rect(10, 30, 190, 6);
-  doc.rect(10, 36, 190, 6);
-  doc.rect(10, 42, 190, 6);
-  doc.line(105, 30, 105, 48);
-
-  // Table
-  const tableData = movimientos.map((m, index) => {
-    const fecha = typeof m.fecha === 'string' ? new Date(m.fecha) : m.fecha;
-    return [
-      index + 1,
-      format(fecha, 'dd/MM/yyyy'),
-      m.descripcion,
-      m.responsable,
-      `$ ${m.tipo === 'ingreso' ? '+' : '-'}${m.monto.toLocaleString('es-AR')}`,
-      '', // Saldo will be calculated in the UI but let's see if we want it here
-    ];
-  });
-
-  // Calculate cumulative balances for the table
+  // Table Data Preparation
+  // We want exactly 25 rows
+  const tableData: any[] = [];
   let runningBalance = summary.saldoInicial;
-  movimientos.forEach((m, index) => {
-    runningBalance += m.tipo === 'ingreso' ? m.monto : -m.monto;
-    tableData[index][5] = `$ ${runningBalance.toLocaleString('es-AR')}`;
-  });
 
-  doc.autoTable({
+  for (let i = 0; i < 25; i++) {
+    if (i < movimientos.length) {
+      const m = movimientos[i];
+      const fecha = typeof m.fecha === 'string' ? new Date(m.fecha) : m.fecha;
+      runningBalance += m.tipo === 'ingreso' ? m.monto : -m.monto;
+      
+      tableData.push([
+        i + 1,
+        format(fecha, 'dd/MM/yyyy'),
+        m.descripcion,
+        m.responsable,
+        `${m.tipo === 'ingreso' ? '+' : '-'}${formatARS(m.monto)}`,
+        `${formatARS(runningBalance)}`,
+      ]);
+    } else {
+      // Empty rows
+      tableData.push([i + 1, '', '', '', '', '']);
+    }
+  }
+
+  autoTable(doc, {
     startY: 52,
     head: [['N°', 'Fecha', 'Descripción / Concepto', 'Responsable', 'Importe (+/-)', 'Saldo']],
     body: tableData,
@@ -108,13 +135,19 @@ export const exportBalanceToPDF = (
       cellPadding: 2,
       lineColor: [200, 200, 200],
       lineWidth: 0.1,
+      minCellHeight: 6,
+      valign: 'middle',
     },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      1: { halign: 'center', cellWidth: 20 },
-      3: { cellWidth: 30 },
+      1: { halign: 'center', cellWidth: 25 },
+      2: { cellWidth: 65 },
+      3: { cellWidth: 35 },
       4: { halign: 'right', cellWidth: 25 },
-      5: { halign: 'right', cellWidth: 25 },
+      5: { halign: 'right', cellWidth: 30 },
+    },
+    alternateRowStyles: {
+      fillColor: [250, 250, 250],
     },
   });
 
@@ -122,32 +155,37 @@ export const exportBalanceToPDF = (
 
   // Bottom Summary
   doc.setFillColor(255, 204, 0);
-  doc.rect(10, finalY + 5, 190, 8, 'F');
+  doc.rect(10, finalY + 5, 130, 8, 'F');
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'bold');
-  doc.text('RESULTADO NETO DEL MES:', 130, finalY + 10.5, { align: 'right' });
-  doc.text(`$ ${(summary.totalIngresos - summary.totalEgresos).toLocaleString('es-AR')}`, 160, finalY + 10.5, { align: 'right' });
+  doc.text('RESULTADO NETO DEL MES:', 125, finalY + 10.5, { align: 'right' });
+  
+  doc.rect(140, finalY + 5, 60, 8, 'F');
+  doc.text(`${formatARS(summary.totalIngresos - summary.totalEgresos)}`, 195, finalY + 10.5, { align: 'right' });
 
   doc.setFillColor(26, 26, 26);
-  doc.rect(10, finalY + 13, 190, 8, 'F');
+  doc.rect(10, finalY + 13, 130, 8, 'F');
   doc.setTextColor(255, 204, 0);
-  doc.text('SALDO AL CIERRE DEL MES:', 130, finalY + 18.5, { align: 'right' });
-  doc.text(`$ ${summary.saldoCierre.toLocaleString('es-AR')}`, 160, finalY + 18.5, { align: 'right' });
+  doc.text('SALDO AL CIERRE DEL MES:', 125, finalY + 18.5, { align: 'right' });
+  
+  doc.rect(140, finalY + 13, 60, 8, 'F');
+  doc.text(`${formatARS(summary.saldoCierre)}`, 195, finalY + 18.5, { align: 'right' });
 
-  // Signatures
-  const signatureY = finalY + 35;
+  // Signatures at the bottom of the page
+  const pageHeight = doc.internal.pageSize.height;
+  const signatureY = pageHeight - 20;
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
 
-  doc.line(10, signatureY, 60, signatureY);
-  doc.text('Firma Tesorero/a Subcomis', 10, signatureY + 4);
+  doc.line(10, signatureY, 65, signatureY);
+  doc.text('Firma Tesorero/a Subcomisión', 10, signatureY + 4);
 
-  doc.line(75, signatureY, 125, signatureY);
-  doc.text('Aclaración:', 75, signatureY + 4);
+  doc.line(72.5, signatureY, 127.5, signatureY);
+  doc.text('Aclaración:', 72.5, signatureY + 4);
 
-  doc.line(140, signatureY, 190, signatureY);
-  doc.text('Firma Presidente Subcomisión:', 140, signatureY + 4);
+  doc.line(135, signatureY, 190, signatureY);
+  doc.text('Firma Presidente Subcomisión:', 135, signatureY + 4);
 
   doc.save(`Balance_${summary.mesYear.replace(' ', '_')}.pdf`);
 };

@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Tag, GraduationCap, Crown, Wallet } from 'lucide-react';
+import { formatCurrency, parseCurrency, formatInputCurrency } from '@/lib/formatters';
 
 interface ConfiguracionPanelProps {
   readOnly?: boolean;
@@ -32,10 +33,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
       const res = await fetch('/api/configuracion');
       if (res.ok) {
         const data = await res.json();
-        setCuotaSocio(String(data.cuota_socio || 7000));
-        setCuotaAlumno(String(data.cuota_alumno || 3500));
-        setCuotaVitalicio(String(data.cuota_vitalicio || 0));
-        setSaldoInicialEnero2026(String(data.saldo_inicial_enero_2026 || 0));
+        setCuotaSocio(formatCurrency(data.cuota_socio || 7000).replace('$ ', ''));
+        setCuotaAlumno(formatCurrency(data.cuota_alumno || 3500).replace('$ ', ''));
+        setCuotaVitalicio(formatCurrency(data.cuota_vitalicio || 0).replace('$ ', ''));
+        setSaldoInicialEnero2026(formatCurrency(data.saldo_inicial_enero_2026 || 0).replace('$ ', ''));
       }
     } catch (error) {
       console.error('Error al cargar configuración:', error);
@@ -52,10 +53,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cuota_socio: parseFloat(cuotaSocio) || 7000,
-          cuota_alumno: parseFloat(cuotaAlumno) || 3500,
-          cuota_vitalicio: parseFloat(cuotaVitalicio) || 0,
-          saldo_inicial_enero_2026: parseFloat(saldoInicialEnero2026) || 0,
+          cuota_socio: parseCurrency(cuotaSocio),
+          cuota_alumno: parseCurrency(cuotaAlumno),
+          cuota_vitalicio: parseCurrency(cuotaVitalicio),
+          saldo_inicial_enero_2026: parseCurrency(saldoInicialEnero2026),
         }),
       });
 
@@ -166,14 +167,15 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
                 <p className="text-[#999999] text-xs leading-relaxed">{cat.descripcion}</p>
                 <div className="space-y-1.5">
                   <Label className="text-[#CCCCCC] text-xs">Valor ($)</Label>
-                  <Input
-                    type="number"
-                    value={cat.valor}
-                    onChange={(e) => cat.onChange(e.target.value)}
-                    className="bg-[#2A2A2A] border-[#333333] text-white h-9 text-sm font-semibold"
-                    min={0}
-                    step={500}
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
+                    <Input
+                      type="text"
+                      value={cat.valor}
+                      onChange={(e) => cat.onChange(formatInputCurrency(e.target.value))}
+                      className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -207,13 +209,15 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
             </p>
             <div className="space-y-1.5">
               <Label className="text-[#CCCCCC] text-xs">Monto ($)</Label>
-              <Input
-                type="number"
-                value={saldoInicialEnero2026}
-                onChange={(e) => setSaldoInicialEnero2026(e.target.value)}
-                className="bg-[#2A2A2A] border-[#333333] text-white h-9 text-sm font-semibold"
-                min={0}
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
+                <Input
+                  type="text"
+                  value={saldoInicialEnero2026}
+                  onChange={(e) => setSaldoInicialEnero2026(formatInputCurrency(e.target.value))}
+                  className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
