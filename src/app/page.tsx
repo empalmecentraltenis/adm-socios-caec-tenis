@@ -17,9 +17,10 @@ import PagoMasivoModal from '@/components/socios/PagoMasivoModal';
 import AbmSocioModal from '@/components/socios/AbmSocioModal';
 import ReportesTable from '@/components/reportes/ReportesTable';
 import ConfiguracionPanel from '@/components/configuracion/ConfiguracionPanel';
+import BalanceMensual from '@/components/balance/BalanceMensual';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'socios' | 'reportes' | 'configuracion';
+type TabType = 'dashboard' | 'socios' | 'reportes' | 'configuracion' | 'balance';
 
 interface DashboardData {
   kpis: {
@@ -146,6 +147,7 @@ export default function Home() {
     socios: { title: 'Socios / Pagos', subtitle: 'Gestión de socios y registro de pagos' },
     reportes: { title: 'Reportes', subtitle: 'Reporte de morosidad y financieros' },
     configuracion: { title: 'Configuración', subtitle: 'Valores de cuota y categorías' },
+    balance: { title: 'Balance Mensual', subtitle: 'Caja de la sub-comisión de tenis' },
   };
 
   return (
@@ -211,6 +213,9 @@ export default function Home() {
 
           {/* Configuración Tab */}
           {activeTab === 'configuracion' && <ConfiguracionPanel readOnly={isReadOnly} />}
+
+          {/* Balance Tab */}
+          {activeTab === 'balance' && <BalanceMensual readOnly={isReadOnly} />}
         </div>
       </main>
 

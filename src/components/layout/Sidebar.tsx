@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 
@@ -12,6 +12,7 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'socios', label: 'Socios / Pagos', icon: Users },
+  { id: 'balance', label: 'Balance Mensual', icon: Wallet },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'reportes', label: 'Deudores', icon: FileText },
   { id: 'configuracion', label: 'Configuración', icon: Settings },

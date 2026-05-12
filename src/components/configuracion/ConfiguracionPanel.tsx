@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Tag, GraduationCap, Crown } from 'lucide-react';
+import { Loader2, Save, Tag, GraduationCap, Crown, Wallet } from 'lucide-react';
 
 interface ConfiguracionPanelProps {
   readOnly?: boolean;
@@ -17,6 +17,7 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
   const [cuotaSocio, setCuotaSocio] = useState('7000');
   const [cuotaAlumno, setCuotaAlumno] = useState('3500');
   const [cuotaVitalicio, setCuotaVitalicio] = useState('0');
+  const [saldoInicialEnero2026, setSaldoInicialEnero2026] = useState('0');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -34,6 +35,7 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
         setCuotaSocio(String(data.cuota_socio || 7000));
         setCuotaAlumno(String(data.cuota_alumno || 3500));
         setCuotaVitalicio(String(data.cuota_vitalicio || 0));
+        setSaldoInicialEnero2026(String(data.saldo_inicial_enero_2026 || 0));
       }
     } catch (error) {
       console.error('Error al cargar configuración:', error);
@@ -53,6 +55,7 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
           cuota_socio: parseFloat(cuotaSocio) || 7000,
           cuota_alumno: parseFloat(cuotaAlumno) || 3500,
           cuota_vitalicio: parseFloat(cuotaVitalicio) || 0,
+          saldo_inicial_enero_2026: parseFloat(saldoInicialEnero2026) || 0,
         }),
       });
 
@@ -176,6 +179,44 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
             </Card>
           );
         })}
+      </div>
+
+      <div className="mt-8 border-t border-[#333333] pt-6">
+        <h3 className="text-white text-lg font-semibold">Balance de Caja</h3>
+        <p className="text-[#999999] text-sm mt-1 mb-4">
+          Configuración inicial para el sistema de balances.
+        </p>
+        
+        <Card className="bg-[#1E1E1E] border-[#333333] max-w-md">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-blue-500/10">
+                <Wallet className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <CardTitle className="text-white text-base">Saldo Inicial Histórico</CardTitle>
+                <CardDescription className="text-[#666666] text-xs">
+                  Caja al 01/01/2026
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-[#999999] text-xs leading-relaxed">
+              Este valor se toma como base para calcular todos los saldos mensuales subsiguientes.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-[#CCCCCC] text-xs">Monto ($)</Label>
+              <Input
+                type="number"
+                value={saldoInicialEnero2026}
+                onChange={(e) => setSaldoInicialEnero2026(e.target.value)}
+                className="bg-[#2A2A2A] border-[#333333] text-white h-9 text-sm font-semibold"
+                min={0}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -41,6 +41,7 @@ export async function PUT(request: Request) {
       { clave: "cuota_socio", valor: String(cuota_socio ?? 7000) },
       { clave: "cuota_alumno", valor: String(cuota_alumno ?? 3500) },
       { clave: "cuota_vitalicio", valor: String(cuota_vitalicio ?? 0) },
+      { clave: "saldo_inicial_enero_2026", valor: String(body.saldo_inicial_enero_2026 ?? 0) },
     ];
 
     for (const update of updates) {
@@ -52,12 +53,13 @@ export async function PUT(request: Request) {
     }
 
     // Registrar actividad
-    await logActividad("config_actualizada", `Cuotas actualizadas: Socio $${Number(cuota_socio ?? 7000).toLocaleString("es-AR")}, Alumno $${Number(cuota_alumno ?? 3500).toLocaleString("es-AR")}, Vitalicio $${Number(cuota_vitalicio ?? 0).toLocaleString("es-AR")}`);
+    await logActividad("config_actualizada", `Configuración actualizada.`);
 
     return NextResponse.json({
       cuota_socio: Number(cuota_socio ?? 7000),
       cuota_alumno: Number(cuota_alumno ?? 3500),
       cuota_vitalicio: Number(cuota_vitalicio ?? 0),
+      saldo_inicial_enero_2026: Number(body.saldo_inicial_enero_2026 ?? 0),
     });
   } catch (error) {
     console.error("Error al actualizar configuración:", error);
