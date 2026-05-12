@@ -168,22 +168,23 @@ export const exportBalanceToPDF = async (
 
   const finalY = (doc as any).lastAutoTable.finalY || 52;
 
-  // Bottom Summary
-  doc.setFillColor(255, 204, 0);
-  doc.rect(10, finalY + 5, 130, 8, 'F');
-  doc.setTextColor(0, 0, 0);
+  // Bottom Summary (Normalizing to Yellow background with Black text)
   doc.setFont('helvetica', 'bold');
+  
+  // RESULTADO NETO
+  doc.setFillColor(255, 204, 0); // Yellow
+  doc.rect(10, finalY + 5, 130, 8, 'F');
+  doc.setTextColor(0, 0, 0); // Black
   doc.text('RESULTADO NETO DEL MES:', 125, finalY + 10.5, { align: 'right' });
   
-  doc.rect(140, finalY + 5, 60, 8, 'F');
+  doc.rect(140, finalY + 5, 60, 8, 'F'); // Yellow
   doc.text(`${formatARS(summary.totalIngresos - summary.totalEgresos)}`, 195, finalY + 10.5, { align: 'right' });
 
-  doc.setFillColor(26, 26, 26);
-  doc.rect(10, finalY + 13, 130, 8, 'F');
-  doc.setTextColor(255, 204, 0);
+  // SALDO AL CIERRE
+  doc.rect(10, finalY + 13, 130, 8, 'F'); // Yellow
   doc.text('SALDO AL CIERRE DEL MES:', 125, finalY + 18.5, { align: 'right' });
   
-  doc.rect(140, finalY + 13, 60, 8, 'F');
+  doc.rect(140, finalY + 13, 60, 8, 'F'); // Yellow
   doc.text(`${formatARS(summary.saldoCierre)}`, 195, finalY + 18.5, { align: 'right' });
 
   // Signatures at the bottom of the page
