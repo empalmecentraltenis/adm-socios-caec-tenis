@@ -1,7 +1,5 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 interface Movimiento {
   fecha: string | Date;
@@ -101,8 +99,24 @@ export const exportBalanceToPDF = async (
 
   for (let i = 0; i < 25; i++) {
     if (i < movimientos.length) {
-      const [y, mm, dd] = m.fecha.toString().split('T')[0].split('-');
-      const displayFecha = `${dd}/${mm}/${y}`;
+      const m = movimientos[i];
+      if (!m || !m.fecha) {
+        tableData.push([i + 1, '', '', '', '', '']);
+        continue;
+      }
+
+      // Manejo robusto de fecha (string ISO o objeto Date)
+      let datePart = '';
+      try {
+        const fechaStr = typeof m.fecha === 'string' ? m.fecha : (m.fecha as Date).toISOString();
+        datePart = fechaStr.split('T')[0];
+      } catch (e) {
+        console.error('Error parsing date for PDF:', m.fecha);
+        datePart = '0000-00-00';
+      }
+
+      const [y, mm, dd] = datePart.split('-');
+      const displayFecha = y !== '0000' ? `${dd}/${mm}/${y}` : '---';
       
       runningBalance += m.tipo === 'ingreso' ? m.monto : -m.monto;
       

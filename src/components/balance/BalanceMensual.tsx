@@ -148,9 +148,13 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
         totalEgresos,
         saldoCierre: saldoFinal
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error exporting PDF:', error);
-      toast({ title: 'Error al generar PDF', variant: 'destructive' });
+      toast({ 
+        title: 'Error al generar PDF', 
+        description: error.message || 'Error desconocido',
+        variant: 'destructive' 
+      });
     }
   };
 
