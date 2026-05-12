@@ -170,18 +170,25 @@ export const exportBalanceToPDF = async (
 
   // Bottom Summary (Normalizing to Yellow background with Black text)
   const drawSummaryRow = (label: string, value: string, y: number) => {
-    doc.setFillColor(255, 204, 0); // Always Yellow
+    // Fill
+    doc.setFillColor(255, 204, 0); 
     doc.rect(10, y, 130, 8, 'F');
     doc.rect(140, y, 60, 8, 'F');
     
-    doc.setTextColor(0, 0, 0); // Always Black
+    // Borders (Lines/Renglones)
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.2);
+    doc.rect(10, y, 130, 8, 'D');
+    doc.rect(140, y, 60, 8, 'D');
+    
+    doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'bold');
     doc.text(label, 125, y + 5.5, { align: 'right' });
     doc.text(value, 195, y + 5.5, { align: 'right' });
   };
 
-  drawSummaryRow('RESULTADO NETO DEL MES (V5):', formatARS(summary.totalIngresos - summary.totalEgresos), finalY + 5);
-  drawSummaryRow('SALDO AL CIERRE DEL MES (V5):', formatARS(summary.saldoCierre), finalY + 13);
+  drawSummaryRow('RESULTADO NETO DEL MES:', formatARS(summary.totalIngresos - summary.totalEgresos), finalY + 5);
+  drawSummaryRow('SALDO AL CIERRE DEL MES:', formatARS(summary.saldoCierre), finalY + 13);
 
   // Signatures at the bottom of the page
   const pageHeight = doc.internal.pageSize.height;
