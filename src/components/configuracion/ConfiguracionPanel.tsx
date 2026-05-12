@@ -30,13 +30,21 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
   async function fetchConfig() {
     setLoading(true);
     try {
-      const res = await fetch('/api/configuracion');
+      const res = await fetch(`/api/configuracion?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        setCuotaSocio(formatCurrency(data.cuota_socio || 7000).replace('$ ', ''));
-        setCuotaAlumno(formatCurrency(data.cuota_alumno || 3500).replace('$ ', ''));
-        setCuotaVitalicio(formatCurrency(data.cuota_vitalicio || 0).replace('$ ', ''));
-        setSaldoInicialEnero2026(formatCurrency(data.saldo_inicial_enero_2026 || 0).replace('$ ', ''));
+        
+        // Función auxiliar para limpiar el formato y dejar solo el número con coma decimal
+        const clean = (val: any) => {
+          const formatted = formatCurrency(val || 0);
+          // Quitamos $, ARS y espacios (incluyendo non-breaking space \u00A0)
+          return formatted.replace(/[$\u00A0\s]/g, '').replace('ARS', '').trim();
+        };
+
+        setCuotaSocio(clean(data.cuota_socio));
+        setCuotaAlumno(clean(data.cuota_alumno));
+        setCuotaVitalicio(clean(data.cuota_vitalicio));
+        setSaldoInicialEnero2026(clean(data.saldo_inicial_enero_2026));
       }
     } catch (error) {
       console.error('Error al cargar configuración:', error);

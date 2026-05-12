@@ -16,25 +16,22 @@ export const formatCurrency = (value: number | string): string => {
  * Limpia un string de moneda para obtener el valor numérico
  * Ejemplo: "$ 1.234,56" -> 1234.56
  */
-export const parseCurrency = (value: string): number => {
+export const parseCurrency = (value: string | number): number => {
+  if (typeof value === 'number') return value;
   if (!value) return 0;
+  
   // Elimina todo lo que no sea número, coma o punto
-  const cleanValue = value.replace(/[^0-9,.-]/g, '');
-  // Reemplaza la coma decimal por punto si existe
-  const normalizedValue = cleanValue.replace(',', '.');
+  // Primero eliminamos los puntos de miles (que en es-AR son puntos)
+  // Pero ojo, si el usuario pegó algo con punto decimal, esto lo rompe.
+  // Vamos a ser más inteligentes: si hay una coma, los puntos son miles.
+  let cleanValue = value.toString().replace(/\$/g, '').replace(/\s/g, '').replace(/\u00A0/g, '');
   
-  // Manejo de miles: si hay múltiples puntos, eliminamos todos menos el último si es decimal
-  // Pero en es-AR el punto es miles y la coma es decimal.
-  // Así que después de normalizar (coma -> punto), el punto es el decimal.
-  // Debemos eliminar los puntos que actúan como miles antes de normalizar.
+  if (cleanValue.includes(',')) {
+    // Es formato es-AR: punto es miles, coma es decimal
+    cleanValue = cleanValue.replace(/\./g, '').replace(',', '.');
+  }
   
-  const finalValue = value
-    .replace(/\$/g, '')
-    .replace(/\s/g, '')
-    .replace(/\./g, '') // Elimina puntos de miles
-    .replace(',', '.'); // Cambia coma decimal por punto
-    
-  return parseFloat(finalValue) || 0;
+  return parseFloat(cleanValue) || 0;
 };
 
 /**
