@@ -292,7 +292,10 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
                   <tr key={m.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-4 py-3.5 text-center text-[#666666] font-mono text-xs">{idx + 1}</td>
                     <td className="px-4 py-3.5 text-white text-sm whitespace-nowrap">
-                      {format(parseISO(m.fecha), 'dd/MM/yyyy')}
+                      {(() => {
+                        const [y, mm, dd] = m.fecha.split('-');
+                        return `${dd}/${mm}/${y}`;
+                      })()}
                     </td>
                     <td className="px-4 py-3.5 text-white text-sm">
                       <div className="font-medium">{m.descripcion}</div>

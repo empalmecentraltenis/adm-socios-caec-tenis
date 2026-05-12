@@ -23,10 +23,14 @@ export async function PUT(
     // Aseguramos que el monto sea un número limpio
     const montoNumerico = typeof monto === 'number' ? monto : parseFloat(String(monto).replace(',', '.'));
 
+    // Fix zona horaria: parsear YYYY-MM-DD y crear fecha al mediodía local
+    const [year, month, day] = fecha.split('-').map(Number);
+    const fechaLocal = new Date(year, month - 1, day, 12, 0, 0);
+
     const movimiento = await db.movimiento.update({
       where: { id },
       data: {
-        fecha: new Date(fecha),
+        fecha: fechaLocal,
         descripcion,
         responsable,
         tipo,
@@ -42,7 +46,10 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json(movimiento);
+    return NextResponse.json({
+      ...movimiento,
+      fecha: movimiento.fecha.toISOString().split('T')[0]
+    });
   } catch (error: any) {
     console.error('Error updating movimiento:', error);
     return NextResponse.json({ 

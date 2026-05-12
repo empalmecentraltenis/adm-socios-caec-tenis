@@ -101,13 +101,14 @@ export const exportBalanceToPDF = async (
 
   for (let i = 0; i < 25; i++) {
     if (i < movimientos.length) {
-      const m = movimientos[i];
-      const fecha = typeof m.fecha === 'string' ? new Date(m.fecha) : m.fecha;
+      const [y, mm, dd] = m.fecha.toString().split('T')[0].split('-');
+      const displayFecha = `${dd}/${mm}/${y}`;
+      
       runningBalance += m.tipo === 'ingreso' ? m.monto : -m.monto;
       
       tableData.push([
         i + 1,
-        format(fecha, 'dd/MM/yyyy'),
+        displayFecha,
         m.descripcion,
         m.responsable,
         `${m.tipo === 'ingreso' ? '+' : '-'}${formatARS(m.monto)}`,

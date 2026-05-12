@@ -61,7 +61,7 @@ export default function MovimientoModal({
   useEffect(() => {
     if (movimiento) {
       setFormData({
-        fecha: format(new Date(movimiento.fecha), 'yyyy-MM-dd'),
+        fecha: movimiento.fecha.split('T')[0],
         descripcion: movimiento.descripcion,
         responsable: movimiento.responsable,
         tipo: movimiento.tipo,

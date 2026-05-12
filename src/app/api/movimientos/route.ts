@@ -28,7 +28,12 @@ export async function GET(request: Request) {
       },
     });
 
-    return NextResponse.json(movimientos);
+    const formatted = movimientos.map(m => ({
+      ...m,
+      fecha: m.fecha.toISOString().split('T')[0]
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     console.error('Error fetching movimientos:', error);
     return NextResponse.json({ error: 'Error al obtener movimientos' }, { status: 500 });
@@ -54,9 +59,13 @@ export async function POST(request: Request) {
     // Aseguramos que el monto sea un número limpio
     const montoNumerico = typeof monto === 'number' ? monto : parseFloat(String(monto).replace(',', '.'));
 
+    // Fix zona horaria: parsear YYYY-MM-DD y crear fecha al mediodía local
+    const [year, month, day] = fecha.split('-').map(Number);
+    const fechaLocal = new Date(year, month - 1, day, 12, 0, 0);
+
     const movimiento = await db.movimiento.create({
       data: {
-        fecha: new Date(fecha),
+        fecha: fechaLocal,
         descripcion,
         responsable,
         tipo,
@@ -72,7 +81,10 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(movimiento);
+    return NextResponse.json({
+      ...movimiento,
+      fecha: movimiento.fecha.toISOString().split('T')[0]
+    });
   } catch (error: any) {
     console.error('Error creating movimiento:', error);
     return NextResponse.json({ 
