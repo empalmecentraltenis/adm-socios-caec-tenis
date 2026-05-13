@@ -207,8 +207,6 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
     }
 
-    console.log(`[PUT /api/socios] Actualizando socio ${id}:`, { estado, categoria, rol });
-
     // Sincronizar activo <-> estado para que la app de reservas vea lo mismo
     // Si estado es 'activo', activo debe ser true. Si es 'inactivo', activo debe ser false.
     let activoSync = undefined;
@@ -230,8 +228,6 @@ export async function PUT(request: Request) {
         fechaAlta: fechaAlta ? new Date(fechaAlta) : undefined,
       },
     });
-
-    console.log(`[PUT /api/socios] Socio ${id} actualizado. Nuevo estado: ${socio.estado}, activo: ${socio.activo}`);
 
     // Lógica Opción A: Asegurar que tenga X cuotas pendientes en total
     if (cuotasAdeudadas !== undefined) {

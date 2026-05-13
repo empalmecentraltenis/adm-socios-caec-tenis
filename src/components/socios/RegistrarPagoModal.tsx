@@ -169,54 +169,92 @@ export default function RegistrarPagoModal({
               <div className="h-32 flex items-center justify-center bg-[#2A2A2A]/30 rounded-lg border border-[#333333] border-dashed">
                 <Loader2 className="h-5 w-5 animate-spin text-[#999999]" />
               </div>
-            ) : pendientes.length === 0 ? (
-              <div className="p-4 flex flex-col items-center justify-center bg-[#2A2A2A]/30 rounded-lg border border-[#333333] border-dashed text-center">
-                <AlertCircle className="h-5 w-5 text-[#00AA55] mb-2" />
-                <p className="text-[11px] text-[#999999]">El socio no tiene cuotas marcadas como pendientes.</p>
-                <Button 
-                  variant="link" 
-                  size="sm" 
-                  className="text-[#FFCC00] text-[10px] h-auto p-0 mt-1"
-                  onClick={() => {
-                    // Si no hay pendientes, podríamos permitir elegir cualquier mes, pero por ahora solo de la lista
-                    toast({ title: "Info", description: "Puedes ajustar la deuda desde el panel de edición del socio." });
-                  }}
-                >
-                  Ajustar deuda del socio
-                </Button>
-              </div>
             ) : (
-              <ScrollArea className="h-40 border border-[#333333] rounded-lg bg-[#1A1A1A]">
-                <div className="p-2 space-y-1">
-                  {pendientes.map((p) => {
-                    const [year, month] = p.mesPagado.split('-');
-                    const isSelected = selectedMonths.includes(p.mesPagado);
-                    return (
-                      <button
-                        key={p.mesPagado}
-                        onClick={() => toggleMonth(p.mesPagado)}
-                        className={`w-full flex items-center justify-between p-2 rounded-md transition-colors ${
-                          isSelected ? 'bg-[#FFCC00]/10 border border-[#FFCC00]/30' : 'hover:bg-[#2A2A2A] border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {isSelected ? (
-                            <CheckSquare className="h-4 w-4 text-[#FFCC00]" />
-                          ) : (
-                            <Square className="h-4 w-4 text-[#666666]" />
-                          )}
-                          <span className={`text-xs ${isSelected ? 'text-white font-medium' : 'text-[#CCCCCC]'}`}>
-                            {MESES[parseInt(month) - 1]} {year}
-                          </span>
-                        </div>
-                        <Badge variant="outline" className="text-[10px] border-[#333333] text-[#666666]">
-                          ${p.monto.toLocaleString('es-AR')}
-                        </Badge>
-                      </button>
-                    );
-                  })}
+              <div className="space-y-2">
+                <ScrollArea className={`${pendientes.length === 0 && selectedMonths.length === 0 ? 'h-20' : 'h-40'} border border-[#333333] rounded-lg bg-[#1A1A1A]`}>
+                  <div className="p-2 space-y-1">
+                    {pendientes.length === 0 && selectedMonths.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-2">
+                        <AlertCircle className="h-4 w-4 text-[#00AA55] mb-1 opacity-50" />
+                        <p className="text-[10px] text-[#666666]">Sin cuotas pendientes.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Meses Pendientes de la DB + Virtuales */}
+                        {pendientes.map((p) => {
+                          const [year, month] = p.mesPagado.split('-');
+                          const isSelected = selectedMonths.includes(p.mesPagado);
+                          return (
+                            <button
+                              key={p.mesPagado}
+                              onClick={() => toggleMonth(p.mesPagado)}
+                              className={`w-full flex items-center justify-between p-2 rounded-md transition-colors ${
+                                isSelected ? 'bg-[#FFCC00]/10 border border-[#FFCC00]/30' : 'hover:bg-[#2A2A2A] border border-transparent'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isSelected ? (
+                                  <CheckSquare className="h-4 w-4 text-[#FFCC00]" />
+                                ) : (
+                                  <Square className="h-4 w-4 text-[#666666]" />
+                                )}
+                                <span className={`text-xs ${isSelected ? 'text-white font-medium' : 'text-[#CCCCCC]'}`}>
+                                  {MESES[parseInt(month) - 1]} {year}
+                                </span>
+                              </div>
+                              <Badge variant="outline" className="text-[10px] border-[#333333] text-[#666666]">
+                                ${p.monto.toLocaleString('es-AR')}
+                              </Badge>
+                            </button>
+                          );
+                        })}
+                        {/* Meses seleccionados manualmente que no estaban en pendientes */}
+                        {selectedMonths.filter(m => !pendientes.some(p => p.mesPagado === m)).map(m => {
+                           const [year, month] = m.split('-');
+                           return (
+                            <button
+                              key={m}
+                              onClick={() => toggleMonth(m)}
+                              className="w-full flex items-center justify-between p-2 rounded-md bg-[#FFCC00]/10 border border-[#FFCC00]/30"
+                            >
+                              <div className="flex items-center gap-2">
+                                <CheckSquare className="h-4 w-4 text-[#FFCC00]" />
+                                <span className="text-xs text-white font-medium">
+                                  {MESES[parseInt(month) - 1]} {year}
+                                </span>
+                              </div>
+                              <Badge variant="outline" className="text-[10px] border-[#FFCC00]/20 text-[#FFCC00]/70">
+                                Manual
+                              </Badge>
+                            </button>
+                           )
+                        })}
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
+                
+                {/* Selector para agregar meses extras */}
+                <div className="flex items-center gap-2">
+                  <Select onValueChange={(val) => { if (val && !selectedMonths.includes(val)) toggleMonth(val); }}>
+                    <SelectTrigger className="flex-1 bg-[#1A1A1A] border-[#333333] h-7 text-[10px] text-[#999999]">
+                      <SelectValue placeholder="Agregar otro mes (ej: adelanto)..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1E1E1E] border-[#333333]">
+                      {[...Array(6)].map((_, i) => {
+                        const d = new Date();
+                        d.setMonth(d.getMonth() + i); // Mes actual + próximos 5
+                        const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return (
+                          <SelectItem key={val} value={val} className="text-[#CCCCCC] text-xs">
+                            {MESES[d.getMonth()]} {d.getFullYear()}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </ScrollArea>
+              </div>
             )}
             <p className="text-[10px] text-[#666666]">Seleccionados: {selectedMonths.length} mes(es)</p>
           </div>

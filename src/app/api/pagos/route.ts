@@ -202,6 +202,41 @@ export async function GET(request: Request) {
       fechaRegistro: c.createdAt.toISOString(),
     }));
 
+    // Lógica dinámica: Si el socio no tiene pago para el mes actual y no está en la tabla cuotas,
+    // lo agregamos como pendiente virtual para que aparezca en el registro de pagos.
+    if (socioId) {
+      const ahora = new Date();
+      const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
+      
+      const yaPagado = pagos.some(p => p.mesPagado === mesActual);
+      const yaEnCuotas = cuotasPendientes.some(c => c.mes === mesActual);
+      
+      if (!yaPagado && !yaEnCuotas) {
+        // Obtener socio para saber categoría y valor de cuota
+        const socio = await db.socio.findUnique({ where: { id: socioId }, select: { categoria: true } });
+        
+        if (socio && socio.categoria !== 'vitalicio') {
+          const configuraciones = await db.configuracion.findMany();
+          const getValor = (clave: string) => {
+            const c = configuraciones.find((c) => c.clave === clave);
+            return c ? parseFloat(c.valor) : 0;
+          };
+          const cuotaSocio = getValor("cuota_socio") || 7000;
+          const cuotaAlumno = getValor("cuota_alumno") || 3500;
+          const monto = socio.categoria === 'alumno' ? cuotaAlumno : cuotaSocio;
+
+          pendientesAdaptadas.push({
+            id: `virtual-${mesActual}`,
+            socioId,
+            mesPagado: mesActual,
+            monto,
+            metodoPago: 'pendiente',
+            fechaRegistro: ahora.toISOString(),
+          });
+        }
+      }
+    }
+
     // Combinar pagos realizados y cuotas pendientes, y ordenar cronológicamente
     const historialUnificado = [...pagos, ...pendientesAdaptadas].sort((a, b) => {
       return b.mesPagado.localeCompare(a.mesPagado);
