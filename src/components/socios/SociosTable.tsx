@@ -146,6 +146,8 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
       result = result.filter((s) => s.mesesAdeudados >= 2);
     } else if (filterEstado === 'al_dia') {
       result = result.filter((s) => s.alDia || s.categoria === 'vitalicio');
+    } else if (filterEstado === 'al_dia_deuda') {
+      result = result.filter((s) => s.alDia && s.mesesAdeudados > 0 && s.categoria !== 'vitalicio');
     }
 
     result = [...result].sort((a, b) => {
@@ -454,7 +456,10 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
               </SelectTrigger>
               <SelectContent className="bg-[#1E1E1E] border-[#333333]">
                 <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Todos</SelectItem>
-                <SelectItem value="al_dia" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">✅ Al día</SelectItem>
+                <SelectItem value="al_dia" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">✅ Al día (Total)</SelectItem>
+                <SelectItem value="al_dia_deuda" className="text-[#F59E0B] focus:bg-[#2A2A2A] focus:text-white">
+                  🟡 Al día (debe mes curso)
+                </SelectItem>
                 <SelectItem value="morosos" className="text-[#EF4444] focus:bg-[#2A2A2A] focus:text-white">
                   🔴 Morosos ({deudoresCount})
                 </SelectItem>

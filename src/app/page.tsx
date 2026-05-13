@@ -9,6 +9,7 @@ import CrecimientoChart from '@/components/dashboard/CrecimientoChart';
 import MorososCriticos from '@/components/dashboard/MorososCriticos';
 import DistribucionCategorias from '@/components/dashboard/DistribucionCategorias';
 import IngresosPorCategoria from '@/components/dashboard/IngresosPorCategoria';
+import PagosPorMes from '@/components/dashboard/PagosPorMes';
 import ActividadLog from '@/components/actividad/ActividadLog';
 import SociosTable from '@/components/socios/SociosTable';
 import RegistrarPagoModal from '@/components/socios/RegistrarPagoModal';
@@ -185,9 +186,10 @@ export default function Home() {
               <KpiCards data={dashboardData?.kpis ?? null} loading={dashLoading} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <MorososCriticos data={dashboardData?.morosos ?? null} loading={dashLoading} />
-                <CrecimientoChart data={dashboardData?.crecimientoMensual ?? null} loading={dashLoading} />
+                <PagosPorMes />
               </div>
-              <div className="grid grid-cols-1 gap-5">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <CrecimientoChart data={dashboardData?.crecimientoMensual ?? null} loading={dashLoading} />
                 <RecaudacionChart data={dashboardData?.recaudacionMensual ?? null} loading={dashLoading} />
               </div>
             </div>

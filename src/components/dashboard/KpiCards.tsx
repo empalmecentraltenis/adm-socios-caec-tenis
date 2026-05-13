@@ -32,14 +32,6 @@ const kpiConfig = [
     borderColor: 'border-[#FFCC00]/20',
   },
   {
-    key: 'totalInactivos' as const,
-    label: 'Inactivos',
-    icon: Users,
-    accentColor: 'text-[#999999]',
-    bgColor: 'bg-[#999999]/10',
-    borderColor: 'border-[#999999]/20',
-  },
-  {
     key: 'totalGeneral' as const,
     label: 'Total General',
     icon: Users,
@@ -70,15 +62,6 @@ const kpiConfig = [
     accentColor: 'text-[#FFCC00]',
     bgColor: 'bg-[#FFCC00]/10',
     borderColor: 'border-[#FFCC00]/20',
-    format: true,
-  },
-  {
-    key: 'deudaTotalEstimada' as const,
-    label: 'Deuda Total',
-    icon: TrendingDown,
-    accentColor: 'text-[#EF4444]',
-    bgColor: 'bg-[#EF4444]/10',
-    borderColor: 'border-[#EF4444]/20',
     format: true,
   },
 ];

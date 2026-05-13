@@ -19,57 +19,62 @@ async function logActividad(accion: string, detalle: string, socioId?: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { socioId, mesPagado, monto, metodoPago } = body;
+    const { socioId, mesPagado, mesesPagados, monto, metodoPago } = body;
 
-    if (!socioId || !mesPagado || monto === undefined) {
+    if (!socioId || (!mesPagado && (!mesesPagados || mesesPagados.length === 0)) || monto === undefined) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
     }
 
-    // Verificar que no exista ya un pago para ese mes y socio
-    const pagoExistente = await db.pagoCuota.findFirst({
-      where: { socioId, mesPagado },
-    });
-
-    if (pagoExistente) {
-      return NextResponse.json(
-        { error: "Ya existe un pago registrado para ese mes" },
-        { status: 409 }
-      );
-    }
+    // Normalizar a array de meses
+    const listaMeses: string[] = mesesPagados || [mesPagado];
+    const resultados = [];
 
     // Obtener datos del socio para el log
     const socio = await db.socio.findUnique({ where: { id: socioId } });
+    if (!socio) return NextResponse.json({ error: "Socio no encontrado" }, { status: 404 });
 
-    const pago = await db.pagoCuota.create({
-      data: {
-        socioId,
-        mesPagado,
-        monto: parseFloat(monto),
-        metodoPago: metodoPago || "efectivo",
-      },
-    });
-
-    // Sincronizar: si había una cuota pendiente para ese mes, marcarla como pagada
-    const cuotaPendiente = await db.cuota.findFirst({
-      where: { socioId, mes: mesPagado, estado: 'pendiente' },
-    });
-    
-    if (cuotaPendiente) {
-      await db.cuota.update({
-        where: { id: cuotaPendiente.id },
-        data: { estado: 'pagada' },
+    for (const mes of listaMeses) {
+      // Verificar que no exista ya un pago para ese mes y socio
+      const pagoExistente = await db.pagoCuota.findFirst({
+        where: { socioId, mesPagado: mes },
       });
-    }
 
-    // Registrar actividad
-    if (socio) {
-      const [year, month] = mesPagado.split("-");
+      if (pagoExistente) {
+        resultados.push({ mes, status: 'error', error: 'Ya existe un pago para este mes' });
+        continue;
+      }
+
+      const pago = await db.pagoCuota.create({
+        data: {
+          socioId,
+          mesPagado: mes,
+          monto: parseFloat(monto),
+          metodoPago: metodoPago || "efectivo",
+        },
+      });
+
+      // Sincronizar: si había una cuota pendiente para ese mes, marcarla como pagada
+      const cuotaPendiente = await db.cuota.findFirst({
+        where: { socioId, mes: mes, estado: 'pendiente' },
+      });
+      
+      if (cuotaPendiente) {
+        await db.cuota.update({
+          where: { id: cuotaPendiente.id },
+          data: { estado: 'pagada' },
+        });
+      }
+
+      resultados.push({ mes, status: 'ok', id: pago.id });
+
+      // Registrar actividad por cada pago
+      const [year, month] = mes.split("-");
       const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-      const nombreMes = MESES[parseInt(month) - 1] || mesPagado;
+      const nombreMes = MESES[parseInt(month) - 1] || mes;
       await logActividad("pago_registrado", `Pago de $${parseFloat(monto).toLocaleString("es-AR")} para ${socio.nombre} ${socio.apellido} - ${nombreMes} ${year} (${metodoPago || "efectivo"})`, socioId);
     }
 
-    return NextResponse.json(pago, { status: 201 });
+    return NextResponse.json({ success: true, resultados }, { status: 201 });
   } catch (error) {
     console.error("Error al registrar pago:", error);
     return NextResponse.json({ error: "Error al registrar pago" }, { status: 500 });
