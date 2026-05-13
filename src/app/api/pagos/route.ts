@@ -202,34 +202,58 @@ export async function GET(request: Request) {
       fechaRegistro: c.createdAt.toISOString(),
     }));
 
-    // Lógica dinámica: Si el socio no tiene pago para el mes actual y no está en la tabla cuotas,
-    // lo agregamos como pendiente virtual para que aparezca en el registro de pagos.
+    // Lógica dinámica: Detectar meses faltantes entre el último pago y el mes actual
     if (socioId) {
       const ahora = new Date();
-      const mesActual = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}`;
+      const mesActualNum = ahora.getFullYear() * 12 + (ahora.getMonth() + 1);
       
-      const yaPagado = pagos.some(p => p.mesPagado === mesActual);
-      const yaEnCuotas = cuotasPendientes.some(c => c.mes === mesActual);
-      
-      if (!yaPagado && !yaEnCuotas) {
-        // Obtener socio para saber categoría y valor de cuota
-        const socio = await db.socio.findUnique({ where: { id: socioId }, select: { categoria: true } });
-        
-        if (socio && socio.categoria !== 'vitalicio') {
-          const configuraciones = await db.configuracion.findMany();
-          const getValor = (clave: string) => {
-            const c = configuraciones.find((c) => c.clave === clave);
-            return c ? parseFloat(c.valor) : 0;
-          };
-          const cuotaSocio = getValor("cuota_socio") || 7000;
-          const cuotaAlumno = getValor("cuota_alumno") || 3500;
-          const monto = socio.categoria === 'alumno' ? cuotaAlumno : cuotaSocio;
+      // Obtener socio para saber fecha de alta y categoría
+      const socio = await db.socio.findUnique({ 
+        where: { id: socioId }, 
+        select: { fechaAlta: true, categoria: true } 
+      });
 
+      if (socio && socio.categoria !== 'vitalicio') {
+        // Determinar desde cuándo empezar a buscar deudas
+        let mesInicioNum: number;
+        
+        const todosLosMesesRegistrados = [
+          ...pagos.map(p => p.mesPagado),
+          ...cuotasPendientes.map(c => c.mes)
+        ].sort();
+
+        if (todosLosMesesRegistrados.length > 0) {
+          // Si hay registros, empezamos desde el mes siguiente al último registrado
+          const lastMes = todosLosMesesRegistrados[todosLosMesesRegistrados.length - 1];
+          const [y, m] = lastMes.split("-").map(Number);
+          mesInicioNum = (y * 12 + m) + 1;
+        } else {
+          // Si no hay nada, empezamos desde la fecha de alta
+          const fechaAlta = socio.fechaAlta || ahora;
+          mesInicioNum = fechaAlta.getFullYear() * 12 + (fechaAlta.getMonth() + 1);
+        }
+
+        // Obtener valores de cuota
+        const configuraciones = await db.configuracion.findMany();
+        const getValor = (clave: string) => {
+          const c = configuraciones.find((c) => c.clave === clave);
+          return c ? parseFloat(c.valor) : 0;
+        };
+        const cuotaSocio = getValor("cuota_socio") || 7000;
+        const cuotaAlumno = getValor("cuota_alumno") || 3500;
+        const montoBase = socio.categoria === 'alumno' ? cuotaAlumno : cuotaSocio;
+
+        // Generar meses virtuales desde mesInicioNum hasta mesActualNum
+        for (let mNum = mesInicioNum; mNum <= mesActualNum; mNum++) {
+          const year = Math.floor((mNum - 1) / 12);
+          const month = ((mNum - 1) % 12) + 1;
+          const mesStr = `${year}-${String(month).padStart(2, "0")}`;
+          
           pendientesAdaptadas.push({
-            id: `virtual-${mesActual}`,
+            id: `virtual-${mesStr}`,
             socioId,
-            mesPagado: mesActual,
-            monto,
+            mesPagado: mesStr,
+            monto: montoBase,
             metodoPago: 'pendiente',
             fechaRegistro: ahora.toISOString(),
           });
