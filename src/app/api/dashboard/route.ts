@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       const [yA, mA] = mesActual.split("-").map(Number);
       
       const alDiaCount = sociosActivos.filter(socio => {
-        if (socio.categoria === "vitalicio") return true;
+        if (socio.categoria === "vitalicio" || socio.rol === "admin") return true;
         
         const ultimoPagoMes = socio.pagos[0]?.mesPagado;
         let mesesAdeudados = 0;
@@ -146,6 +146,7 @@ export async function GET(request: Request) {
       where: {
         estado: "activo",
         categoria: { not: "vitalicio" },
+        rol: { not: "admin" },
         id: { notIn: (await db.pagoCuota.findMany({ where: { mesPagado: mesActual }, select: { socioId: true } })).map(p => p.socioId) }
       },
       include: { pagos: { orderBy: { mesPagado: 'desc' }, take: 1 } }

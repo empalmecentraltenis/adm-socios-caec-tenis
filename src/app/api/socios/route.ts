@@ -90,17 +90,18 @@ export async function GET(request: Request) {
 
       const valorCuota = cuotaPorCategoria[socio.categoria] || 8000;
       const esVitalicio = socio.categoria === "vitalicio";
+      const esAdmin = socio.rol === "admin";
       
-      // alDia: tiene menos de 2 cuotas pendientes (o es vitalicio)
+      // alDia: tiene menos de 2 cuotas pendientes (o es vitalicio o admin)
       // Un solo mes de deuda se considera dentro de la tolerancia de 'Al día' para reserva de turnos
-      const alDia = esVitalicio || mesesAdeudados < 2;
+      const alDia = esAdmin || esVitalicio || mesesAdeudados < 2;
 
       return {
         ...socio,
         alDia,
-        mesesAdeudados: esVitalicio ? 0 : mesesAdeudados,
+        mesesAdeudados: (esVitalicio || esAdmin) ? 0 : mesesAdeudados,
         totalPagado: socio.pagos.reduce((acc, p) => acc + p.monto, 0),
-        deudaEstimada: mesesAdeudados * valorCuota,
+        deudaEstimada: (esVitalicio || esAdmin) ? 0 : mesesAdeudados * valorCuota,
         valorCuota,
       };
     });
