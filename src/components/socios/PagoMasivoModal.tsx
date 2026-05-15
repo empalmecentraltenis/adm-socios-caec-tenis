@@ -126,7 +126,7 @@ export default function PagoMasivoModal({ open, onOpenChange, socios, onSuccess 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#1E1E1E] border-[#333333] sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="bg-[#1E1E1E] border-[#333333] sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
             <Users className="h-5 w-5 text-[#FFCC00]" />
@@ -198,30 +198,20 @@ export default function PagoMasivoModal({ open, onOpenChange, socios, onSuccess 
             </div>
 
             {/* Lista de socios */}
-            <div className="flex-1 overflow-y-auto space-y-1 max-h-[300px] pr-1">
+            <div className="flex-1 overflow-y-auto space-y-0.5 max-h-[500px] pr-1">
               {sociosFiltrados.length === 0 ? (
                 <p className="text-center text-[#999999] text-sm py-6">No hay socios disponibles</p>
               ) : (
                 sociosFiltrados.map(socio => (
                   <div
                     key={socio.id}
-                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                    className={`flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer transition-colors ${
                       selectedIds.has(socio.id) ? 'bg-[#FFCC00]/10 border border-[#FFCC00]/30' : 'hover:bg-[#252525] border border-transparent'
                     }`}
                     onClick={() => toggleSocio(socio.id)}
                   >
-                    <Checkbox checked={selectedIds.has(socio.id)} className="border-[#666666] data-[state=checked]:bg-[#FFCC00] data-[state=checked]:border-[#FFCC00]" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[#CCCCCC] text-xs font-medium truncate">{socio.apellido}, {socio.nombre}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge variant="outline" className="text-[10px] border-[#333333] text-[#666666]">{socio.categoria}</Badge>
-                        {socio.alDia ? (
-                            <span className="text-[9px] text-green-500 font-medium">Al día</span>
-                        ) : (
-                            <span className="text-[9px] text-amber-500 font-medium">Deuda</span>
-                        )}
-                      </div>
-                    </div>
+                    <Checkbox checked={selectedIds.has(socio.id)} className="h-3.5 w-3.5 border-[#666666] data-[state=checked]:bg-[#FFCC00] data-[state=checked]:border-[#FFCC00]" />
+                    <span className="text-[#CCCCCC] text-[13px] font-medium truncate">{socio.apellido}, {socio.nombre}</span>
                   </div>
                 ))
               )}
