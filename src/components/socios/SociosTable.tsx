@@ -757,6 +757,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                         <TableHead className="text-[#999999] font-medium text-xs h-8 py-1">DNI</TableHead>
                         <TableHead className="text-[#999999] font-medium text-xs h-8 py-1">Email</TableHead>
                         <TableHead className="text-[#999999] font-medium text-xs h-8 py-1">Teléfono</TableHead>
+                        <TableHead className="text-[#999999] font-medium text-xs h-8 py-1 text-center">Deuda</TableHead>
                         <TableHead className="text-[#999999] font-medium text-xs h-8 py-1 text-center">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -781,38 +782,60 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                           <TableCell className="text-[#999999] text-[11px] py-2 whitespace-nowrap">
                             {socio.telefono ? socio.telefono : '—'}
                           </TableCell>
-                          <TableCell className="py-2">
-                            {!readOnly && (
-                              <div className="flex items-center justify-center gap-0.5">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => onEditarSocio(socio)}
-                                  className="h-7 w-7 p-0 text-[#999999] hover:text-white hover:bg-[#2A2A2A]"
-                                  title="Editar socio"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setReactivateTarget(socio)}
-                                  className="h-7 w-7 p-0 text-[#00AA55] hover:text-[#00CC66] hover:bg-[#00AA55]/10"
-                                  title="Reactivar socio"
-                                >
-                                  <UserCheck className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => { setDeleteTarget(socio); setDeleteType('hard'); }}
-                                  className="h-7 w-7 p-0 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10"
-                                  title="Eliminar definitivamente"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
+                          <TableCell className="text-center py-2">
+                            {socio.mesesAdeudados > 0 ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[10px] font-medium">
+                                {socio.mesesAdeudados}m
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#00AA55]/15 text-[#00AA55] text-[10px] font-medium">
+                                Al día
+                              </span>
                             )}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => onVerHistorial({ id: socio.id, nombre: socio.nombre, apellido: socio.apellido, categoria: socio.categoria })}
+                                className="h-7 w-7 p-0 text-[#999999] hover:text-white hover:bg-[#2A2A2A]"
+                                title="Ver historial / detalle"
+                              >
+                                <History className="h-3.5 w-3.5" />
+                              </Button>
+                              {!readOnly && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => onEditarSocio(socio)}
+                                    className="h-7 w-7 p-0 text-[#999999] hover:text-white hover:bg-[#2A2A2A]"
+                                    title="Editar socio"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setReactivateTarget(socio)}
+                                    className="h-7 w-7 p-0 text-[#00AA55] hover:text-[#00CC66] hover:bg-[#00AA55]/10"
+                                    title="Reactivar socio"
+                                  >
+                                    <UserCheck className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => { setDeleteTarget(socio); setDeleteType('hard'); }}
+                                    className="h-7 w-7 p-0 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10"
+                                    title="Eliminar definitivamente"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -828,12 +851,23 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                           <p className="text-white text-sm font-medium truncate">{socio.apellido}, {socio.nombre}</p>
                           <p className="text-[#999999] text-[11px] truncate">{socio.email} · {socio.telefono || 'Sin teléfono'}</p>
                         </div>
-                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ml-2 ${getCategoriaBadge(socio.categoria)}`}>
-                          {socio.categoria.charAt(0).toUpperCase() + socio.categoria.slice(1)}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${getCategoriaBadge(socio.categoria)}`}>
+                            {socio.categoria.charAt(0).toUpperCase() + socio.categoria.slice(1)}
+                          </Badge>
+                          {socio.mesesAdeudados > 0 && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[9px] font-medium">
+                              {socio.mesesAdeudados}m
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-[#333333]">
+                        <Button size="sm" variant="ghost" onClick={() => onVerHistorial({ id: socio.id, nombre: socio.nombre, apellido: socio.apellido, categoria: socio.categoria })} className="h-7 px-2 text-[#999999] hover:bg-[#2A2A2A] text-[10px]">
+                          <History className="h-3 w-3 mr-0.5" /> Detalle
+                        </Button>
                         {!readOnly && (
-                          <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-[#333333]">
+                          <>
                             <Button size="sm" variant="ghost" onClick={() => onEditarSocio(socio)} className="h-7 px-2 text-[#999999] hover:text-white hover:bg-[#2A2A2A] text-[10px]">
                               <Pencil className="h-3 w-3 mr-0.5" /> Editar
                             </Button>
@@ -843,8 +877,9 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                             <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(socio); setDeleteType('hard'); }} className="h-7 px-2 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10 text-[10px]">
                               <Trash2 className="h-3 w-3 mr-0.5" /> Eliminar
                             </Button>
-                          </div>
+                          </>
                         )}
+                      </div>
                     </div>
                   ))}
                 </div>
