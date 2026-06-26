@@ -58,6 +58,7 @@ model Socio {
   turnos       Turno[]
   pagos        PagoCuota[]
   cuotas       Cuota[]
+  asistencias  AsistenciaClase[]
 
   @@map("socios")
 }
@@ -148,4 +149,18 @@ model Movimiento {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("movimientos")
+}
+
+model AsistenciaClase {
+  id        String   @id @default(cuid())
+  socioId   String   @db.Uuid @map("socio_id")
+  fecha     DateTime @default(now()) @db.Timestamptz(6)
+  notas     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  socio     Socio    @relation(fields: [socioId], references: [id], onDelete: Cascade)
+
+  @@index([socioId])
+  @@index([fecha])
+  @@map("asistencias_clase")
 }

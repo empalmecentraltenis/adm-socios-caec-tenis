@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 
@@ -15,6 +15,7 @@ const navItems = [
   { id: 'balance', label: 'Balance Mensual', icon: Wallet },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'reportes', label: 'Deudores', icon: FileText },
+  { id: 'asistencias', label: 'Clases / Asistencia', icon: CheckSquare },
   { id: 'configuracion', label: 'Configuración', icon: Settings },
 ];
 

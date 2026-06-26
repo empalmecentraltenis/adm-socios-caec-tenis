@@ -19,9 +19,10 @@ import AbmSocioModal from '@/components/socios/AbmSocioModal';
 import ReportesTable from '@/components/reportes/ReportesTable';
 import ConfiguracionPanel from '@/components/configuracion/ConfiguracionPanel';
 import BalanceMensual from '@/components/balance/BalanceMensual';
+import AsistenciasTable from '@/components/asistencias/AsistenciasTable';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'socios' | 'reportes' | 'configuracion' | 'balance';
+type TabType = 'dashboard' | 'socios' | 'reportes' | 'configuracion' | 'balance' | 'asistencias';
 
 interface DashboardData {
   kpis: {
@@ -212,6 +213,9 @@ export default function Home() {
 
           {/* Reportes Tab */}
           {activeTab === 'reportes' && <ReportesTable />}
+
+          {/* Asistencias Tab */}
+          {activeTab === 'asistencias' && <AsistenciasTable />}
 
           {/* Configuración Tab */}
           {activeTab === 'configuracion' && <ConfiguracionPanel readOnly={isReadOnly} />}
