@@ -13,6 +13,14 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -36,6 +44,9 @@ interface Socio {
 export default function ReportesTable() {
   const [allSocios, setAllSocios] = useState<Socio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waSocio, setWaSocio] = useState<Socio | null>(null);
+  const [waMensaje, setWaMensaje] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -59,7 +70,7 @@ export default function ReportesTable() {
 
   const deudores = useMemo(() => {
     return allSocios
-      .filter((s) => s.mesesAdeudados >= 2 && s.estado === 'activo')
+      .filter((s) => s.mesesAdeudados >= 2)
       .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados);
   }, [allSocios]);
 
@@ -92,10 +103,25 @@ export default function ReportesTable() {
     }
     const deuda = socio.deudaEstimada;
     const meses = socio.mesesAdeudados;
-    const msg = encodeURIComponent(
-      `Hola ${socio.nombre} ${socio.apellido} 👋\n\nTe escribimos del club CAEC para recordarte que tenés ${meses} cuota${meses > 1 ? 's' : ''} pendiente${meses > 1 ? 's' : ''} por un total de $${deuda.toLocaleString('es-AR')}.\n\nPor favor acercate a la sede o comunicate con nosotros para regularizar tu situación. ¡Gracias! 🎾`
-    );
-    window.open(`https://wa.me/54${phone.startsWith('0') ? phone.slice(1) : phone}?text=${msg}`, '_blank');
+    let msg = "";
+    
+    if (socio.estado === 'inactivo') {
+      msg = `Hola ${socio.nombre} ${socio.apellido} 👋\n\nTe escribimos del club CAEC. Nos comunicamos porque registramos una deuda pendiente de $${deuda.toLocaleString('es-AR')} correspondiente a ${meses} cuota${meses > 1 ? 's' : ''}.\n\nPara regularizar tu situación o consultar sobre tu estado en el club, por favor comunicate con nosotros. ¡Gracias! 🎾`;
+    } else {
+      msg = `Hola ${socio.nombre} ${socio.apellido} 👋\n\nTe escribimos del club CAEC para recordarte que tenés ${meses} cuota${meses > 1 ? 's' : ''} pendiente${meses > 1 ? 's' : ''} por un total de $${deuda.toLocaleString('es-AR')}.\n\nPor favor acercate a la sede o comunicate con nosotros para regularizar tu situación. ¡Gracias! 🎾`;
+    }
+    
+    setWaSocio(socio);
+    setWaMensaje(msg);
+    setWaModalOpen(true);
+  }
+
+  function confirmWhatsApp() {
+    if (!waSocio) return;
+    const phone = waSocio.telefono?.replace(/[^\d]/g, '');
+    const encodedMsg = encodeURIComponent(waMensaje);
+    window.open(`https://wa.me/54${phone?.startsWith('0') ? phone.slice(1) : phone}?text=${encodedMsg}`, '_blank');
+    setWaModalOpen(false);
   }
 
   function exportToExcel() {
@@ -231,7 +257,7 @@ export default function ReportesTable() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
           <div>
             <h3 className="text-white text-sm font-semibold">
-              Reporte de Morosidad (Activos)
+              Reporte de Morosidad
             </h3>
             <div className="flex items-center gap-3 mt-0.5">
               <span className="text-[#999999] text-[11px]">
@@ -437,6 +463,43 @@ export default function ReportesTable() {
           })()}
         </div>
       </div>
+
+      {/* WhatsApp Modal */}
+      <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>
+        <DialogContent className="bg-[#1E1E1E] border-[#333333] text-white sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-400" />
+              Enviar mensaje a {waSocio?.nombre}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <label className="text-sm text-[#999999] mb-2 block">
+              Mensaje a enviar (puedes editarlo):
+            </label>
+            <Textarea
+              value={waMensaje}
+              onChange={(e) => setWaMensaje(e.target.value)}
+              className="min-h-[200px] bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] focus:ring-green-400 focus:border-green-400"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setWaModalOpen(false)}
+              className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmWhatsApp}
+              className="bg-green-600 text-white hover:bg-green-500 font-medium"
+            >
+              Abrir WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
