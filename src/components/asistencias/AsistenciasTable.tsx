@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RefreshCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 interface Cuota {
   id: string;
