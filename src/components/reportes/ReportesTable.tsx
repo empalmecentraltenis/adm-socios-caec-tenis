@@ -318,6 +318,11 @@ export default function ReportesTable() {
                     <TableCell className="text-[#CCCCCC] text-xs py-2">
                       <span className="font-medium">{socio.apellido}</span>{', '}
                       {socio.nombre}
+                      {socio.estado === 'inactivo' && (
+                        <Badge variant="outline" className="ml-2 bg-red-500/15 text-red-400 border-red-500/20 text-[9px] px-1 py-0 h-4">
+                          Inactivo
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-[#CCCCCC] font-mono text-[11px] py-2">{socio.dni}</TableCell>
                     <TableCell className="text-center py-2">
@@ -392,6 +397,9 @@ export default function ReportesTable() {
                     <div className="min-w-0 flex-1">
                       <p className="text-white text-sm font-medium truncate">
                         {index + 1}. {socio.apellido}, {socio.nombre}
+                        {socio.estado === 'inactivo' && (
+                          <span className="ml-2 text-[9px] text-red-400 font-bold uppercase">Inactivo</span>
+                        )}
                       </p>
                       <p className="text-[#999999] text-[11px]">DNI: {socio.dni} · {socio.telefono || 'Sin tel.'}</p>
                     </div>
