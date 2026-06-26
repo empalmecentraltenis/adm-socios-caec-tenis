@@ -96,7 +96,7 @@ export default function Home() {
   // Fetch socios for table
   const fetchSocios = useCallback(async () => {
     try {
-      const res = await fetch('/api/socios?activos=true');
+      const res = await fetch('/api/socios');
       if (res.ok) {
         const data = await res.json();
         setSociosData(data);

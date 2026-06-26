@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Pencil, Trash2, ChevronUp, ChevronDown, DollarSign, History, Users, Phone, Mail, UserCheck, UserX, MessageCircle, AlertTriangle, FileDown } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, ChevronUp, ChevronDown, DollarSign, History, Users, Phone, Mail, UserCheck, Loader2, MessageCircle, AlertTriangle, FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -89,35 +89,13 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [filterCategoria, setFilterCategoria] = useState('todos');
   const [filterEstado, setFilterEstado] = useState('todos'); // 'todos' | 'al_dia' | 'morosos'
-  const [showInactivos, setShowInactivos] = useState(false);
-  const [inactivosData, setInactivosData] = useState<Socio[]>([]);
+  const [filterActivo, setFilterActivo] = useState('todos'); // 'todos' | 'activo' | 'inactivo'
   const [deleteTarget, setDeleteTarget] = useState<Socio | null>(null);
   const [deleteType, setDeleteType] = useState<'soft' | 'hard'>('soft');
   const [reactivateTarget, setReactivateTarget] = useState<Socio | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
-
-  // Fetch inactive socios when toggled
-  useEffect(() => {
-    if (showInactivos) {
-      fetchInactivos();
-    } else {
-      setInactivosData([]);
-    }
-  }, [showInactivos, refreshKey]);
-
-  async function fetchInactivos() {
-    try {
-      const res = await fetch('/api/socios?activos=false');
-      if (res.ok) {
-        const data = await res.json();
-        setInactivosData(data);
-      }
-    } catch (error) {
-      console.error('Error al cargar inactivos:', error);
-    }
-  }
 
   useEffect(() => {
     setLoading(false);
@@ -140,6 +118,10 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
 
     if (filterCategoria && filterCategoria !== 'todos') {
       result = result.filter((s) => s.categoria === filterCategoria);
+    }
+
+    if (filterActivo && filterActivo !== 'todos') {
+      result = result.filter((s) => s.estado === filterActivo);
     }
 
     if (filterEstado === 'morosos') {
@@ -181,20 +163,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
     });
 
     return result;
-  }, [socios, search, sortField, sortDir, filterCategoria, filterEstado]);
-
-  const filteredInactivos = useMemo(() => {
-    if (!search.trim()) return inactivosData;
-    const q = search.toLowerCase().trim();
-    return inactivosData.filter(
-      (s) =>
-        s.nombre.toLowerCase().includes(q) ||
-        s.apellido.toLowerCase().includes(q) ||
-        s.dni.includes(q) ||
-        (s.email && s.email.toLowerCase().includes(q)) ||
-        (s.telefono && s.telefono.includes(q))
-    );
-  }, [inactivosData, search]);
+  }, [socios, search, sortField, sortDir, filterCategoria, filterEstado, filterActivo]);
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -291,6 +260,8 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
 
   const deudoresCount = socios.filter(s => s.mesesAdeudados >= 2).length;
   const alDiaCount = socios.filter(s => s.alDia || s.categoria === 'vitalicio').length;
+  const activosCount = socios.filter(s => s.estado === 'activo').length;
+  const inactivosCount = socios.filter(s => s.estado === 'inactivo').length;
 
   const handleExportExcel = async (filterType: 'todos' | 'activos' | 'inactivos' | 'morosos' | 'al_dia') => {
     setExporting(true);
@@ -298,26 +269,17 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
       let dataToExport: Socio[] = [];
       let label = "";
 
-      // Si necesitamos inactivos y no están cargados, los traemos
-      let currentInactivos = inactivosData;
-      if ((filterType === 'todos' || filterType === 'inactivos') && currentInactivos.length === 0) {
-        const res = await fetch('/api/socios?activos=false');
-        if (res.ok) {
-          currentInactivos = await res.json();
-        }
-      }
-
       switch (filterType) {
         case 'todos':
-          dataToExport = [...socios, ...currentInactivos];
+          dataToExport = socios;
           label = "Completa";
           break;
         case 'activos':
-          dataToExport = socios;
+          dataToExport = socios.filter(s => s.estado === 'activo');
           label = "Activos";
           break;
         case 'inactivos':
-          dataToExport = currentInactivos;
+          dataToExport = socios.filter(s => s.estado === 'inactivo');
           label = "Inactivos";
           break;
         case 'morosos':
@@ -393,7 +355,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-white text-sm font-semibold">Socios Activos</h3>
+            <h3 className="text-white text-sm font-semibold">Socios del Club</h3>
             <span className="text-[#666666] text-xs">({socios.length})</span>
             {!readOnly && (
               <Button
@@ -426,10 +388,10 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                   Exportar Todos (Activos + Inactivos)
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleExportExcel('activos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer">
-                  Solo Activos ({socios.length})
+                  Solo Activos ({activosCount})
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleExportExcel('inactivos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer">
-                  Solo Inactivos
+                  Solo Inactivos ({inactivosCount})
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleExportExcel('morosos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer text-red-400 focus:text-red-300">
                   Solo Morosos ({deudoresCount})
@@ -452,6 +414,16 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <Select value={filterActivo} onValueChange={setFilterActivo}>
+              <SelectTrigger className="w-[120px] bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] h-8 text-xs">
+                <SelectValue placeholder="Situación" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1E1E1E] border-[#333333]">
+                <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Todos</SelectItem>
+                <SelectItem value="activo" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Activos</SelectItem>
+                <SelectItem value="inactivo" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Inactivos</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={filterEstado} onValueChange={setFilterEstado}>
               <SelectTrigger className="w-[130px] bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] h-8 text-xs">
                 <SelectValue placeholder="Estado" />
@@ -545,6 +517,11 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                           Admin
                         </Badge>
                       )}
+                      {socio.estado === 'inactivo' && (
+                        <Badge variant="outline" className="ml-2 bg-red-500/15 text-red-400 border-red-500/20 text-[9px] px-1 py-0 h-4">
+                          Inactivo
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="py-2">
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getCategoriaBadge(socio.categoria)}`}>
@@ -619,15 +596,38 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => { setDeleteTarget(socio); setDeleteType('soft'); }}
-                              className="h-7 w-7 p-0 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10"
-                              title="Dar de baja"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {socio.estado === 'inactivo' ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setReactivateTarget(socio)}
+                                  className="h-7 w-7 p-0 text-[#00AA55] hover:text-[#00CC66] hover:bg-[#00AA55]/10"
+                                  title="Reactivar socio"
+                                >
+                                  <UserCheck className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => { setDeleteTarget(socio); setDeleteType('hard'); }}
+                                  className="h-7 w-7 p-0 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10"
+                                  title="Eliminar definitivamente"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => { setDeleteTarget(socio); setDeleteType('soft'); }}
+                                className="h-7 w-7 p-0 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10"
+                                title="Dar de baja"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>
@@ -657,6 +657,9 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                       {socio.apellido}, {socio.nombre}
                       {socio.rol === 'admin' && (
                         <span className="ml-2 text-[9px] text-purple-400 font-bold uppercase">Admin</span>
+                      )}
+                      {socio.estado === 'inactivo' && (
+                        <span className="ml-2 text-[9px] text-red-400 font-bold uppercase">Inactivo</span>
                       )}
                     </p>
                     <p className="text-[#999999] text-[11px] truncate">{socio.email}</p>
@@ -703,9 +706,20 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                       <Button size="sm" variant="ghost" onClick={() => onEditarSocio(socio)} className="h-7 px-2 text-[#999999] hover:bg-[#2A2A2A] text-[10px]">
                         <Pencil className="h-3 w-3 mr-0.5" /> Editar
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(socio); setDeleteType('soft'); }} className="h-7 px-2 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10 text-[10px]">
-                        <Trash2 className="h-3 w-3 mr-0.5" /> Baja
-                      </Button>
+                      {socio.estado === 'inactivo' ? (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => setReactivateTarget(socio)} className="h-7 px-2 text-[#00AA55] hover:bg-[#00AA55]/10 text-[10px]">
+                            <UserCheck className="h-3 w-3 mr-0.5" /> Reactivar
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(socio); setDeleteType('hard'); }} className="h-7 px-2 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10 text-[10px]">
+                            <Trash2 className="h-3 w-3 mr-0.5" /> Eliminar
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(socio); setDeleteType('soft'); }} className="h-7 px-2 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10 text-[10px]">
+                          <Trash2 className="h-3 w-3 mr-0.5" /> Baja
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
@@ -717,174 +731,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
         {/* Resumen compacto */}
         {!loading && filteredSocios.length > 0 && (
           <div className="mt-2 pt-2 border-t border-[#333333] text-[#666666] text-[10px]">
-            Mostrando {filteredSocios.length} de {socios.length} socios activos
-          </div>
-        )}
-
-        {/* Toggle inactivos */}
-        <div className="mt-3 pt-3 border-t border-[#333333]">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowInactivos(!showInactivos)}
-            className="text-[#999999] hover:text-white hover:bg-[#2A2A2A] text-xs h-7"
-          >
-            <UserX className="h-3.5 w-3.5 mr-1.5" />
-            {showInactivos ? 'Ocultar inactivos' : `Ver socios inactivos`}
-            {!showInactivos && inactivosData.length > 0 && (
-              <Badge variant="outline" className="ml-1.5 text-[9px] px-1.5 py-0 border-[#EF4444]/30 text-[#EF4444]">
-                {inactivosData.length}
-              </Badge>
-            )}
-          </Button>
-        </div>
-
-        {/* Lista de inactivos */}
-        {showInactivos && (
-          <div className="mt-3 space-y-2">
-            {filteredInactivos.length === 0 ? (
-              <div className="text-center py-4 text-[#999999] text-xs">
-                No hay socios inactivos
-              </div>
-            ) : (
-              <>
-                <div className="hidden lg:block overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-[#333333] hover:bg-transparent">
-                        <TableHead className="text-[#999999] font-medium text-xs h-8 py-1">Socio</TableHead>
-                        <TableHead className="text-[#999999] font-medium text-xs h-8 py-1">Categoría</TableHead>
-                        <TableHead className="text-[#999999] font-medium text-xs h-8 py-1">DNI</TableHead>
-                        <TableHead className="text-[#999999] font-medium text-xs h-8 py-1">Email</TableHead>
-                        <TableHead className="text-[#999999] font-medium text-xs h-8 py-1">Teléfono</TableHead>
-                        <TableHead className="text-[#999999] font-medium text-xs h-8 py-1 text-center">Deuda</TableHead>
-                        <TableHead className="text-[#999999] font-medium text-xs h-8 py-1 text-center">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredInactivos.map((socio) => (
-                        <TableRow key={socio.id} className="border-[#333333] hover:bg-red-500/10 bg-red-500/5 opacity-80">
-                          <TableCell className="text-[#CCCCCC] text-xs py-2">
-                            <span className="font-medium">{socio.apellido}</span>, {socio.nombre}
-                            {socio.rol === 'admin' && (
-                              <Badge variant="outline" className="ml-2 bg-purple-500/10 text-purple-400/70 border-purple-500/10 text-[9px] px-1 py-0 h-4">
-                                Admin
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2">
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getCategoriaBadge(socio.categoria)}`}>
-                              {socio.categoria.charAt(0).toUpperCase() + socio.categoria.slice(1)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-[#CCCCCC] font-mono text-[11px] py-2">{socio.dni}</TableCell>
-                          <TableCell className="text-[#999999] text-[11px] py-2 max-w-[160px] truncate">{socio.email}</TableCell>
-                          <TableCell className="text-[#999999] text-[11px] py-2 whitespace-nowrap">
-                            {socio.telefono ? socio.telefono : '—'}
-                          </TableCell>
-                          <TableCell className="text-center py-2">
-                            {socio.mesesAdeudados > 0 ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[10px] font-medium">
-                                {socio.mesesAdeudados}m
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#00AA55]/15 text-[#00AA55] text-[10px] font-medium">
-                                Al día
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="py-2">
-                            <div className="flex items-center justify-center gap-0.5">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => onVerHistorial({ id: socio.id, nombre: socio.nombre, apellido: socio.apellido, categoria: socio.categoria })}
-                                className="h-7 w-7 p-0 text-[#999999] hover:text-white hover:bg-[#2A2A2A]"
-                                title="Ver historial / detalle"
-                              >
-                                <History className="h-3.5 w-3.5" />
-                              </Button>
-                              {!readOnly && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => onEditarSocio(socio)}
-                                    className="h-7 w-7 p-0 text-[#999999] hover:text-white hover:bg-[#2A2A2A]"
-                                    title="Editar socio"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setReactivateTarget(socio)}
-                                    className="h-7 w-7 p-0 text-[#00AA55] hover:text-[#00CC66] hover:bg-[#00AA55]/10"
-                                    title="Reactivar socio"
-                                  >
-                                    <UserCheck className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => { setDeleteTarget(socio); setDeleteType('hard'); }}
-                                    className="h-7 w-7 p-0 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10"
-                                    title="Eliminar definitivamente"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {/* Mobile inactivos */}
-                <div className="lg:hidden space-y-2">
-                  {filteredInactivos.map((socio) => (
-                    <div key={socio.id} className="bg-[#252525] border border-[#333333] rounded-lg p-3 opacity-60">
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-white text-sm font-medium truncate">{socio.apellido}, {socio.nombre}</p>
-                          <p className="text-[#999999] text-[11px] truncate">{socio.email} · {socio.telefono || 'Sin teléfono'}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${getCategoriaBadge(socio.categoria)}`}>
-                            {socio.categoria.charAt(0).toUpperCase() + socio.categoria.slice(1)}
-                          </Badge>
-                          {socio.mesesAdeudados > 0 && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[9px] font-medium">
-                              {socio.mesesAdeudados}m
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-[#333333]">
-                        <Button size="sm" variant="ghost" onClick={() => onVerHistorial({ id: socio.id, nombre: socio.nombre, apellido: socio.apellido, categoria: socio.categoria })} className="h-7 px-2 text-[#999999] hover:bg-[#2A2A2A] text-[10px]">
-                          <History className="h-3 w-3 mr-0.5" /> Detalle
-                        </Button>
-                        {!readOnly && (
-                          <>
-                            <Button size="sm" variant="ghost" onClick={() => onEditarSocio(socio)} className="h-7 px-2 text-[#999999] hover:text-white hover:bg-[#2A2A2A] text-[10px]">
-                              <Pencil className="h-3 w-3 mr-0.5" /> Editar
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setReactivateTarget(socio)} className="h-7 px-2 text-[#00AA55] hover:bg-[#00AA55]/10 text-[10px]">
-                              <UserCheck className="h-3 w-3 mr-0.5" /> Reactivar
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => { setDeleteTarget(socio); setDeleteType('hard'); }} className="h-7 px-2 text-[#999999] hover:text-[#EF4444] hover:bg-[#EF4444]/10 text-[10px]">
-                              <Trash2 className="h-3 w-3 mr-0.5" /> Eliminar
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+            Mostrando {filteredSocios.length} de {socios.length} socios
           </div>
         )}
       </div>
