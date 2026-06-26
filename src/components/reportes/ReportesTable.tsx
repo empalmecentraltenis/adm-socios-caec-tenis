@@ -14,6 +14,13 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -44,6 +51,7 @@ interface Socio {
 export default function ReportesTable() {
   const [allSocios, setAllSocios] = useState<Socio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterActivo, setFilterActivo] = useState("todos");
   const [waModalOpen, setWaModalOpen] = useState(false);
   const [waSocio, setWaSocio] = useState<Socio | null>(null);
   const [waMensaje, setWaMensaje] = useState("");
@@ -70,9 +78,14 @@ export default function ReportesTable() {
 
   const deudores = useMemo(() => {
     return allSocios
-      .filter((s) => s.mesesAdeudados >= 2)
+      .filter((s) => {
+        if (s.mesesAdeudados < 2) return false;
+        if (filterActivo === 'activo' && s.estado !== 'activo') return false;
+        if (filterActivo === 'inactivo' && s.estado !== 'inactivo') return false;
+        return true;
+      })
       .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados);
-  }, [allSocios]);
+  }, [allSocios, filterActivo]);
 
   const deudaTotal = useMemo(() => {
     return deudores.reduce((acc, s) => acc + s.deudaEstimada, 0);
@@ -268,7 +281,17 @@ export default function ReportesTable() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={filterActivo} onValueChange={setFilterActivo}>
+              <SelectTrigger className="w-[120px] bg-[#2A2A2A] border-[#333333] text-[#CCCCCC] h-8 text-xs">
+                <SelectValue placeholder="Situación" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1E1E1E] border-[#333333]">
+                <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Todos</SelectItem>
+                <SelectItem value="activo" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Activos</SelectItem>
+                <SelectItem value="inactivo" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Inactivos</SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               onClick={exportToPdf}
               disabled={deudores.length === 0}
