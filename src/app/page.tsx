@@ -150,6 +150,7 @@ export default function Home() {
     reportes: { title: 'Reportes', subtitle: 'Reporte de morosidad y financieros' },
     configuracion: { title: 'Configuración', subtitle: 'Valores de cuota y categorías' },
     balance: { title: 'Balance Mensual', subtitle: 'Caja de la sub-comisión de tenis' },
+    asistencias: { title: 'Clases / Asistencia', subtitle: 'Registro de asistencia a las clases de tenis' },
   };
 
   return (
