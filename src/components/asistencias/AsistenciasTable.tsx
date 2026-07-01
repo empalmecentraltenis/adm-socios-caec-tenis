@@ -71,8 +71,9 @@ export default function AsistenciasTable() {
     const hoy = new Date();
     const cuotasPendientes = socio.cuotas?.filter(c => c.estado === 'pendiente') || [];
     const mesesAdeudados = cuotasPendientes.filter(c => {
-      const fechaVencimiento = new Date(c.mes + '-10');
-      return fechaVencimiento < hoy;
+      const [anio, mes] = c.mes.split('-');
+      const vencimiento = new Date(parseInt(anio), parseInt(mes) - 1, 16); 
+      return hoy >= vencimiento;
     }).length;
     if (mesesAdeudados >= 2) {
       alertas.push(`Debe ${mesesAdeudados} cuotas`);

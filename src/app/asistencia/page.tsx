@@ -40,8 +40,9 @@ export default function AsistenciaPage() {
         const hoy = new Date();
         const cuotasPendientes = socio.cuotas?.filter((c: any) => c.estado === 'pendiente') || [];
         const mesesAdeudados = cuotasPendientes.filter((c: any) => {
-          const fechaVencimiento = new Date(c.mes + '-10'); 
-          return fechaVencimiento < hoy;
+          const [anio, mes] = c.mes.split('-');
+          const vencimiento = new Date(parseInt(anio), parseInt(mes) - 1, 16); 
+          return hoy >= vencimiento;
         }).length;
 
         if (socio.estado === 'inactivo' || mesesAdeudados >= 2) {

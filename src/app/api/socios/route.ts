@@ -70,7 +70,15 @@ export async function GET(request: Request) {
     const sociosConEstado = socios.map((socio) => {
       // 1. Obtener cuotas pendientes reales de la nueva tabla
       const cuotasPendientes = socio.cuotas.filter(c => c.estado === 'pendiente');
-      const mesesAdeudadosReales = cuotasPendientes.length;
+      let mesesAdeudadosReales = cuotasPendientes.length;
+
+      // GRACIA DE 15 DÍAS: Si estamos a 15 o menos del mes, y debe el mes actual, no lo contamos como deuda vencida.
+      if (ahora.getDate() <= 15) {
+        const debeMesActual = cuotasPendientes.some(c => c.mes === mesActual);
+        if (debeMesActual) {
+          mesesAdeudadosReales = Math.max(0, mesesAdeudadosReales - 1);
+        }
+      }
 
       // 2. Lógica de compatibilidad: si no hay registros en la tabla cuotas (ej. cuotas viejas), 
       // seguimos usando el cálculo dinámico como respaldo para no perder deudas históricas.
@@ -84,7 +92,13 @@ export async function GET(request: Request) {
           : new Date(socio.fechaAlta);
 
         const diff = ahora.getFullYear() - ultimoPago.getFullYear();
-        const calcDiff = diff * 12 + (ahora.getMonth() - ultimoPago.getMonth());
+        let calcDiff = diff * 12 + (ahora.getMonth() - ultimoPago.getMonth());
+        
+        // GRACIA DE 15 DÍAS para cálculo antiguo
+        if (ahora.getDate() <= 15 && calcDiff > 0 && !tienePagoMesActual) {
+          calcDiff -= 1;
+        }
+
         mesesAdeudados = calcDiff > 0 ? calcDiff : 0;
       }
 

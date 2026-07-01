@@ -57,6 +57,11 @@ export async function GET(request: Request) {
           mesesAdeudados = (yA - socio.fechaAlta.getFullYear()) * 12 + (mA - (socio.fechaAlta.getMonth() + 1));
         }
 
+        // GRACIA DE 15 DÍAS
+        if (ahora.getDate() <= 15 && mesesAdeudados > 0) {
+          mesesAdeudados -= 1;
+        }
+
         return Math.max(0, mesesAdeudados) < 2;
       }).length;
 
@@ -169,6 +174,11 @@ export async function GET(request: Request) {
           mesesAdeudados = (yA - y) * 12 + (mA - m);
         } else {
           mesesAdeudados = (yA - socio.fechaAlta.getFullYear()) * 12 + (mA - (socio.fechaAlta.getMonth() + 1));
+        }
+
+        // GRACIA DE 15 DÍAS
+        if (ahora.getDate() <= 15 && mesesAdeudados > 0) {
+          mesesAdeudados -= 1;
         }
 
         return {
