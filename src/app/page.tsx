@@ -161,6 +161,7 @@ export default function Home() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onOpen={() => setSidebarOpen(true)}
+        isReadOnly={isReadOnly}
       />
 
       <main className="lg:ml-[260px] min-h-screen">

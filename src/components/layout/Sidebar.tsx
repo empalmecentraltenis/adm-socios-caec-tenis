@@ -8,6 +8,7 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onOpen: () => void;
+  isReadOnly?: boolean;
 }
 
 const navItems = [
@@ -19,7 +20,11 @@ const navItems = [
   { id: 'configuracion', label: 'Configuración', icon: Settings },
 ];
 
-export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen }: SidebarProps) {
+export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen, isReadOnly }: SidebarProps) {
+  const filteredNavItems = isReadOnly 
+    ? navItems.filter(item => item.id === 'socios') 
+    : navItems;
+
   return (
     <>
       {/* Mobile overlay */}
@@ -77,7 +82,7 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = activeTab === item.id;
             const Icon = item.icon;
             return (
