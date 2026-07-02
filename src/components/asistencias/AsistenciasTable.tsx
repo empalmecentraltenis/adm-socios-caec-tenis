@@ -15,6 +15,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { RefreshCcw, AlertTriangle, CheckCircle2, Printer, QrCode, ExternalLink, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
@@ -48,6 +55,23 @@ interface ReporteSocio {
   socio: Socio;
   totalClases: number;
 }
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function generateMonthOptions() {
+  const options: { value: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = 0; i < 24; i++) { // Últimos 2 años
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const value = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const label = `${MESES[month]} ${year}`;
+    options.push({ value, label });
+  }
+  return options;
+}
+const monthOptions = generateMonthOptions();
 
 export default function AsistenciasTable() {
   const [activeTab, setActiveTab] = useState('diaria');
@@ -373,12 +397,18 @@ export default function AsistenciasTable() {
               </div>
               
               <div className="flex items-center gap-2 print:hidden">
-                <Input 
-                  type="month" 
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="h-8 text-xs bg-[#2A2A2A] border-[#333333] text-white focus:border-[#FFCC00] focus:ring-[#FFCC00] w-[140px]"
-                />
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="h-8 text-xs bg-[#2A2A2A] border-[#333333] text-white focus:ring-[#FFCC00] w-[160px]">
+                    <SelectValue placeholder="Seleccionar mes" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1E1E1E] border-[#333333] text-white">
+                    {monthOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="focus:bg-[#333333] focus:text-white">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 
                 <Button
                   variant="outline"
