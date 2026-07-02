@@ -6,9 +6,22 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const dateStr = searchParams.get("fecha");
+    const monthStr = searchParams.get("mes");
     
     let whereClause = {};
-    if (dateStr) {
+    if (monthStr) {
+      // Filtrar por mes (YYYY-MM)
+      const [year, month] = monthStr.split('-');
+      const startOfMonth = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, 1, 0, 0, 0, 0));
+      const endOfMonth = new Date(Date.UTC(parseInt(year), parseInt(month), 0, 23, 59, 59, 999));
+      
+      whereClause = {
+        fecha: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        }
+      };
+    } else if (dateStr) {
       // Filtrar por fecha exacta (Y-m-d)
       const startOfDay = new Date(dateStr);
       startOfDay.setUTCHours(0, 0, 0, 0);
