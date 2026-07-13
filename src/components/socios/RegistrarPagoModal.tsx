@@ -49,6 +49,7 @@ export default function RegistrarPagoModal({
   const [montoManual, setMontoManual] = useState('7000');
   const [metodoPago, setMetodoPago] = useState('efectivo');
   const [submitting, setSubmitting] = useState(false);
+  const [nextUnpaidMonth, setNextUnpaidMonth] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -70,10 +71,22 @@ export default function RegistrarPagoModal({
         // Filtrar solo los que vienen de la tabla cuotas (metodoPago === 'pendiente')
         const itemsPendientes = data.filter((item: any) => item.metodoPago === 'pendiente');
         setPendientes(itemsPendientes);
-        
-        if (itemsPendientes.length > 0) {
-          setMontoSugerido(itemsPendientes[0].monto);
-          setMontoManual(itemsPendientes[0].monto.toString());
+        // Encontrar el último mes pagado para sugerir el siguiente
+        const itemsPagados = data.filter((item: any) => item.metodoPago !== 'pendiente');
+        if (itemsPagados.length > 0) {
+          // data viene ordenado desc por mesPagado
+          const lastPaidMes = itemsPagados[0].mesPagado;
+          const [y, m] = lastPaidMes.split('-').map(Number);
+          let nextM = m + 1;
+          let nextY = y;
+          if (nextM > 12) {
+            nextM = 1;
+            nextY += 1;
+          }
+          setNextUnpaidMonth(`${nextY}-${String(nextM).padStart(2, '0')}`);
+        } else {
+          const d = new Date();
+          setNextUnpaidMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
         }
       }
     } catch (error) {
@@ -174,9 +187,24 @@ export default function RegistrarPagoModal({
                 <ScrollArea className={`${pendientes.length === 0 && selectedMonths.length === 0 ? 'h-20' : 'h-40'} border border-[#333333] rounded-lg bg-[#1A1A1A]`}>
                   <div className="p-2 space-y-1">
                     {pendientes.length === 0 && selectedMonths.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-center p-2">
-                        <AlertCircle className="h-4 w-4 text-[#00AA55] mb-1 opacity-50" />
-                        <p className="text-[10px] text-[#666666]">Sin cuotas pendientes.</p>
+                      <div className="h-full flex flex-col items-center justify-center text-center p-2 space-y-3">
+                        <div className="flex flex-col items-center">
+                          <AlertCircle className="h-5 w-5 text-[#00AA55] mb-1 opacity-80" />
+                          <p className="text-[12px] font-medium text-[#00AA55]">Socio al día</p>
+                          <p className="text-[10px] text-[#999999]">No hay cuotas atrasadas.</p>
+                        </div>
+                        
+                        {nextUnpaidMonth && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleMonth(nextUnpaidMonth)}
+                            className="bg-[#FFCC00]/10 text-[#FFCC00] border-[#FFCC00]/30 hover:bg-[#FFCC00]/20 hover:text-[#FFCC00] text-xs h-8 px-4"
+                          >
+                            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                            Registrar mes: {MESES[parseInt(nextUnpaidMonth.split('-')[1]) - 1]} {nextUnpaidMonth.split('-')[0]}
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <>
