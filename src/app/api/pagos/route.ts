@@ -207,13 +207,13 @@ export async function GET(request: Request) {
       const ahora = new Date();
       const mesActualNum = ahora.getFullYear() * 12 + (ahora.getMonth() + 1);
       
-      // Obtener socio para saber fecha de alta, categoría y ROL
+      // Obtener socio para saber fecha de alta, categoría, ROL y estado
       const socio = await db.socio.findUnique({ 
         where: { id: socioId }, 
-        select: { fechaAlta: true, categoria: true, rol: true } 
+        select: { fechaAlta: true, categoria: true, rol: true, estado: true } 
       });
 
-      if (socio && socio.categoria !== 'vitalicio' && socio.rol !== 'admin') {
+      if (socio && socio.categoria !== 'vitalicio' && socio.rol !== 'admin' && socio.estado === 'activo') {
         // Determinar desde cuándo empezar a buscar deudas
         let mesInicioNum: number;
         

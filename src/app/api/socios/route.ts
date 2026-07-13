@@ -72,35 +72,45 @@ export async function GET(request: Request) {
       const cuotasPendientes = socio.cuotas.filter(c => c.estado === 'pendiente');
       let mesesAdeudadosReales = cuotasPendientes.length;
 
+      // Lógica dinámica: Detectar meses faltantes (virtuales) para socios activos
+      let debeMesActualVirtual = false;
+      if (socio.estado === 'activo' && socio.categoria !== 'vitalicio' && socio.rol !== 'admin') {
+        const todosLosMesesRegistrados = [
+          ...socio.pagos.map(p => p.mesPagado),
+          ...socio.cuotas.map(c => c.mes)
+        ].sort();
+
+        const mesActualNum = ahora.getFullYear() * 12 + (ahora.getMonth() + 1);
+        let mesInicioNum;
+
+        if (todosLosMesesRegistrados.length > 0) {
+          const lastMes = todosLosMesesRegistrados[todosLosMesesRegistrados.length - 1];
+          const [y, m] = lastMes.split("-").map(Number);
+          mesInicioNum = (y * 12 + m) + 1;
+          
+          if (lastMes < mesActual) {
+            debeMesActualVirtual = true;
+          }
+        } else {
+          const fechaAlta = socio.fechaAlta ? new Date(socio.fechaAlta) : ahora;
+          mesInicioNum = fechaAlta.getFullYear() * 12 + (fechaAlta.getMonth() + 1);
+          debeMesActualVirtual = true;
+        }
+
+        if (mesInicioNum <= mesActualNum) {
+          mesesAdeudadosReales += (mesActualNum - mesInicioNum + 1);
+        }
+      }
+
       // GRACIA DE 15 DÍAS: Si estamos a 15 o menos del mes, y debe el mes actual, no lo contamos como deuda vencida.
       if (ahora.getDate() <= 15) {
-        const debeMesActual = cuotasPendientes.some(c => c.mes === mesActual);
-        if (debeMesActual) {
+        const debeMesActualFisico = cuotasPendientes.some(c => c.mes === mesActual);
+        if (debeMesActualFisico || debeMesActualVirtual) {
           mesesAdeudadosReales = Math.max(0, mesesAdeudadosReales - 1);
         }
       }
 
-      // 2. Lógica de compatibilidad: si no hay registros en la tabla cuotas (ej. cuotas viejas), 
-      // seguimos usando el cálculo dinámico como respaldo para no perder deudas históricas.
       let mesesAdeudados = mesesAdeudadosReales;
-      
-      if (socio.cuotas.length === 0) {
-        const mesesPagados = socio.pagos.map((p) => p.mesPagado);
-        const tienePagoMesActual = mesesPagados.includes(mesActual);
-        const ultimoPago = mesesPagados.length > 0
-          ? new Date(Math.max(...mesesPagados.map((m) => new Date(m + "-01").getTime())))
-          : new Date(socio.fechaAlta);
-
-        const diff = ahora.getFullYear() - ultimoPago.getFullYear();
-        let calcDiff = diff * 12 + (ahora.getMonth() - ultimoPago.getMonth());
-        
-        // GRACIA DE 15 DÍAS para cálculo antiguo
-        if (ahora.getDate() <= 15 && calcDiff > 0 && !tienePagoMesActual) {
-          calcDiff -= 1;
-        }
-
-        mesesAdeudados = calcDiff > 0 ? calcDiff : 0;
-      }
 
       const valorCuota = cuotaPorCategoria[socio.categoria] || 8000;
       const esVitalicio = socio.categoria === "vitalicio";
