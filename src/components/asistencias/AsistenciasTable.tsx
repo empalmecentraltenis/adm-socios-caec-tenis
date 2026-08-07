@@ -142,10 +142,11 @@ export default function AsistenciasTable() {
       alertas.push('Inactivo');
     }
     const hoy = new Date();
-    const cuotasPendientes = socio.cuotas?.filter(c => c.estado === 'pendiente') || [];
-    const mesesAdeudados = cuotasPendientes.filter(c => {
+    const mesesAdeudados = (socio.cuotas || []).filter((c: any) => {
+      if (c.estado === 'pagado') return false;
       const [anio, mes] = c.mes.split('-');
-      const vencimiento = new Date(parseInt(anio), parseInt(mes) - 1, 16); 
+      // Vencimiento a fin de mes (tienen todo el mes para pagarlo)
+      const vencimiento = new Date(parseInt(anio), parseInt(mes), 1); 
       return hoy >= vencimiento;
     }).length;
     if (mesesAdeudados >= 4) {

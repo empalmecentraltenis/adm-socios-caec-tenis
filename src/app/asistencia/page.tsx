@@ -41,7 +41,8 @@ export default function AsistenciaPage() {
         const cuotasPendientes = socio.cuotas?.filter((c: any) => c.estado === 'pendiente') || [];
         const mesesAdeudados = cuotasPendientes.filter((c: any) => {
           const [anio, mes] = c.mes.split('-');
-          const vencimiento = new Date(parseInt(anio), parseInt(mes) - 1, 16); 
+          // Vencimiento a fin de mes (tienen todo el mes para pagarlo)
+          const vencimiento = new Date(parseInt(anio), parseInt(mes), 1); 
           return hoy >= vencimiento;
         }).length;
 

@@ -102,12 +102,10 @@ export async function GET(request: Request) {
         }
       }
 
-      // GRACIA DE 15 DÍAS: Si estamos a 15 o menos del mes, y debe el mes actual, no lo contamos como deuda vencida.
-      if (ahora.getDate() <= 15) {
-        const debeMesActualFisico = cuotasPendientes.some(c => c.mes === mesActual);
-        if (debeMesActualFisico || debeMesActualVirtual) {
-          mesesAdeudadosReales = Math.max(0, mesesAdeudadosReales - 1);
-        }
+      // Ignorar mes actual siempre, porque tienen todo el mes para pagar
+      const debeMesActualFisico = cuotasPendientes.some(c => c.mes === mesActual);
+      if (debeMesActualFisico || debeMesActualVirtual) {
+        mesesAdeudadosReales = Math.max(0, mesesAdeudadosReales - 1);
       }
 
       let mesesAdeudados = mesesAdeudadosReales;
