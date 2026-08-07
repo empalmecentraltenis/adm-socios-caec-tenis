@@ -79,7 +79,7 @@ export default function ReportesTable() {
   const deudores = useMemo(() => {
     return allSocios
       .filter((s) => {
-        if (s.mesesAdeudados < 2) return false;
+        if (s.mesesAdeudados < 4) return false;
         if (filterActivo === 'activo' && s.estado !== 'activo') return false;
         if (filterActivo === 'inactivo' && s.estado !== 'inactivo') return false;
         return true;
@@ -468,7 +468,7 @@ export default function ReportesTable() {
             const colors = { socio: '#FFCC00', alumno: '#3B82F6', vitalicio: '#00AA55' };
             const labels = { socio: 'Socio', alumno: 'Alumno', vitalicio: 'Vitalicio' };
             return categorias.map(cat => {
-              const deudoresCat = allSocios.filter(s => s.categoria === cat && s.mesesAdeudados >= 2 && s.estado === 'activo');
+              const deudoresCat = allSocios.filter(s => s.categoria === cat && s.mesesAdeudados >= 4 && s.estado === 'activo');
               const deudaCat = deudoresCat.reduce((acc, s) => acc + s.deudaEstimada, 0);
               const totalCat = allSocios.filter(s => s.categoria === cat && s.estado === 'activo').length;
               return (

@@ -27,9 +27,9 @@ const kpiConfig = [
     key: 'totalActivos' as const,
     label: 'Activos',
     icon: Users,
-    accentColor: 'text-[#FFCC00]',
-    bgColor: 'bg-[#FFCC00]/10',
-    borderColor: 'border-[#FFCC00]/20',
+    accentColor: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/20',
   },
   {
     key: 'totalGeneral' as const,
@@ -43,25 +43,25 @@ const kpiConfig = [
     key: 'sociosAlDia' as const,
     label: 'Al Día',
     icon: CheckCircle,
-    accentColor: 'text-[#00AA55]',
-    bgColor: 'bg-[#00AA55]/10',
-    borderColor: 'border-[#00AA55]/20',
+    accentColor: 'text-chart-2',
+    bgColor: 'bg-chart-2/10',
+    borderColor: 'border-chart-2/20',
   },
   {
     key: 'sociosDeudores' as const,
     label: 'Deudores',
     icon: AlertTriangle,
-    accentColor: 'text-[#EF4444]',
-    bgColor: 'bg-[#EF4444]/10',
-    borderColor: 'border-[#EF4444]/20',
+    accentColor: 'text-destructive',
+    bgColor: 'bg-destructive/10',
+    borderColor: 'border-destructive/20',
   },
   {
     key: 'ingresosMes' as const,
     label: 'Ingresos Mes',
     icon: DollarSign,
-    accentColor: 'text-[#FFCC00]',
-    bgColor: 'bg-[#FFCC00]/10',
-    borderColor: 'border-[#FFCC00]/20',
+    accentColor: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/20',
     format: true,
   },
 ];
@@ -74,19 +74,22 @@ export default function KpiCards({ data, loading }: KpiCardsProps) {
         return (
           <div
             key={kpi.key}
-            className="bg-[#1E1E1E] border border-[#333333] rounded-lg p-4 flex items-center gap-3"
+            className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 transition-all duration-300 hover:border-primary/40 hover:shadow-[0_0_15px_rgba(250,204,21,0.1)] group relative overflow-hidden"
           >
-            <div className={`p-2.5 rounded-lg ${kpi.bgColor}`}>
+            {/* Subtle background glow effect on hover */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            
+            <div className={`relative p-2.5 rounded-lg ${kpi.bgColor} transition-transform duration-300 group-hover:scale-110`}>
               <Icon className={`h-5 w-5 ${kpi.accentColor}`} />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[#999999] text-[10px] font-medium uppercase tracking-wide truncate">
+            <div className="flex-1 min-w-0 relative">
+              <p className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider truncate">
                 {kpi.label}
               </p>
               {loading ? (
-                <Skeleton className="h-7 w-20 mt-1 bg-[#2A2A2A]" />
+                <Skeleton className="h-7 w-20 mt-1 bg-muted" />
               ) : (
-                <p className="text-white text-xl font-bold mt-0.5">
+                <p className="text-foreground text-xl font-bold mt-0.5 tracking-tight">
                   {data
                     ? kpi.format
                       ? formatCurrency(data[kpi.key])

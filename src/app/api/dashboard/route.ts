@@ -189,7 +189,7 @@ export async function GET(request: Request) {
           deudaEstimada: Math.max(0, mesesAdeudados) * (cuotaPorCategoria[socio.categoria] || 7000),
         };
       })
-      .filter((s) => s.mesesAdeudados >= 2) // Umbral de 2 meses (un mes de deuda se considera 'Al día' o en tolerancia)
+      .filter((s) => s.mesesAdeudados >= 4) // Umbral de 4 meses (un mes de deuda se considera 'Al día' o en tolerancia)
       .sort((a, b) => b.mesesAdeudados - a.mesesAdeudados)
       .slice(0, 10);
 

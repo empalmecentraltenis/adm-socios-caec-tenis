@@ -43,52 +43,53 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   /* Custom CAEC brand colors */
-  --color-brand-gold: #FFCC00;
-  --color-brand-gold-dark: #E6B800;
-  --color-brand-dark: #121212;
-  --color-brand-card: #1E1E1E;
-  --color-brand-border: #333333;
-  --color-brand-success: #00AA55;
+  --color-brand-gold: #FACC15; /* Flat solid yellow */
+  --color-brand-gold-dark: #EAB308;
+  --color-brand-dark: #000000; /* Deep black */
+  --color-brand-card: #121212; /* Very dark gray for cards */
+  --color-brand-border: #27272A;
+  --color-brand-success: #22C55E;
   --color-brand-danger: #EF4444;
-  --color-brand-text-secondary: #CCCCCC;
-  --color-brand-text-muted: #999999;
-  --color-brand-text-dark: #121212;
+  --color-brand-text-secondary: #D4D4D8;
+  --color-brand-text-muted: #A1A1AA;
+  --color-brand-text-dark: #000000;
 }
 
 /* Force dark theme globally for CAEC Dashboard */
 :root {
   --radius: 0.5rem;
-  --background: #121212;
-  --foreground: #CCCCCC;
-  --card: #1E1E1E;
-  --card-foreground: #CCCCCC;
-  --popover: #1E1E1E;
-  --popover-foreground: #CCCCCC;
-  --primary: #FFCC00;
-  --primary-foreground: #121212;
-  --secondary: #2A2A2A;
-  --secondary-foreground: #CCCCCC;
-  --muted: #2A2A2A;
-  --muted-foreground: #999999;
-  --accent: #FFCC00;
-  --accent-foreground: #121212;
+  --background: #000000; /* Deep Black */
+  --foreground: #F4F4F5;
+  --card: #121212;
+  --card-foreground: #F4F4F5;
+  --popover: #121212;
+  --popover-foreground: #F4F4F5;
+  --primary: #FACC15; /* Solid Flat Yellow */
+  --primary-foreground: #000000;
+  --secondary: #27272A;
+  --secondary-foreground: #F4F4F5;
+  --muted: #27272A;
+  --muted-foreground: #A1A1AA;
+  --accent: #FACC15;
+  --accent-foreground: #000000;
   --destructive: #EF4444;
-  --border: #333333;
-  --input: #2A2A2A;
-  --ring: #FFCC00;
-  --chart-1: #FFCC00;
-  --chart-2: #00AA55;
+  --destructive-foreground: #FFFFFF;
+  --border: #27272A;
+  --input: #27272A;
+  --ring: #FACC15;
+  --chart-1: #FACC15;
+  --chart-2: #22C55E;
   --chart-3: #EF4444;
   --chart-4: #3B82F6;
   --chart-5: #A855F7;
-  --sidebar: #1A1A1A;
-  --sidebar-foreground: #CCCCCC;
-  --sidebar-primary: #FFCC00;
-  --sidebar-primary-foreground: #121212;
-  --sidebar-accent: #2A2A2A;
-  --sidebar-accent-foreground: #FFCC00;
-  --sidebar-border: #333333;
-  --sidebar-ring: #FFCC00;
+  --sidebar: #09090B;
+  --sidebar-foreground: #F4F4F5;
+  --sidebar-primary: #FACC15;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #27272A;
+  --sidebar-accent-foreground: #FACC15;
+  --sidebar-border: #27272A;
+  --sidebar-ring: #FACC15;
 }
 
 @layer base {

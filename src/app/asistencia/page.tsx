@@ -45,7 +45,7 @@ export default function AsistenciaPage() {
           return hoy >= vencimiento;
         }).length;
 
-        if (socio.estado === 'inactivo' || mesesAdeudados >= 2) {
+        if (socio.estado === 'inactivo' || mesesAdeudados >= 4) {
           setStatus('warning');
           setMessage(`Asistencia registrada. Por favor, acercate a administración para regularizar tu situación.`);
         } else {

@@ -148,7 +148,7 @@ export default function AsistenciasTable() {
       const vencimiento = new Date(parseInt(anio), parseInt(mes) - 1, 16); 
       return hoy >= vencimiento;
     }).length;
-    if (mesesAdeudados >= 2) {
+    if (mesesAdeudados >= 4) {
       alertas.push(`Debe ${mesesAdeudados} cuotas`);
     }
     return alertas;

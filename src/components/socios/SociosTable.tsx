@@ -125,7 +125,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
     }
 
     if (filterEstado === 'morosos') {
-      result = result.filter((s) => s.mesesAdeudados >= 2);
+      result = result.filter((s) => s.mesesAdeudados >= 4);
     } else if (filterEstado === 'al_dia') {
       result = result.filter((s) => s.alDia || s.categoria === 'vitalicio');
     } else if (filterEstado === 'al_dia_pagado') {
@@ -258,7 +258,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
     window.open(`https://wa.me/54${phone.startsWith('0') ? phone.slice(1) : phone}?text=${msg}`, '_blank');
   }
 
-  const deudoresCount = socios.filter(s => s.mesesAdeudados >= 2).length;
+  const deudoresCount = socios.filter(s => s.mesesAdeudados >= 4).length;
   const alDiaCount = socios.filter(s => s.alDia || s.categoria === 'vitalicio').length;
   const activosCount = socios.filter(s => s.estado === 'activo').length;
   const inactivosCount = socios.filter(s => s.estado === 'inactivo').length;
@@ -283,7 +283,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
           label = "Inactivos";
           break;
         case 'morosos':
-          dataToExport = socios.filter(s => s.mesesAdeudados >= 2);
+          dataToExport = socios.filter(s => s.mesesAdeudados >= 4);
           label = "Morosos";
           break;
         case 'al_dia':
@@ -355,7 +355,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-white text-sm font-semibold">Socios del Club</h3>
+            <h3 className="text-foreground text-sm font-semibold">Socios del Club</h3>
             <span className="text-[#666666] text-xs">({socios.length})</span>
             {!readOnly && (
               <Button
@@ -384,19 +384,19 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-[#1E1E1E] border-[#333333] text-[#CCCCCC]">
-                <DropdownMenuItem onClick={() => handleExportExcel('todos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer">
+                <DropdownMenuItem onClick={() => handleExportExcel('todos')} className="focus:bg-[#2A2A2A] focus:text-foreground cursor-pointer">
                   Exportar Todos (Activos + Inactivos)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportExcel('activos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer">
+                <DropdownMenuItem onClick={() => handleExportExcel('activos')} className="focus:bg-[#2A2A2A] focus:text-foreground cursor-pointer">
                   Solo Activos ({activosCount})
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportExcel('inactivos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer">
+                <DropdownMenuItem onClick={() => handleExportExcel('inactivos')} className="focus:bg-[#2A2A2A] focus:text-foreground cursor-pointer">
                   Solo Inactivos ({inactivosCount})
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportExcel('morosos')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer text-red-400 focus:text-red-300">
+                <DropdownMenuItem onClick={() => handleExportExcel('morosos')} className="focus:bg-[#2A2A2A] focus:text-foreground cursor-pointer text-red-400 focus:text-red-300">
                   Solo Morosos ({deudoresCount})
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportExcel('al_dia')} className="focus:bg-[#2A2A2A] focus:text-white cursor-pointer text-green-400 focus:text-green-300">
+                <DropdownMenuItem onClick={() => handleExportExcel('al_dia')} className="focus:bg-[#2A2A2A] focus:text-foreground cursor-pointer text-green-400 focus:text-green-300">
                   Solo Al Día ({alDiaCount})
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -419,9 +419,9 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                 <SelectValue placeholder="Situación" />
               </SelectTrigger>
               <SelectContent className="bg-[#1E1E1E] border-[#333333]">
-                <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Todos</SelectItem>
-                <SelectItem value="activo" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Activos</SelectItem>
-                <SelectItem value="inactivo" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Inactivos</SelectItem>
+                <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Todos</SelectItem>
+                <SelectItem value="activo" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Activos</SelectItem>
+                <SelectItem value="inactivo" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Inactivos</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterEstado} onValueChange={setFilterEstado}>
@@ -429,15 +429,15 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent className="bg-[#1E1E1E] border-[#333333]">
-                <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Todos</SelectItem>
-                <SelectItem value="al_dia" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">✅ Al día (Total)</SelectItem>
-                <SelectItem value="al_dia_pagado" className="text-[#00AA55] focus:bg-[#2A2A2A] focus:text-white">
+                <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Todos</SelectItem>
+                <SelectItem value="al_dia" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">✅ Al día (Total)</SelectItem>
+                <SelectItem value="al_dia_pagado" className="text-[#00AA55] focus:bg-[#2A2A2A] focus:text-foreground">
                   🟢 Al día (Mes actual PAGO)
                 </SelectItem>
-                <SelectItem value="al_dia_deuda" className="text-[#F59E0B] focus:bg-[#2A2A2A] focus:text-white">
+                <SelectItem value="al_dia_deuda" className="text-[#F59E0B] focus:bg-[#2A2A2A] focus:text-foreground">
                   🟡 Al día (debe mes curso)
                 </SelectItem>
-                <SelectItem value="morosos" className="text-[#EF4444] focus:bg-[#2A2A2A] focus:text-white">
+                <SelectItem value="morosos" className="text-[#EF4444] focus:bg-[#2A2A2A] focus:text-foreground">
                   🔴 Morosos ({deudoresCount})
                 </SelectItem>
               </SelectContent>
@@ -447,10 +447,10 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                 <SelectValue placeholder="Categoría" />
               </SelectTrigger>
               <SelectContent className="bg-[#1E1E1E] border-[#333333]">
-                <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Todas</SelectItem>
-                <SelectItem value="socio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Socio</SelectItem>
-                <SelectItem value="alumno" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Alumno</SelectItem>
-                <SelectItem value="vitalicio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">Vitalicio</SelectItem>
+                <SelectItem value="todos" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Todas</SelectItem>
+                <SelectItem value="socio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Socio</SelectItem>
+                <SelectItem value="alumno" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Alumno</SelectItem>
+                <SelectItem value="vitalicio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Vitalicio</SelectItem>
               </SelectContent>
             </Select>
             <div className="relative w-44">
@@ -553,7 +553,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                             Al día
                           </span>
                         )
-                      ) : socio.mesesAdeudados >= 2 ? (
+                      ) : socio.mesesAdeudados >= 4 ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[10px] font-medium">
                           {socio.mesesAdeudados}m
                         </span>
@@ -569,7 +569,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                           size="sm"
                           variant="ghost"
                           onClick={() => onVerHistorial({ id: socio.id, nombre: socio.nombre, apellido: socio.apellido, categoria: socio.categoria })}
-                          className="h-7 w-7 p-0 text-[#999999] hover:text-white hover:bg-[#2A2A2A]"
+                          className="h-7 w-7 p-0 text-[#999999] hover:text-foreground hover:bg-[#2A2A2A]"
                           title="Historial de Pagos"
                         >
                           <History className="h-3.5 w-3.5" />
@@ -591,7 +591,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                               size="sm"
                               variant="ghost"
                               onClick={() => onEditarSocio(socio)}
-                              className="h-7 w-7 p-0 text-[#999999] hover:text-white hover:bg-[#2A2A2A]"
+                              className="h-7 w-7 p-0 text-[#999999] hover:text-foreground hover:bg-[#2A2A2A]"
                               title="Editar"
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -653,7 +653,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-white text-sm font-medium truncate">
+                    <p className="text-foreground text-sm font-medium truncate">
                       {socio.apellido}, {socio.nombre}
                       {socio.rol === 'admin' && (
                         <span className="ml-2 text-[9px] text-purple-400 font-bold uppercase">Admin</span>
@@ -681,7 +681,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                           Al día
                         </span>
                       )
-                    ) : socio.mesesAdeudados >= 2 ? (
+                    ) : socio.mesesAdeudados >= 4 ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] text-[10px] font-medium">
                         {socio.mesesAdeudados}m
                       </span>
@@ -740,32 +740,32 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
       <AlertDialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteType('soft'); }}>
         <AlertDialogContent className="bg-[#1E1E1E] border-[#333333]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white flex items-center gap-2">
+            <AlertDialogTitle className="text-foreground flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-[#EF4444]" />
               {deleteType === 'hard' ? '¿Eliminar definitivamente?' : '¿Dar de baja?'}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-[#999999]">
               {deleteType === 'hard' ? (
                 <>
-                  Vas a eliminar <span className="text-white font-medium">{deleteTarget?.nombre} {deleteTarget?.apellido}</span> definitivamente.
+                  Vas a eliminar <span className="text-foreground font-medium">{deleteTarget?.nombre} {deleteTarget?.apellido}</span> definitivamente.
                   <span className="text-[#EF4444] font-medium"> Se borrarán todos sus pagos e historial.</span> Esta acción no se puede deshacer.
                 </>
               ) : (
                 <>
-                  El socio <span className="text-white font-medium">{deleteTarget?.nombre} {deleteTarget?.apellido}</span> pasará a estado <span className="text-[#EF4444] font-medium">inactivo</span>.
+                  El socio <span className="text-foreground font-medium">{deleteTarget?.nombre} {deleteTarget?.apellido}</span> pasará a estado <span className="text-[#EF4444] font-medium">inactivo</span>.
                   No se eliminará su historial de pagos. Podrás reactivarlo más adelante.
                 </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white">
+            <AlertDialogCancel className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-foreground">
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className={`text-white font-medium ${deleteType === 'hard' ? 'bg-[#EF4444] hover:bg-[#DC2626]' : 'bg-[#EF4444]/80 hover:bg-[#EF4444]'}`}
+              className={`text-foreground font-medium ${deleteType === 'hard' ? 'bg-[#EF4444] hover:bg-[#DC2626]' : 'bg-[#EF4444]/80 hover:bg-[#EF4444]'}`}
             >
               {deleting ? 'Procesando...' : deleteType === 'hard' ? 'Eliminar definitivamente' : 'Dar de baja'}
             </AlertDialogAction>
@@ -777,19 +777,19 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
       <AlertDialog open={!!reactivateTarget} onOpenChange={() => setReactivateTarget(null)}>
         <AlertDialogContent className="bg-[#1E1E1E] border-[#333333]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">¿Reactivar a {reactivateTarget?.nombre} {reactivateTarget?.apellido}?</AlertDialogTitle>
+            <AlertDialogTitle className="text-foreground">¿Reactivar a {reactivateTarget?.nombre} {reactivateTarget?.apellido}?</AlertDialogTitle>
             <AlertDialogDescription className="text-[#999999]">
               El socio volverá a estar <span className="text-[#00AA55] font-medium">activo</span> y aparecerá en la lista de socios.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white">
+            <AlertDialogCancel className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-foreground">
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleReactivate}
               disabled={deleting}
-              className="bg-[#00AA55] text-white hover:bg-[#00CC66] font-medium"
+              className="bg-[#00AA55] text-foreground hover:bg-[#00CC66] font-medium"
             >
               {deleting ? 'Procesando...' : 'Reactivar'}
             </AlertDialogAction>

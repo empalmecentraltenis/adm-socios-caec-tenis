@@ -122,7 +122,7 @@ export default function Home() {
   // Loading state
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-[#0d0d0d] flex flex-col items-center justify-center gap-4 text-white">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 text-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm font-medium animate-pulse">Cargando panel...</p>
       </div>
@@ -154,7 +154,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212]">
+    <div className="min-h-screen bg-background">
       <Sidebar
         activeTab={activeTab}
         onNavigate={handleNavigate}
@@ -169,10 +169,10 @@ export default function Home() {
           {/* Page Title */}
           <div className="mb-4 flex justify-between items-center">
             <div>
-                <h1 className="text-white text-xl lg:text-2xl font-bold">
+                <h1 className="text-foreground text-xl lg:text-2xl font-bold">
                 {pageTitles[activeTab].title}
                 </h1>
-                <p className="text-[#999999] text-sm mt-1">
+                <p className="text-muted-foreground text-sm mt-1">
                 {pageTitles[activeTab].subtitle}
                 </p>
             </div>
