@@ -155,7 +155,7 @@ export default function PorteriaPage() {
   return (
     <div className="min-h-screen bg-background pb-10">
       <header className="border-b border-[#333333] bg-[#1E1E1E] sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">
               <CalendarIcon className="h-4 w-4" />
@@ -185,9 +185,9 @@ export default function PorteriaPage() {
         </div>
       </header>
 
-      <main className="p-4 max-w-2xl mx-auto">
+      <main className="p-6 max-w-[1600px] mx-auto">
         {/* Date Selector */}
-        <div className="mb-6">
+        <div className="mb-8 flex justify-center">
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {weekDates.map((d, idx) => {
               const isSelected = d.toDateString() === selectedDate.toDateString();
@@ -195,13 +195,13 @@ export default function PorteriaPage() {
                 <button
                   key={idx}
                   onClick={() => setSelectedDate(d)}
-                  className={`flex-shrink-0 flex flex-col items-center justify-center w-[4.5rem] h-16 rounded-xl border-2 transition-colors ${
+                  className={`flex-shrink-0 flex flex-col items-center justify-center w-[5rem] h-16 rounded-xl border-2 transition-colors ${
                     isSelected 
                       ? 'bg-blue-600/20 border-blue-500 text-foreground' 
                       : 'bg-[#161616] border-[#2a2a2a] text-[#999999] hover:border-[#444]'
                   }`}
                 >
-                  <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isSelected ? 'text-blue-400' : ''}`}>
+                  <span className={`text-[11px] font-bold uppercase tracking-wider mb-1 ${isSelected ? 'text-blue-400' : ''}`}>
                     {getDayName(d)}
                   </span>
                   <span className="text-xl font-bold leading-none">{d.getDate()}</span>
@@ -211,15 +211,15 @@ export default function PorteriaPage() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-4 px-1">
-          <h2 className="font-bold text-foreground flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[#999]" />
+        <div className="flex justify-between items-center mb-6 px-1">
+          <h2 className="font-bold text-foreground text-xl flex items-center gap-2">
+            <Clock className="h-5 w-5 text-[#999]" />
             Turnos de la fecha
           </h2>
-          <span className="text-xs text-[#666]">Actualizado: {lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          <span className="text-sm text-[#666] bg-[#1E1E1E] px-3 py-1 rounded-full border border-[#333]">Actualizado: {lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4 lg:gap-6">
           {SHIFTS.map((shift, i) => {
             // Find courts for this specific shift time
             const turnosInShift = [1, 2].map(canchaId => { // Assuming canchas 1 and 2
@@ -228,10 +228,10 @@ export default function PorteriaPage() {
             });
 
             return (
-              <div key={i} className="bg-[#1E1E1E] rounded-xl border border-[#333333] overflow-hidden shadow-sm flex flex-col">
-                <div className="bg-[#121212] px-3 py-2 border-b border-[#333333] flex flex-col items-center justify-center text-center">
-                  <span className="font-bold text-white text-[15px]">{shift.start}</span>
-                  <span className="text-[10px] font-normal text-[#999] -mt-1">a {shift.end}</span>
+              <div key={i} className="bg-[#1E1E1E] rounded-xl border border-[#333333] overflow-hidden shadow-sm flex flex-col hover:border-[#555] transition-colors">
+                <div className="bg-[#121212] px-3 py-3 border-b border-[#333333] flex flex-col items-center justify-center text-center">
+                  <span className="font-bold text-white text-lg tracking-wide">{shift.start}</span>
+                  <span className="text-xs font-medium text-[#999] mt-0.5">a {shift.end}</span>
                 </div>
                 <div className="divide-y divide-[#333333] flex-1">
                   {turnosInShift.map((item) => {
@@ -240,34 +240,34 @@ export default function PorteriaPage() {
                     const isOcupado = item.turno?.estado === 'ocupado';
 
                     return (
-                      <div key={item.canchaId} className="px-2 py-2 flex flex-col gap-1 min-h-[70px] justify-center">
-                        <div className="flex flex-wrap items-center justify-between gap-1 mb-0.5">
-                          <span className="text-[10px] font-bold uppercase text-[#666] tracking-wider">C{item.canchaId}</span>
+                      <div key={item.canchaId} className="px-4 py-4 flex flex-col gap-1.5 min-h-[100px] justify-center">
+                        <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                          <span className="text-xs font-bold uppercase text-[#666] tracking-wider">C{item.canchaId}</span>
                           
                           {isLibre && (
-                            <Badge variant="outline" className="bg-[#00AA55]/10 text-[#00AA55] border-[#00AA55]/20 font-bold px-1.5 py-0 h-4 text-[9px] uppercase">
+                            <Badge variant="outline" className="bg-[#00AA55]/10 text-[#00AA55] border-[#00AA55]/20 font-bold px-2 py-0.5 h-5 text-[10px] uppercase">
                               Libre
                             </Badge>
                           )}
                           {isBloqueado && (
-                            <Badge variant="outline" className="bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20 font-bold px-1.5 py-0 h-4 text-[9px] uppercase flex items-center gap-0.5">
-                              <ShieldAlert className="h-2.5 w-2.5" /> Bloq
+                            <Badge variant="outline" className="bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20 font-bold px-2 py-0.5 h-5 text-[10px] uppercase flex items-center gap-1">
+                              <ShieldAlert className="h-3 w-3" /> Bloq
                             </Badge>
                           )}
                           {isOcupado && (
-                            <Badge variant="outline" className="bg-[#1d4ed8]/10 text-[#60a5fa] border-[#1d4ed8]/30 font-bold px-1.5 py-0 h-4 text-[9px] uppercase">
-                              Rsv
+                            <Badge variant="outline" className="bg-[#1d4ed8]/10 text-[#60a5fa] border-[#1d4ed8]/30 font-bold px-2 py-0.5 h-5 text-[10px] uppercase">
+                              Reservado
                             </Badge>
                           )}
                         </div>
 
                         {isOcupado && item.turno && (
-                          <div className="flex flex-col">
-                            <span className="text-foreground font-semibold text-[11px] leading-tight line-clamp-1" title={item.turno.socioNombreCompleto}>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-foreground font-semibold text-[13px] leading-tight line-clamp-2" title={item.turno.socioNombreCompleto}>
                               {item.turno.socioNombreCompleto}
                             </span>
                             {item.turno.acompanante && (
-                              <span className="text-[#999999] text-[9px] leading-tight line-clamp-1" title={`+ ${item.turno.acompanante}`}>
+                              <span className="text-[#999999] text-[11px] leading-tight line-clamp-1" title={`+ ${item.turno.acompanante}`}>
                                 + {item.turno.acompanante}
                               </span>
                             )}
@@ -275,13 +275,13 @@ export default function PorteriaPage() {
                         )}
 
                         {isBloqueado && item.turno && (
-                          <span className="text-foreground font-medium text-[11px] leading-tight line-clamp-2" title={item.turno.motivoBloqueo || 'Motivo no especificado'}>
+                          <span className="text-foreground font-medium text-[13px] leading-tight line-clamp-2" title={item.turno.motivoBloqueo || 'Motivo no especificado'}>
                             {item.turno.motivoBloqueo || 'Bloqueado'}
                           </span>
                         )}
 
                         {isLibre && (
-                          <span className="text-[#444] text-[11px] italic">
+                          <span className="text-[#555] text-[12px] italic">
                             Sin reservas
                           </span>
                         )}
