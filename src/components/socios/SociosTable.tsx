@@ -71,6 +71,7 @@ interface SociosTableProps {
   refreshKey: number;
   socios: Socio[];
   readOnly?: boolean;
+  hideABM?: boolean;
 }
 
 function getCategoriaBadge(categoria: string) {
@@ -82,7 +83,7 @@ function getCategoriaBadge(categoria: string) {
   }
 }
 
-export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSocio, onVerHistorial, onPagoMasivo, refreshKey, socios, readOnly = false }: SociosTableProps) {
+export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSocio, onVerHistorial, onPagoMasivo, refreshKey, socios, readOnly = false, hideABM = false }: SociosTableProps) {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('apellido');
@@ -357,7 +358,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-foreground text-sm font-semibold">Socios del Club</h3>
             <span className="text-[#666666] text-xs">({socios.length})</span>
-            {!readOnly && (
+            {!readOnly && !hideABM && (
               <Button
                 size="sm"
                 onClick={onCrearSocio}
@@ -585,7 +586,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                             <DollarSign className="h-3.5 w-3.5" />
                           </Button>
                         )}
-                        {!readOnly && (
+                        {!readOnly && !hideABM && (
                           <>
                             <Button
                               size="sm"
@@ -701,7 +702,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                       <DollarSign className="h-3 w-3 mr-0.5" /> Pago
                     </Button>
                   )}
-                  {!readOnly && (
+                  {!readOnly && !hideABM && (
                     <>
                       <Button size="sm" variant="ghost" onClick={() => onEditarSocio(socio)} className="h-7 px-2 text-[#999999] hover:bg-[#2A2A2A] text-[10px]">
                         <Pencil className="h-3 w-3 mr-0.5" /> Editar
