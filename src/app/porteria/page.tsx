@@ -222,7 +222,7 @@ export default function PorteriaPage() {
           <span className="text-sm text-[#666] bg-[#1E1E1E] px-3 py-1 rounded-full border border-[#333]">Actualizado: {lastUpdate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6">
           {SHIFTS.map((shift, i) => {
             // Find courts for this specific shift time
             const turnosInShift = [1, 2].map(canchaId => { // Assuming canchas 1 and 2
