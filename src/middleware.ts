@@ -7,8 +7,8 @@ export default withAuth({
 });
 
 export const config = {
-  // Proteger todas las rutas excepto login, api/auth, asistencia (pública), secretaria (pública) y archivos estáticos
+  // Proteger todas las rutas excepto login, api/auth, asistencia (pública), secretaria (pública), porteria (pública) y archivos estáticos
   matcher: [
-    "/((?!api/auth|api/asistencias|asistencia|secretaria|login|_next/static|_next/image|favicon.ico|logo-caec.png).*)"
+    "/((?!api/auth|api/asistencias|asistencia|secretaria|porteria|login|_next/static|_next/image|favicon.ico|logo-caec.png).*)"
   ],
 };
