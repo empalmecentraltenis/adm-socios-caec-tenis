@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 export async function PUT(request: Request, context: any) {
-  const { params } = context;
+  const params = await Promise.resolve(context.params);
   const id = params.id;
   const session = await getServerSession(authOptions);
   
@@ -67,7 +67,7 @@ export async function PUT(request: Request, context: any) {
 }
 
 export async function DELETE(request: Request, context: any) {
-  const { params } = context;
+  const params = await Promise.resolve(context.params);
   const id = params.id;
   const session = await getServerSession(authOptions);
   
