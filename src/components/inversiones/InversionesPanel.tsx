@@ -29,6 +29,7 @@ import { Loader2 } from 'lucide-react';
 export default function InversionesPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [plazos, setPlazos] = useState<PlazoFijo[]>([]);
   const [dolares, setDolares] = useState<string>('0');
+  const [cotizacion, setCotizacion] = useState<string>('1000');
   const [saldoCaja, setSaldoCaja] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -36,6 +37,10 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
   
   const [editandoDolares, setEditandoDolares] = useState(false);
   const [tempDolares, setTempDolares] = useState('');
+  
+  const [editandoCotizacion, setEditandoCotizacion] = useState(false);
+  const [tempCotizacion, setTempCotizacion] = useState('');
+  
   const [savingDolares, setSavingDolares] = useState(false);
 
   const { toast } = useToast();
@@ -47,9 +52,6 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
   async function fetchData() {
     setLoading(true);
     try {
-      // Para el saldo de caja, pedimos el balance hasta una fecha muy futura para traer el total actual
-      const today = format(new Date(), 'yyyy-MM-dd');
-      
       const [plazosRes, configRes, balanceRes] = await Promise.all([
         fetch('/api/plazos-fijos'),
         fetch('/api/configuracion'),
@@ -63,6 +65,7 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
       if (configRes.ok) {
         const data = await configRes.json();
         setDolares(data.ahorros_dolares || '0');
+        setCotizacion(data.cotizacion_dolar || '1000');
       }
       if (balanceRes.ok) {
         const data = await balanceRes.json();
@@ -113,23 +116,44 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
     }
   };
 
-  const { capitalPlazosActivos, interesesGeneradosTotal } = useMemo(() => {
+  const handleSaveCotizacion = async () => {
+    setSavingDolares(true);
+    try {
+      const parsed = parseCurrency(tempCotizacion);
+      const res = await fetch('/api/configuracion', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cotizacion_dolar: parsed })
+      });
+      if (res.ok) {
+        setCotizacion(parsed.toString());
+        setEditandoCotizacion(false);
+        toast({ title: 'Cotización actualizada' });
+      } else {
+        throw new Error('Error saving');
+      }
+    } catch (e) {
+      toast({ title: 'Error al guardar', variant: 'destructive' });
+    } finally {
+      setSavingDolares(false);
+    }
+  };
+
+  const { capitalPlazosActivos } = useMemo(() => {
     const activos = plazos.filter(p => p.estado === 'activo');
     const cap = activos.reduce((acc, p) => acc + p.montoInvertido, 0);
-    const int = activos.reduce((acc, p) => acc + p.interesGenerado, 0);
-    return { capitalPlazosActivos: cap, interesesGeneradosTotal: int };
+    return { capitalPlazosActivos: cap };
   }, [plazos]);
 
   const dolaresNum = parseFloat(dolares) || 0;
+  const cotiNum = parseFloat(cotizacion) || 1000;
+  const dolaresEnPesos = dolaresNum * cotiNum;
+  const totalDisponible = saldoCaja + capitalPlazosActivos + dolaresEnPesos;
 
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-white">Inversiones y Ahorros</h2>
-          <p className="text-[#999999] text-sm">Resumen de plazos fijos, dólares y capital disponible.</p>
-        </div>
+      <div className="flex justify-end">
         {!readOnly && (
           <Button 
             onClick={() => { setEditingPlazo(null); setModalOpen(true); }}
@@ -143,6 +167,7 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
 
       {/* KPI Cards - Resumen General */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
         {/* Saldo en Caja */}
         <Card className="bg-[#1A1A1A] border-[#333333] overflow-hidden">
           <CardContent className="p-4 flex items-center gap-4">
@@ -169,23 +194,10 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
           </CardContent>
         </Card>
 
-        {/* Total Pesos */}
-        <Card className="bg-[#1A1A1A] border-[#FFCC00]/30 overflow-hidden relative">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#FFCC00]" />
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-[#FFCC00]/10">
-              <TrendingUp className="h-6 w-6 text-[#FFCC00]" />
-            </div>
-            <div>
-              <p className="text-[#999999] text-[10px] font-bold uppercase tracking-wider">Total Disp. (Pesos)</p>
-              <h4 className="text-white text-xl font-bold mt-0.5">{formatCurrency(saldoCaja + capitalPlazosActivos)}</h4>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Dólares */}
         <Card className="bg-[#1A1A1A] border-[#333333] overflow-hidden">
-          <CardContent className="p-4 flex flex-col gap-2">
+          <CardContent className="p-4 flex flex-col gap-3">
+            
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-emerald-500/10">
                 <DollarSign className="h-6 w-6 text-emerald-500" />
@@ -194,7 +206,7 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
                 <p className="text-[#999999] text-[10px] font-bold uppercase tracking-wider">Ahorro Dólares</p>
                 {!editandoDolares ? (
                   <div className="flex items-center justify-between">
-                    <h4 className="text-emerald-500 text-xl font-bold mt-0.5">U$S {formatCurrency(dolaresNum).replace('$', '')}</h4>
+                    <h4 className="text-emerald-500 text-lg font-bold mt-0.5">U$S {formatCurrency(dolaresNum).replace('$', '')}</h4>
                     {!readOnly && (
                       <Button variant="ghost" size="sm" className="h-6 px-2 text-[#999999] hover:text-white" onClick={() => {
                         setTempDolares(formatCurrency(dolaresNum).replace('$ ', ''));
@@ -213,28 +225,64 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
                       placeholder="0,00"
                       autoFocus
                     />
-                    <Button 
-                      size="sm" 
-                      onClick={handleSaveDolares} 
-                      disabled={savingDolares}
-                      className="h-7 px-2 bg-emerald-500 hover:bg-emerald-600 text-white"
-                    >
+                    <Button size="sm" onClick={handleSaveDolares} disabled={savingDolares} className="h-7 px-2 bg-emerald-500 hover:bg-emerald-600 text-white">
                       {savingDolares ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Ok'}
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      onClick={() => setEditandoDolares(false)} 
-                      className="h-7 px-2 text-[#999999]"
-                    >
-                      X
-                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditandoDolares(false)} className="h-7 px-2 text-[#999999]">X</Button>
                   </div>
                 )}
               </div>
             </div>
+
+            <div className="border-t border-[#333333] pt-2 flex items-center justify-between">
+              <div>
+                <p className="text-[#999999] text-[9px] uppercase font-bold tracking-wider">Tasa Cambio</p>
+                {!editandoCotizacion ? (
+                  <p className="text-white text-xs font-medium">1 U$S = {formatCurrency(cotiNum)}</p>
+                ) : (
+                  <div className="flex items-center gap-1 mt-1">
+                    <Input 
+                      value={tempCotizacion}
+                      onChange={(e) => setTempCotizacion(formatInputCurrency(e.target.value))}
+                      className="h-6 w-20 bg-[#2A2A2A] border-[#333333] text-white px-1 py-0 text-xs"
+                    />
+                    <Button size="sm" onClick={handleSaveCotizacion} disabled={savingDolares} className="h-6 px-1.5 bg-emerald-500 text-white">
+                      {savingDolares ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Ok'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-[#999999] text-[9px] uppercase font-bold tracking-wider">En Pesos</p>
+                <p className="text-[#FFCC00] text-xs font-bold">{formatCurrency(dolaresEnPesos)}</p>
+              </div>
+              {!readOnly && !editandoCotizacion && (
+                 <Button variant="ghost" size="icon" className="h-5 w-5 text-[#999999] hover:text-white ml-1" onClick={() => {
+                  setTempCotizacion(formatCurrency(cotiNum).replace('$ ', ''));
+                  setEditandoCotizacion(true);
+                }}>
+                  <Pencil className="h-2.5 w-2.5" />
+                </Button>
+              )}
+            </div>
+            
           </CardContent>
         </Card>
+
+        {/* Total Pesos + Dolares */}
+        <Card className="bg-[#1A1A1A] border-[#FFCC00]/30 overflow-hidden relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#FFCC00]" />
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-[#FFCC00]/10">
+              <TrendingUp className="h-6 w-6 text-[#FFCC00]" />
+            </div>
+            <div>
+              <p className="text-[#999999] text-[10px] font-bold uppercase tracking-wider">Total Disp. (Pesos)</p>
+              <h4 className="text-white text-xl font-bold mt-0.5">{formatCurrency(totalDisponible)}</h4>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
 
       {/* Main Table */}
@@ -250,8 +298,6 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
                 <th className="px-4 py-3 text-[#999999] text-[10px] font-bold uppercase tracking-wider">Banco / Entidad</th>
                 <th className="px-4 py-3 text-[#999999] text-[10px] font-bold uppercase tracking-wider">Fechas</th>
                 <th className="px-4 py-3 text-[#999999] text-[10px] font-bold uppercase tracking-wider text-right">Monto Invertido</th>
-                <th className="px-4 py-3 text-[#999999] text-[10px] font-bold uppercase tracking-wider text-right">Interés Estimado</th>
-                <th className="px-4 py-3 text-[#999999] text-[10px] font-bold uppercase tracking-wider text-right">Total al Vencimiento</th>
                 <th className="px-4 py-3 text-[#999999] text-[10px] font-bold uppercase tracking-wider text-center">Estado</th>
                 <th className="px-4 py-3 w-10"></th>
               </tr>
@@ -259,11 +305,11 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
             <tbody className="divide-y divide-[#333333]">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[#666666] italic">Cargando plazos fijos...</td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-[#666666] italic">Cargando plazos fijos...</td>
                 </tr>
               ) : plazos.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[#666666] italic">No hay plazos fijos registrados.</td>
+                  <td colSpan={6} className="px-4 py-8 text-center text-[#666666] italic">No hay plazos fijos registrados.</td>
                 </tr>
               ) : (
                 plazos.map((p, idx) => (
@@ -280,12 +326,6 @@ export default function InversionesPanel({ readOnly = false }: { readOnly?: bool
                     </td>
                     <td className="px-4 py-3.5 text-right font-bold text-sm text-white">
                       {formatCurrency(p.montoInvertido)}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-bold text-sm text-green-500">
-                      +{formatCurrency(p.interesGenerado)}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-bold text-sm text-[#FFCC00]">
-                      {formatCurrency(p.montoInvertido + p.interesGenerado)}
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${

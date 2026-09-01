@@ -94,7 +94,7 @@ export default function PlazoFijoModal({
         body: JSON.stringify({
           ...formData,
           montoInvertido: parseCurrency(formData.montoInvertido),
-          interesGenerado: parseCurrency(formData.interesGenerado)
+          interesGenerado: 0
         })
       });
 
@@ -138,31 +138,17 @@ export default function PlazoFijoModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="montoInvertido" className="text-[#999999]">Capital Invertido ($)</Label>
-              <Input 
-                id="montoInvertido"
-                type="text"
-                required
-                placeholder="0,00"
-                value={formData.montoInvertido}
-                onChange={(e) => setFormData({ ...formData, montoInvertido: formatInputCurrency(e.target.value) })}
-                className="bg-[#2A2A2A] border-[#333333] text-white focus:border-[#FFCC00]"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="interesGenerado" className="text-[#999999]">Interés Estimado ($)</Label>
-              <Input 
-                id="interesGenerado"
-                type="text"
-                required
-                placeholder="0,00"
-                value={formData.interesGenerado}
-                onChange={(e) => setFormData({ ...formData, interesGenerado: formatInputCurrency(e.target.value) })}
-                className="bg-[#2A2A2A] border-[#333333] text-white focus:border-[#FFCC00]"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="montoInvertido" className="text-[#999999]">Capital / Monto Total ($)</Label>
+            <Input 
+              id="montoInvertido"
+              type="text"
+              required
+              placeholder="0,00"
+              value={formData.montoInvertido}
+              onChange={(e) => setFormData({ ...formData, montoInvertido: formatInputCurrency(e.target.value) })}
+              className="bg-[#2A2A2A] border-[#333333] text-white focus:border-[#FFCC00]"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

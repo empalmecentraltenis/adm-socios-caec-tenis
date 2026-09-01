@@ -28,7 +28,8 @@ export async function GET() {
       cuota_alumno: "3500",
       cuota_vitalicio: "0",
       saldo_inicial_enero_2026: "0",
-      ahorros_dolares: "0"
+      ahorros_dolares: "0",
+      cotizacion_dolar: "1000"
     };
 
     for (const c of configs) {
@@ -53,7 +54,8 @@ export async function PUT(request: Request) {
       "cuota_alumno",
       "cuota_vitalicio",
       "saldo_inicial_enero_2026",
-      "ahorros_dolares"
+      "ahorros_dolares",
+      "cotizacion_dolar"
     ];
 
     for (const key of keys) {
