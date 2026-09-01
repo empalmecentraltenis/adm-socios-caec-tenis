@@ -59,6 +59,7 @@ model Socio {
   pagos        PagoCuota[]
   cuotas       Cuota[]
   asistencias  AsistenciaClase[]
+  datos_confirmados Boolean? @default(false)
 
   @@map("socios")
 }
@@ -163,4 +164,18 @@ model AsistenciaClase {
   @@index([socioId])
   @@index([fecha])
   @@map("asistencias_clase")
+}
+
+model PlazoFijo {
+  id               String   @id @default(cuid())
+  banco            String
+  montoInvertido   Float
+  interesGenerado  Float
+  fechaConstitucion DateTime @db.Date
+  fechaVencimiento  DateTime @db.Date
+  estado           String   @default("activo") // 'activo' | 'cobrado'
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("plazos_fijos")
 }

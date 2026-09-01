@@ -19,10 +19,11 @@ import AbmSocioModal from '@/components/socios/AbmSocioModal';
 import ReportesTable from '@/components/reportes/ReportesTable';
 import ConfiguracionPanel from '@/components/configuracion/ConfiguracionPanel';
 import BalanceMensual from '@/components/balance/BalanceMensual';
+import InversionesPanel from '@/components/inversiones/InversionesPanel';
 import AsistenciasTable from '@/components/asistencias/AsistenciasTable';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'socios' | 'reportes' | 'configuracion' | 'balance' | 'asistencias';
+type TabType = 'dashboard' | 'socios' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'asistencias';
 
 interface DashboardData {
   kpis: {
@@ -150,6 +151,7 @@ export default function Home() {
     reportes: { title: 'Reportes', subtitle: 'Reporte de morosidad y financieros' },
     configuracion: { title: 'Configuración', subtitle: 'Valores de cuota y categorías' },
     balance: { title: 'Balance Mensual', subtitle: 'Caja de la sub-comisión de tenis' },
+    inversiones: { title: 'Inversiones y Ahorros', subtitle: 'Resumen de capital en plazos fijos y dólares' },
     asistencias: { title: 'Clases / Asistencia', subtitle: 'Registro de asistencia a las clases de tenis' },
   };
 
@@ -224,6 +226,9 @@ export default function Home() {
 
           {/* Balance Tab */}
           {activeTab === 'balance' && <BalanceMensual readOnly={isReadOnly} />}
+
+          {/* Inversiones Tab */}
+          {activeTab === 'inversiones' && <InversionesPanel readOnly={isReadOnly} />}
         </div>
       </main>
 
