@@ -36,7 +36,7 @@ interface MovimientoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   movimiento?: Movimiento | null;
-  onSuccess: () => void;
+  onSuccess: (dateStr?: string) => void;
   defaultDate?: Date;
 }
 
@@ -97,7 +97,7 @@ export default function MovimientoModal({
 
       if (res.ok) {
         toast({ title: `Movimiento ${movimiento ? 'actualizado' : 'registrado'}` });
-        onSuccess();
+        onSuccess(formData.fecha);
       } else {
         const errorData = await res.json();
         throw new Error(errorData.details || errorData.error || 'Error en el servidor');

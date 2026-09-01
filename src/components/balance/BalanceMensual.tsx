@@ -352,7 +352,20 @@ export default function BalanceMensual({ readOnly = false }: { readOnly?: boolea
         open={modalOpen} 
         onOpenChange={setModalOpen}
         movimiento={editingMovimiento}
-        onSuccess={() => { setModalOpen(false); fetchData(); }}
+        onSuccess={(dateStr) => { 
+          setModalOpen(false); 
+          if (dateStr) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const savedDateObj = new Date(y, m - 1, d);
+            if (!isSameMonth(currentMonth, savedDateObj)) {
+              setCurrentMonth(new Date(y, m - 1, 1));
+            } else {
+              fetchData();
+            }
+          } else {
+            fetchData(); 
+          }
+        }}
         defaultDate={currentMonth}
       />
     </div>
