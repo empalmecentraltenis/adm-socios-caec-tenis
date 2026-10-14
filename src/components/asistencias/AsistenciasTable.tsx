@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Table, 
   TableHeader, 
@@ -50,9 +50,20 @@ import {
   Copy,
   Check,
   CalendarCheck,
-  Sparkles
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+  BarChart3
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { 
+  format, 
+  startOfWeek, 
+  endOfWeek, 
+  eachDayOfInterval, 
+  isSameDay, 
+  addWeeks, 
+  subWeeks 
+} from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -91,8 +102,6 @@ interface RegistroProfe {
   fechaFormateada?: string;
   cantidadAlumnos: number;
   precioTotal: number;
-  profesor?: string;
-  turno?: string;
   observaciones?: string;
   createdAt?: string;
 }
@@ -100,6 +109,16 @@ interface RegistroProfe {
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+const DIAS_SEMANA_ORDENADOS = [
+  { index: 1, nombre: 'Lunes', corto: 'Lun' },
+  { index: 2, nombre: 'Martes', corto: 'Mar' },
+  { index: 3, nombre: 'Miércoles', corto: 'Mié' },
+  { index: 4, nombre: 'Jueves', corto: 'Jue' },
+  { index: 5, nombre: 'Viernes', corto: 'Vie' },
+  { index: 6, nombre: 'Sábado', corto: 'Sáb' },
+  { index: 0, nombre: 'Domingo', corto: 'Dom' },
 ];
 
 function generateMonthOptions() {
@@ -119,11 +138,11 @@ const monthOptions = generateMonthOptions();
 
 export default function AsistenciasTable() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('diaria');
-  const [qrType, setQrType] = useState<'alumnos' | 'profe'>('profe');
+  const [activeTab, setActiveTab] = useState('profe'); // Default a Planilla Profesor
+  const [qrType, setQrType] = useState<'profe' | 'alumnos'>('profe');
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Estados para alumnos
+  // Estados para alumnos (DNI)
   const [asistenciasDiarias, setAsistenciasDiarias] = useState<Asistencia[]>([]);
   const [asistenciasMensuales, setAsistenciasMensuales] = useState<Asistencia[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,8 +155,9 @@ export default function AsistenciasTable() {
   // Selectores de fecha
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+  const [currentWeekDate, setCurrentWeekDate] = useState<Date>(new Date());
 
-  // Estado del Modal de carga manual / edición de clase del profesor
+  // Estado del Modal de carga manual / edición de clase
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingRegistro, setEditingRegistro] = useState<RegistroProfe | null>(null);
@@ -146,8 +166,6 @@ export default function AsistenciasTable() {
   const [formFecha, setFormFecha] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [formAlumnos, setFormAlumnos] = useState<string>('');
   const [formPrecio, setFormPrecio] = useState<string>('');
-  const [formProfesor, setFormProfesor] = useState<string>('Profesor');
-  const [formTurno, setFormTurno] = useState<string>('Tarde');
   const [formObservaciones, setFormObservaciones] = useState<string>('');
   const [submittingModal, setSubmittingModal] = useState<boolean>(false);
 
@@ -159,7 +177,7 @@ export default function AsistenciasTable() {
   const currentUrl = qrType === 'profe' ? profeUrl : asistenciaUrl;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(currentUrl)}&margin=10`;
 
-  // Fetch asistencias diarias de alumnos
+  // Fetch asistencias diarias de alumnos con DNI
   const fetchAsistenciasDiarias = useCallback(async (date: Date) => {
     setLoading(true);
     try {
@@ -229,6 +247,7 @@ export default function AsistenciasTable() {
       fetchRegistroProfeDiario(selectedDate);
     } else if (activeTab === 'profe') {
       fetchRegistrosProfeMensual(selectedMonth);
+      fetchRegistroProfeDiario(selectedDate);
     } else if (activeTab === 'mensual') {
       fetchAsistenciasMensuales(selectedMonth);
       fetchRegistrosProfeMensual(selectedMonth);
@@ -246,11 +265,10 @@ export default function AsistenciasTable() {
   // Polling para el día actual
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (activeTab === 'diaria') {
+    if (activeTab === 'diaria' || activeTab === 'profe') {
       const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
       if (isToday) {
         interval = setInterval(() => {
-          fetchAsistenciasDiarias(selectedDate);
           fetchRegistroProfeDiario(selectedDate);
         }, 30000);
       }
@@ -258,13 +276,12 @@ export default function AsistenciasTable() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [activeTab, selectedDate, fetchAsistenciasDiarias, fetchRegistroProfeDiario]);
+  }, [activeTab, selectedDate, fetchRegistroProfeDiario]);
 
+  // Helper de alertas de socio
   const getAlertasSocio = (socio: Socio) => {
     const alertas: string[] = [];
-    if (socio.estado === 'inactivo') {
-      alertas.push('Inactivo');
-    }
+    if (socio.estado === 'inactivo') alertas.push('Inactivo');
     const hoy = new Date();
     const mesesAdeudados = (socio.cuotas || []).filter((c: any) => {
       if (c.estado === 'pagado') return false;
@@ -272,9 +289,7 @@ export default function AsistenciasTable() {
       const vencimiento = new Date(parseInt(anio), parseInt(mes), 1); 
       return hoy >= vencimiento;
     }).length;
-    if (mesesAdeudados >= 4) {
-      alertas.push(`Debe ${mesesAdeudados} cuotas`);
-    }
+    if (mesesAdeudados >= 4) alertas.push(`Debe ${mesesAdeudados} cuotas`);
     return alertas;
   };
 
@@ -292,7 +307,7 @@ export default function AsistenciasTable() {
     const win = window.open('', '_blank');
     if (!win) return;
     const isProfe = qrType === 'profe';
-    const title = isProfe ? '🎾 Planilla Diaria del Profesor - CAEC Tenis' : '🎾 CAEC - Asistencia a Clases';
+    const title = isProfe ? '🎾 Planilla Diaria de Clases - CAEC Tenis' : '🎾 CAEC - Asistencia a Clases';
     const subtitle = isProfe
       ? 'Escaneá para cargar la cantidad de alumnos y recaudación del día'
       : 'Escaneá este código para registrar tu asistencia';
@@ -314,34 +329,107 @@ export default function AsistenciasTable() {
     win.onload = () => win.print();
   }
 
-  // Agrupar asistencias mensuales de alumnos
-  const reporteAgrupado = asistenciasMensuales.reduce((acc: Record<string, ReporteSocio>, asistencia) => {
-    if (!acc[asistencia.socio.id]) {
-      acc[asistencia.socio.id] = { socio: asistencia.socio, totalClases: 0 };
-    }
-    acc[asistencia.socio.id].totalClases += 1;
-    return acc;
-  }, {});
+  // Mapa de registros por fecha (YYYY-MM-DD) para acceso O(1)
+  const registrosMap = useMemo(() => {
+    const map = new Map<string, RegistroProfe>();
+    registrosProfeMensual.forEach((r) => {
+      const fechaKey = r.fecha.split('T')[0];
+      map.set(fechaKey, r);
+    });
+    return map;
+  }, [registrosProfeMensual]);
 
-  const reporteArray = Object.values(reporteAgrupado).sort((a, b) => 
-    a.socio.apellido.localeCompare(b.socio.apellido)
-  );
+  // Días de la semana actual (Lunes a Domingo)
+  const daysOfCurrentWeek = useMemo(() => {
+    const start = startOfWeek(currentWeekDate, { weekStartsOn: 1 });
+    const end = endOfWeek(currentWeekDate, { weekStartsOn: 1 });
+    return eachDayOfInterval({ start, end });
+  }, [currentWeekDate]);
 
-  // Cálculos KPIs del Profesor para el mes
-  const totalRecaudadoMes = registrosProfeMensual.reduce((acc, r) => acc + r.precioTotal, 0);
-  const totalAlumnosMes = registrosProfeMensual.reduce((acc, r) => acc + r.cantidadAlumnos, 0);
+  // Cálculos de la semana actual
+  const semanaStats = useMemo(() => {
+    let alumnos = 0;
+    let total = 0;
+    let diasConClase = 0;
+
+    daysOfCurrentWeek.forEach((day) => {
+      const key = format(day, 'yyyy-MM-dd');
+      const reg = registrosMap.get(key);
+      if (reg) {
+        alumnos += reg.cantidadAlumnos;
+        total += reg.precioTotal;
+        diasConClase += 1;
+      }
+    });
+
+    return { alumnos, total, diasConClase };
+  }, [daysOfCurrentWeek, registrosMap]);
+
+  // Cálculos del día seleccionado
+  const selectedDayKey = format(selectedDate, 'yyyy-MM-dd');
+  const selectedDayRecord = registrosMap.get(selectedDayKey) || registroProfeDiario;
+
+  // Cálculos del mes
+  const totalRecaudadoMes = useMemo(() => {
+    return registrosProfeMensual.reduce((acc, r) => acc + r.precioTotal, 0);
+  }, [registrosProfeMensual]);
+
+  const totalAlumnosMes = useMemo(() => {
+    return registrosProfeMensual.reduce((acc, r) => acc + r.cantidadAlumnos, 0);
+  }, [registrosProfeMensual]);
+
   const totalClasesMes = registrosProfeMensual.length;
   const promedioPorAlumnoMes = totalAlumnosMes > 0 ? Math.round(totalRecaudadoMes / totalAlumnosMes) : 0;
-  const promedioAlumnosPorClase = totalClasesMes > 0 ? (totalAlumnosMes / totalClasesMes).toFixed(1) : '0';
+  const promedioAlumnosPorDia = totalClasesMes > 0 ? (totalAlumnosMes / totalClasesMes).toFixed(1) : '0';
+  const promedioRecaudacionPorDia = totalClasesMes > 0 ? Math.round(totalRecaudadoMes / totalClasesMes) : 0;
 
-  // Modal ABM helpers
+  // Desglose recurrente por Día de la Semana en el Mes (Lunes, Martes, etc.)
+  const desglosePorDiaSemana = useMemo(() => {
+    // Array para almacenar estadísticas por día de la semana (1: Lun, 2: Mar, ..., 0: Dom)
+    const stats: Record<number, { count: number; alumnos: number; total: number }> = {
+      1: { count: 0, alumnos: 0, total: 0 },
+      2: { count: 0, alumnos: 0, total: 0 },
+      3: { count: 0, alumnos: 0, total: 0 },
+      4: { count: 0, alumnos: 0, total: 0 },
+      5: { count: 0, alumnos: 0, total: 0 },
+      6: { count: 0, alumnos: 0, total: 0 },
+      0: { count: 0, alumnos: 0, total: 0 },
+    };
+
+    registrosProfeMensual.forEach((r) => {
+      // Parsear fecha exacta
+      const [y, m, d] = r.fecha.split('T')[0].split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d, 12, 0, 0);
+      const dayOfWeek = dateObj.getDay();
+
+      if (stats[dayOfWeek]) {
+        stats[dayOfWeek].count += 1;
+        stats[dayOfWeek].alumnos += r.cantidadAlumnos;
+        stats[dayOfWeek].total += r.precioTotal;
+      }
+    });
+
+    return DIAS_SEMANA_ORDENADOS.map((d) => {
+      const data = stats[d.index];
+      const avgAlumnos = data.count > 0 ? (data.alumnos / data.count).toFixed(1) : '0';
+      const avgPrecio = data.count > 0 ? Math.round(data.total / data.count) : 0;
+      return {
+        ...d,
+        count: data.count,
+        alumnos: data.alumnos,
+        total: data.total,
+        avgAlumnos,
+        avgPrecio,
+      };
+    });
+  }, [registrosProfeMensual]);
+
+  // Modal ABM helpers (solo alumnos, precio, fecha y observaciones)
   const handleOpenCreateModal = (presetDate?: string) => {
     setEditingRegistro(null);
     setFormFecha(presetDate || format(selectedDate, 'yyyy-MM-dd'));
     setFormAlumnos('');
     setFormPrecio('');
-    setFormProfesor('Profesor');
-    setFormTurno('Tarde');
     setFormObservaciones('');
     setIsModalOpen(true);
   };
@@ -351,8 +439,6 @@ export default function AsistenciasTable() {
     setFormFecha(registro.fecha.split('T')[0]);
     setFormAlumnos(String(registro.cantidadAlumnos));
     setFormPrecio(String(registro.precioTotal));
-    setFormProfesor(registro.profesor || 'Profesor');
-    setFormTurno(registro.turno || 'Tarde');
     setFormObservaciones(registro.observaciones || '');
     setIsModalOpen(true);
   };
@@ -381,8 +467,6 @@ export default function AsistenciasTable() {
         fecha: formFecha,
         cantidadAlumnos: alumnosNum,
         precioTotal: precioNum,
-        profesor: formProfesor.trim() || 'Profesor',
-        turno: formTurno,
         observaciones: formObservaciones.trim() || null,
       };
 
@@ -398,17 +482,13 @@ export default function AsistenciasTable() {
       }
 
       toast({
-        title: isEditing ? 'Registro actualizado' : 'Registro creado',
-        description: 'La planilla del profesor fue guardada correctamente.',
+        title: isEditing ? 'Registro actualizado' : 'Registro guardado',
+        description: 'La planilla del día fue actualizada correctamente.',
       });
 
       setIsModalOpen(false);
-      // Refrescar datos
-      if (activeTab === 'diaria') {
-        fetchRegistroProfeDiario(selectedDate);
-      } else {
-        fetchRegistrosProfeMensual(selectedMonth);
-      }
+      fetchRegistrosProfeMensual(selectedMonth);
+      fetchRegistroProfeDiario(selectedDate);
     } catch (err: any) {
       toast({
         title: 'Error',
@@ -421,7 +501,7 @@ export default function AsistenciasTable() {
   };
 
   const handleDeleteRegistro = async (id: string) => {
-    if (!window.confirm('¿Estás seguro de eliminar este registro de la planilla del profesor?')) {
+    if (!window.confirm('¿Estás seguro de eliminar este registro del día?')) {
       return;
     }
 
@@ -430,20 +510,15 @@ export default function AsistenciasTable() {
       const res = await fetch(`/api/clases-profe?id=${id}`, {
         method: 'DELETE',
       });
-      if (!res.ok) {
-        throw new Error('No se pudo eliminar el registro');
-      }
+      if (!res.ok) throw new Error('No se pudo eliminar el registro');
 
       toast({
         title: 'Registro eliminado',
-        description: 'El registro fue quitado de la base de datos.',
+        description: 'El registro del día fue eliminado.',
       });
 
-      if (activeTab === 'diaria') {
-        fetchRegistroProfeDiario(selectedDate);
-      } else {
-        fetchRegistrosProfeMensual(selectedMonth);
-      }
+      fetchRegistrosProfeMensual(selectedMonth);
+      fetchRegistroProfeDiario(selectedDate);
     } catch (err: any) {
       toast({
         title: 'Error',
@@ -455,19 +530,31 @@ export default function AsistenciasTable() {
     }
   };
 
+  // Reporte agrupado de alumnos
+  const reporteAgrupado = asistenciasMensuales.reduce((acc: Record<string, ReporteSocio>, asistencia) => {
+    if (!acc[asistencia.socio.id]) {
+      acc[asistencia.socio.id] = { socio: asistencia.socio, totalClases: 0 };
+    }
+    acc[asistencia.socio.id].totalClases += 1;
+    return acc;
+  }, {});
+
+  const reporteArray = Object.values(reporteAgrupado).sort((a, b) => 
+    a.socio.apellido.localeCompare(b.socio.apellido)
+  );
+
   return (
     <div className="space-y-5">
       {/* Panel Superior: Acceso Rápido y QR para Alumnos y Profesor */}
       <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-5 shadow-lg print:hidden">
         <div className="flex flex-col lg:flex-row items-center gap-6">
-          {/* Código QR con selector */}
           <div className="flex-shrink-0 flex flex-col items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={qrImageUrl}
               alt="Código QR"
-              width={140}
-              height={140}
+              width={130}
+              height={130}
               className="rounded-xl border-2 border-[#FFCC00]/60 shadow-md bg-white p-1"
             />
             <div className="flex rounded-lg bg-[#2A2A2A] p-0.5 mt-2 border border-[#383838]">
@@ -498,13 +585,12 @@ export default function AsistenciasTable() {
             </div>
           </div>
 
-          {/* Información del enlace actual */}
           <div className="flex-1 text-center lg:text-left">
             <div className="flex items-center gap-2 justify-center lg:justify-start mb-1.5">
               <QrCode className="h-5 w-5 text-[#FFCC00]" />
               <h3 className="text-white text-base font-bold">
                 {qrType === 'profe' 
-                  ? 'Página del Profesor · Planilla Diaria' 
+                  ? 'Página del Profesor · Carga Diaria de Clases' 
                   : 'Página de Alumnos · Asistencia a Clases'}
               </h3>
               <Badge variant="outline" className="text-[10px] bg-[#FFCC00]/10 text-[#FFCC00] border-[#FFCC00]/30 font-bold uppercase">
@@ -514,8 +600,8 @@ export default function AsistenciasTable() {
 
             <p className="text-[#AAAAAA] text-xs mb-2 leading-relaxed">
               {qrType === 'profe'
-                ? 'El profesor ingresa desde su celular a este link directo para cargar los alumnos del día, la fecha y el precio total recaudado.'
-                : 'Los alumnos escanean el código con la cámara de su celular e ingresan su DNI para dar el presente en la clase.'}
+                ? 'El profesor ingresa a este link todos los días para registrar los alumnos que tuvo y el total recaudado del día.'
+                : 'Los alumnos escanean el código con su celular e ingresan su DNI para marcar su presente.'}
             </p>
 
             <div className="inline-flex items-center gap-2 bg-[#121212] px-3 py-1.5 rounded-lg border border-[#333333] text-[12px] font-mono text-[#CCCCCC] mb-3 max-w-full overflow-hidden text-ellipsis">
@@ -560,31 +646,519 @@ export default function AsistenciasTable() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-[#1E1E1E] border border-[#333333] p-1 h-12 mb-4 grid grid-cols-3 max-w-xl print:hidden">
           <TabsTrigger 
-            value="diaria" 
-            className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 rounded-md transition-all"
-          >
-            Vista Diaria
-          </TabsTrigger>
-          <TabsTrigger 
             value="profe" 
             className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 rounded-md transition-all flex items-center justify-center gap-1.5"
           >
-            <ClipboardList className="w-3.5 h-3.5" />
-            Planilla Profesor
+            <BarChart3 className="w-4 h-4" />
+            Reporte del Día, Semana y Mes
+          </TabsTrigger>
+          <TabsTrigger 
+            value="diaria" 
+            className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 rounded-md transition-all"
+          >
+            Presentes Alumnos (DNI)
           </TabsTrigger>
           <TabsTrigger 
             value="mensual"
             className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 rounded-md transition-all"
           >
-            Reporte Alumnos
+            Alumnos Mensual
           </TabsTrigger>
         </TabsList>
 
         {/* =========================================================================
-            TAB 1: VISTA DIARIA (ASISTENCIAS DE SOCIOS + PLANILLA DEL PROFE DE ESE DÍA)
+            TAB 1: PLANILLA Y REPORTE: DÍA, SEMANA Y MES (REPORTE PRINCIPAL)
+           ========================================================================= */}
+        <TabsContent value="profe" className="m-0 space-y-5 focus-visible:outline-none">
+          {/* Header con Filtro de Mes y Botones */}
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-white text-base font-bold flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-[#FFCC00]" />
+                Control de Clases · Alumnos y Recaudación Diaria
+              </h3>
+              <p className="text-[#999999] text-xs mt-0.5">
+                Seguimiento de concurrencia y valor total por día, semana y mes
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="h-8 text-xs bg-[#2A2A2A] border-[#383838] text-white focus:ring-[#FFCC00] w-[170px]">
+                  <SelectValue placeholder="Seleccionar mes" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1E1E1E] border-[#333333] text-white">
+                  {monthOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="focus:bg-[#333333] focus:text-white">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                size="sm"
+                onClick={() => handleOpenCreateModal()}
+                className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] h-8 text-xs font-bold"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Cargar Día
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchRegistrosProfeMensual(selectedMonth)}
+                disabled={loadingProfe}
+                className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
+              >
+                <RefreshCcw className={`h-3.5 w-3.5 mr-1.5 ${loadingProfe ? 'animate-spin' : ''}`} />
+                Actualizar
+              </Button>
+            </div>
+          </div>
+
+          {/* =====================================================================
+              BLOQUE DE MÉTRICAS COMPARATIVAS: DÍA, SEMANA Y MES
+             ===================================================================== */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 1. EN EL DÍA (HOY O SELECCIONADO) */}
+            <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFCC00]/5 rounded-bl-full pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs uppercase font-bold text-[#FFCC00] tracking-wider flex items-center gap-1.5">
+                    <CalendarIcon className="w-3.5 h-3.5" /> En el Día
+                  </span>
+                  <span className="text-[11px] text-[#888888] capitalize">
+                    {format(selectedDate, 'EEEE dd/MM', { locale: es })}
+                  </span>
+                </div>
+
+                {selectedDayRecord ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-2xl font-extrabold text-white">
+                        {selectedDayRecord.cantidadAlumnos} <span className="text-xs font-normal text-[#888888]">alumnos</span>
+                      </span>
+                      <span className="text-xl font-extrabold text-emerald-400">
+                        $ {selectedDayRecord.precioTotal.toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
+                      <span>Promedio por alumno:</span>
+                      <span className="font-semibold text-white">
+                        ${selectedDayRecord.cantidadAlumnos > 0 ? Math.round(selectedDayRecord.precioTotal / selectedDayRecord.cantidadAlumnos).toLocaleString('es-AR') : 0}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-2 text-center space-y-1">
+                    <p className="text-xs text-[#888888]">Sin planilla cargada para este día</p>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCreateModal(format(selectedDate, 'yyyy-MM-dd'))}
+                      className="text-xs text-[#FFCC00] hover:underline font-semibold"
+                    >
+                      + Cargar este día
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 text-[10px] text-[#666666]">
+                Podés elegir otra fecha en el calendario inferior
+              </div>
+            </div>
+
+            {/* 2. EN LA SEMANA */}
+            <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-bl-full pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs uppercase font-bold text-blue-400 tracking-wider flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5" /> En la Semana
+                  </span>
+                  <span className="text-[11px] text-[#888888]">
+                    {format(daysOfCurrentWeek[0], 'dd/MM')} al {format(daysOfCurrentWeek[6], 'dd/MM')}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-2xl font-extrabold text-white">
+                      {semanaStats.alumnos} <span className="text-xs font-normal text-[#888888]">alumnos</span>
+                    </span>
+                    <span className="text-xl font-extrabold text-emerald-400">
+                      $ {semanaStats.total.toLocaleString('es-AR')}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
+                    <span>Días con clases:</span>
+                    <span className="font-semibold text-white">
+                      {semanaStats.diasConClase} de 7 días
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 text-[10px] text-[#666666]">
+                Desglose diario detallado abajo en la grilla semanal
+              </div>
+            </div>
+
+            {/* 3. EN EL MES */}
+            <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-bl-full pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs uppercase font-bold text-purple-400 tracking-wider flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5" /> En el Mes
+                  </span>
+                  <span className="text-[11px] text-[#888888]">
+                    {format(new Date(selectedMonth + '-01T00:00:00'), 'MMMM yyyy', { locale: es })}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-2xl font-extrabold text-white">
+                      {totalAlumnosMes} <span className="text-xs font-normal text-[#888888]">alumnos</span>
+                    </span>
+                    <span className="text-xl font-extrabold text-emerald-400">
+                      $ {totalRecaudadoMes.toLocaleString('es-AR')}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
+                    <span>Promedio diario:</span>
+                    <span className="font-semibold text-[#FFCC00]">
+                      ~{promedioAlumnosPorDia} alumnos (${promedioRecaudacionPorDia.toLocaleString('es-AR')})
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 text-[10px] text-[#666666]">
+                Total de {totalClasesMes} clases dictadas en el mes
+              </div>
+            </div>
+          </div>
+
+          {/* =====================================================================
+              GRILLA SEMANAL POR DÍA DE LA SEMANA (LUNES A DOMINGO)
+             ===================================================================== */}
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#2C2C2C]">
+              <div>
+                <h4 className="text-white text-sm font-bold flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-[#FFCC00]" />
+                  Desglose Semanal por Día de la Semana
+                </h4>
+                <p className="text-[#888888] text-xs">
+                  Semana del {format(daysOfCurrentWeek[0], 'dd/MM/yyyy')} al {format(daysOfCurrentWeek[6], 'dd/MM/yyyy')}
+                </p>
+              </div>
+
+              {/* Navegación entre semanas */}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentWeekDate(subWeeks(currentWeekDate, 1))}
+                  className="h-8 px-2 border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+                  title="Semana anterior"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" /> Ant.
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentWeekDate(new Date())}
+                  className="h-8 text-xs border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+                >
+                  Esta Semana
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentWeekDate(addWeeks(currentWeekDate, 1))}
+                  className="h-8 px-2 border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+                  title="Semana siguiente"
+                >
+                  Sig. <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Grilla de 7 Días de la Semana */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 pt-1">
+              {daysOfCurrentWeek.map((day) => {
+                const dayKey = format(day, 'yyyy-MM-dd');
+                const reg = registrosMap.get(dayKey);
+                const isSelected = isSameDay(day, selectedDate);
+                const isToday = isSameDay(day, new Date());
+
+                return (
+                  <div
+                    key={dayKey}
+                    onClick={() => setSelectedDate(day)}
+                    className={cn(
+                      'rounded-xl border p-3 flex flex-col justify-between cursor-pointer transition-all',
+                      isSelected
+                        ? 'bg-[#282828] border-[#FFCC00] shadow-md ring-1 ring-[#FFCC00]/50'
+                        : reg
+                        ? 'bg-[#222222] border-[#383838] hover:border-[#555]'
+                        : 'bg-[#181818] border-[#2A2A2A] hover:border-[#383838] opacity-70 hover:opacity-100'
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={cn(
+                          'text-xs font-bold uppercase',
+                          isToday ? 'text-[#FFCC00]' : 'text-[#AAAAAA]'
+                        )}>
+                          {format(day, 'EEE', { locale: es })}
+                        </span>
+                        <span className="text-xs font-mono font-medium text-[#777777]">
+                          {format(day, 'dd/MM')}
+                        </span>
+                      </div>
+
+                      {reg ? (
+                        <div className="my-1.5 space-y-0.5">
+                          <div className="text-base font-extrabold text-white">
+                            {reg.cantidadAlumnos} <span className="text-[10px] font-normal text-[#888888]">alumnos</span>
+                          </div>
+                          <div className="text-sm font-bold text-emerald-400">
+                            $ {reg.precioTotal.toLocaleString('es-AR')}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="my-2.5 text-center">
+                          <span className="text-[11px] text-[#555555] italic">Sin clase</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-[#2E2E2E] flex justify-between items-center text-[10px]">
+                      {reg ? (
+                        <span className="text-[#888888]">
+                          ${reg.cantidadAlumnos > 0 ? Math.round(reg.precioTotal / reg.cantidadAlumnos).toLocaleString('es-AR') : 0} c/u
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenCreateModal(dayKey);
+                          }}
+                          className="text-[#FFCC00] hover:underline"
+                        >
+                          + Cargar
+                        </button>
+                      )}
+
+                      {reg && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditModal(reg);
+                          }}
+                          className="text-[#888888] hover:text-white"
+                          title="Editar"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Resumen total al pie de la semana */}
+            <div className="bg-[#171717] rounded-lg p-2.5 px-4 flex flex-col sm:flex-row items-center justify-between text-xs border border-[#2B2B2B] gap-2">
+              <span className="text-[#888888]">
+                Total de la semana: <strong className="text-white">{semanaStats.alumnos} alumnos</strong> en <strong className="text-white">{semanaStats.diasConClase} días de clase</strong>
+              </span>
+              <span className="text-emerald-400 font-bold text-sm">
+                Recaudación semanal: $ {semanaStats.total.toLocaleString('es-AR')}
+              </span>
+            </div>
+          </div>
+
+          {/* =====================================================================
+              RESUMEN POR DÍA DE LA SEMANA (LUNES A DOMINGO) EN EL MES
+             ===================================================================== */}
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
+            <div>
+              <h4 className="text-white text-sm font-bold flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-purple-400" />
+                Rendimiento Acumulado por Día de la Semana en el Mes
+              </h4>
+              <p className="text-[#888888] text-xs">
+                Muestra qué días de la semana tienen mayor concurrencia y cuánto se recauda habitualmente cada día
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-[#333333] hover:bg-transparent">
+                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Día de la Semana</TableHead>
+                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Clases Dictadas</TableHead>
+                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Total Alumnos</TableHead>
+                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Promedio Alumnos / Día</TableHead>
+                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Recaudación Total</TableHead>
+                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Promedio $ / Día</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {desglosePorDiaSemana.map((d) => (
+                    <TableRow key={d.index} className="border-[#333333] hover:bg-[#252525]">
+                      <TableCell className="text-white text-sm font-bold py-2.5">
+                        {d.nombre}
+                      </TableCell>
+                      <TableCell className="text-center py-2.5 text-xs text-[#CCCCCC]">
+                        {d.count} {d.count === 1 ? 'día' : 'días'}
+                      </TableCell>
+                      <TableCell className="text-center py-2.5 font-bold text-[#FFCC00] text-sm">
+                        {d.alumnos}
+                      </TableCell>
+                      <TableCell className="text-center py-2.5 text-xs text-white">
+                        {d.count > 0 ? `${d.avgAlumnos} alumnos` : '-'}
+                      </TableCell>
+                      <TableCell className="text-right py-2.5 font-mono font-bold text-emerald-400 text-sm">
+                        $ {d.total.toLocaleString('es-AR')}
+                      </TableCell>
+                      <TableCell className="text-right py-2.5 font-mono text-[#AAAAAA] text-xs">
+                        {d.count > 0 ? `$ ${d.avgPrecio.toLocaleString('es-AR')}` : '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* =====================================================================
+              HISTORIAL DE CARGAS DEL MES (TABLA COMPLETA)
+             ===================================================================== */}
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-white text-sm font-bold flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-[#FFCC00]" />
+                Historial de Días Cargados en el Mes ({registrosProfeMensual.length})
+              </h4>
+              <span className="text-xs text-[#777777]">1 carga por día</span>
+            </div>
+
+            {loadingProfe && registrosProfeMensual.length === 0 ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full bg-[#2A2A2A]" />
+                ))}
+              </div>
+            ) : registrosProfeMensual.length === 0 ? (
+              <div className="py-10 text-center text-sm text-[#666666]">
+                No hay días registrados en este mes. Tocá &quot;Cargar Día&quot; para registrar el primero.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-[#333333] hover:bg-transparent">
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Día de la Semana</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Fecha</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Alumnos del Día</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Valor Total del Día</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Promedio / Alumno</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Observaciones</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {registrosProfeMensual.map((registro) => {
+                      const promedio = registro.cantidadAlumnos > 0 
+                        ? Math.round(registro.precioTotal / registro.cantidadAlumnos) 
+                        : 0;
+
+                      return (
+                        <TableRow key={registro.id} className="border-[#333333] hover:bg-[#252525]">
+                          {/* Día de la semana */}
+                          <TableCell className="py-2.5 whitespace-nowrap">
+                            <Badge className="bg-[#2A2A2A] text-white border-[#444] capitalize font-bold text-xs">
+                              {format(new Date(registro.fecha), 'EEEE', { locale: es })}
+                            </Badge>
+                          </TableCell>
+
+                          {/* Fecha */}
+                          <TableCell className="text-white text-sm py-2.5 font-mono whitespace-nowrap">
+                            {format(new Date(registro.fecha), 'dd/MM/yyyy')}
+                          </TableCell>
+
+                          {/* Cantidad Alumnos */}
+                          <TableCell className="text-center py-2.5">
+                            <span className="font-extrabold text-[#FFCC00] text-sm">
+                              {registro.cantidadAlumnos}
+                            </span>
+                          </TableCell>
+
+                          {/* Precio Total del Día */}
+                          <TableCell className="text-right py-2.5 font-mono font-bold text-emerald-400 text-sm">
+                            $ {registro.precioTotal.toLocaleString('es-AR')}
+                          </TableCell>
+
+                          {/* Promedio */}
+                          <TableCell className="text-right py-2.5 font-mono text-[#AAAAAA] text-xs">
+                            $ {promedio.toLocaleString('es-AR')}
+                          </TableCell>
+
+                          {/* Observaciones */}
+                          <TableCell className="text-[#888888] text-xs py-2.5 max-w-[220px] truncate" title={registro.observaciones || ''}>
+                            {registro.observaciones || '-'}
+                          </TableCell>
+
+                          {/* Acciones */}
+                          <TableCell className="text-center py-2.5">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEditModal(registro)}
+                                className="h-7 w-7 text-[#888888] hover:text-white hover:bg-[#2C2C2C]"
+                                title="Editar"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteRegistro(registro.id)}
+                                disabled={isDeleting}
+                                className="h-7 w-7 text-[#888888] hover:text-rose-400 hover:bg-rose-500/10"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* =========================================================================
+            TAB 2: VISTA DIARIA (PRESENTES CON DNI + PLANILLA DEL DÍA)
            ========================================================================= */}
         <TabsContent value="diaria" className="m-0 space-y-4 focus-visible:outline-none">
-          {/* Card Resumen de la Planilla del Profe para este día seleccionado */}
+          {/* Card Resumen de la Planilla del Día */}
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4.5 transition-all">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -593,8 +1167,8 @@ export default function AsistenciasTable() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="text-white font-bold text-sm">
-                      Planilla del Profesor · {format(selectedDate, 'dd/MM/yyyy')}
+                    <h4 className="text-white font-bold text-sm capitalize">
+                      Planilla del {format(selectedDate, 'EEEE dd/MM/yyyy', { locale: es })}
                     </h4>
                     {registroProfeDiario && (
                       <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] px-2">
@@ -604,7 +1178,7 @@ export default function AsistenciasTable() {
                   </div>
                   <p className="text-[#888888] text-xs">
                     {registroProfeDiario 
-                      ? `${registroProfeDiario.profesor || 'Profesor'} registró clases para este día`
+                      ? `Registrado para este día`
                       : 'El profesor todavía no cargó los datos de esta fecha'}
                   </p>
                 </div>
@@ -612,13 +1186,12 @@ export default function AsistenciasTable() {
 
               {registroProfeDiario ? (
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                  <div className="text-right sm:text-right pr-2">
+                  <div className="text-right pr-2">
                     <div className="text-sm font-bold text-emerald-400">
                       $ {registroProfeDiario.precioTotal.toLocaleString('es-AR')}
                     </div>
                     <div className="text-[11px] text-[#999999]">
-                      {registroProfeDiario.cantidadAlumnos} alumno{registroProfeDiario.cantidadAlumnos !== 1 ? 's' : ''}
-                      {registroProfeDiario.turno ? ` · ${registroProfeDiario.turno}` : ''}
+                      {registroProfeDiario.cantidadAlumnos} alumno{registroProfeDiario.cantidadAlumnos !== 1 ? 's' : ''} en total
                     </div>
                   </div>
                   <Button
@@ -638,29 +1211,29 @@ export default function AsistenciasTable() {
                   className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] h-8 text-xs font-bold"
                 >
                   <Plus className="h-3.5 w-3.5 mr-1" />
-                  Cargar Planilla Profe
+                  Cargar Planilla
                 </Button>
               )}
             </div>
 
             {registroProfeDiario?.observaciones && (
               <div className="mt-3 pt-2.5 border-t border-[#2C2C2C] text-xs text-[#999999] flex items-center gap-1.5">
-                <span className="font-semibold text-[#CCCCCC]">Notas del profesor:</span>
+                <span className="font-semibold text-[#CCCCCC]">Observaciones:</span>
                 <span>{registroProfeDiario.observaciones}</span>
               </div>
             )}
           </div>
 
-          {/* Tabla de Asistencias individuales de alumnos */}
+          {/* Tabla de Asistencias individuales de alumnos con DNI */}
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <div>
                 <h3 className="text-white text-base font-bold flex items-center gap-2">
                   <Users className="h-4 w-4 text-[#FFCC00]" />
-                  Presentes de Alumnos del {format(selectedDate, 'dd/MM/yyyy')}
+                  Presentes de Alumnos con DNI ({format(selectedDate, 'dd/MM/yyyy')})
                 </h3>
                 <p className="text-[#999999] text-xs mt-0.5">
-                  {asistenciasDiarias.length} alumno{asistenciasDiarias.length !== 1 ? 's' : ''} marcaron su asistencia con DNI
+                  {asistenciasDiarias.length} alumno{asistenciasDiarias.length !== 1 ? 's' : ''} marcaron su presente por QR
                 </p>
               </div>
               
@@ -778,224 +1351,7 @@ export default function AsistenciasTable() {
         </TabsContent>
 
         {/* =========================================================================
-            TAB 2: PLANILLA DEL PROFESOR (REGISTRO COMPLETO DIARIO DE LO QUE CARGA)
-           ========================================================================= */}
-        <TabsContent value="profe" className="m-0 space-y-4 focus-visible:outline-none">
-          {/* Header y Filtro de Mes */}
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-white text-base font-bold flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-[#FFCC00]" />
-                Planilla Mensual del Profesor de Tenis
-              </h3>
-              <p className="text-[#999999] text-xs mt-0.5">
-                Registro de alumnos atendidos y recaudación diaria cargada por el profesor
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="h-8 text-xs bg-[#2A2A2A] border-[#383838] text-white focus:ring-[#FFCC00] w-[170px]">
-                  <SelectValue placeholder="Seleccionar mes" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1E1E1E] border-[#333333] text-white">
-                  {monthOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="focus:bg-[#333333] focus:text-white">
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button
-                size="sm"
-                onClick={() => handleOpenCreateModal()}
-                className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] h-8 text-xs font-bold"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Nueva Carga
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fetchRegistrosProfeMensual(selectedMonth)}
-                disabled={loadingProfe}
-                className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
-              >
-                <RefreshCcw className={`h-3.5 w-3.5 mr-1.5 ${loadingProfe ? 'animate-spin' : ''}`} />
-                Actualizar
-              </Button>
-            </div>
-          </div>
-
-          {/* KPI Cards del Mes para el Profesor */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* Card 1: Total Recaudado */}
-            <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#888888] mb-1">
-                <span className="text-xs uppercase font-semibold">Total Recaudado</span>
-                <DollarSign className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div className="text-xl sm:text-2xl font-extrabold text-emerald-400">
-                $ {totalRecaudadoMes.toLocaleString('es-AR')}
-              </div>
-              <span className="text-[11px] text-[#666666] mt-1">En el mes seleccionado</span>
-            </div>
-
-            {/* Card 2: Total Alumnos */}
-            <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#888888] mb-1">
-                <span className="text-xs uppercase font-semibold">Alumnos Atendidos</span>
-                <Users className="w-4 h-4 text-[#FFCC00]" />
-              </div>
-              <div className="text-xl sm:text-2xl font-extrabold text-white">
-                {totalAlumnosMes}
-              </div>
-              <span className="text-[11px] text-[#666666] mt-1">Suma de presentes</span>
-            </div>
-
-            {/* Card 3: Clases Dictadas */}
-            <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#888888] mb-1">
-                <span className="text-xs uppercase font-semibold">Días con Clases</span>
-                <CalendarCheck className="w-4 h-4 text-blue-400" />
-              </div>
-              <div className="text-xl sm:text-2xl font-extrabold text-white">
-                {totalClasesMes}
-              </div>
-              <span className="text-[11px] text-[#666666] mt-1">Planillas registradas</span>
-            </div>
-
-            {/* Card 4: Promedio por Alumno */}
-            <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#888888] mb-1">
-                <span className="text-xs uppercase font-semibold">Promedio / Alumno</span>
-                <TrendingUp className="w-4 h-4 text-purple-400" />
-              </div>
-              <div className="text-xl sm:text-2xl font-extrabold text-[#FFCC00]">
-                $ {promedioPorAlumnoMes.toLocaleString('es-AR')}
-              </div>
-              <span className="text-[11px] text-[#666666] mt-1">~{promedioAlumnosPorClase} alumnos / clase</span>
-            </div>
-          </div>
-
-          {/* Tabla de Registros del Profesor */}
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 shadow-sm">
-            {loadingProfe && registrosProfeMensual.length === 0 ? (
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full bg-[#2A2A2A]" />
-                ))}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-[#333333] hover:bg-transparent">
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Fecha</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Profesor</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Turno</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Alumnos</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Total del Día</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Promedio / Alumno</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Observaciones</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {registrosProfeMensual.length === 0 ? (
-                      <TableRow className="border-[#333333]">
-                        <TableCell colSpan={8} className="text-center py-12 text-[#666666] text-sm">
-                          No hay planillas cargadas por el profesor en este mes.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      registrosProfeMensual.map((registro) => {
-                        const promedio = registro.cantidadAlumnos > 0 
-                          ? Math.round(registro.precioTotal / registro.cantidadAlumnos) 
-                          : 0;
-
-                        return (
-                          <TableRow key={registro.id} className="border-[#333333] hover:bg-[#252525]">
-                            {/* Fecha */}
-                            <TableCell className="text-white text-sm py-3 font-medium whitespace-nowrap">
-                              <span className="capitalize">
-                                {format(new Date(registro.fecha), 'EEEE dd/MM/yyyy', { locale: es })}
-                              </span>
-                            </TableCell>
-
-                            {/* Profesor */}
-                            <TableCell className="text-[#CCCCCC] text-sm py-3">
-                              {registro.profesor || 'Profesor'}
-                            </TableCell>
-
-                            {/* Turno */}
-                            <TableCell className="text-center py-3">
-                              <Badge variant="outline" className="text-[11px] bg-[#2A2A2A] text-[#CCCCCC] border-[#383838]">
-                                {registro.turno || 'Completo'}
-                              </Badge>
-                            </TableCell>
-
-                            {/* Cantidad Alumnos */}
-                            <TableCell className="text-center py-3">
-                              <span className="font-bold text-[#FFCC00] text-sm">
-                                {registro.cantidadAlumnos}
-                              </span>
-                            </TableCell>
-
-                            {/* Precio Total */}
-                            <TableCell className="text-right py-3 font-mono font-bold text-emerald-400 text-sm">
-                              $ {registro.precioTotal.toLocaleString('es-AR')}
-                            </TableCell>
-
-                            {/* Promedio */}
-                            <TableCell className="text-right py-3 font-mono text-[#AAAAAA] text-xs">
-                              $ {promedio.toLocaleString('es-AR')}
-                            </TableCell>
-
-                            {/* Observaciones */}
-                            <TableCell className="text-[#888888] text-xs py-3 max-w-[200px] truncate" title={registro.observaciones || ''}>
-                              {registro.observaciones || '-'}
-                            </TableCell>
-
-                            {/* Acciones */}
-                            <TableCell className="text-center py-3">
-                              <div className="flex items-center justify-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenEditModal(registro)}
-                                  className="h-7 w-7 text-[#888888] hover:text-white hover:bg-[#2C2C2C]"
-                                  title="Editar"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteRegistro(registro.id)}
-                                  disabled={isDeleting}
-                                  className="h-7 w-7 text-[#888888] hover:text-rose-400 hover:bg-rose-500/10"
-                                  title="Eliminar"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* =========================================================================
-            TAB 3: REPORTE MENSUAL DE ALUMNOS (ASISTENCIAS POR SOCIO)
+            TAB 3: REPORTE MENSUAL DE ASISTENCIAS DE ALUMNOS (DNI)
            ========================================================================= */}
         <TabsContent value="mensual" className="m-0 space-y-4 focus-visible:outline-none">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 print:border-none print:p-0">
@@ -1095,23 +1451,23 @@ export default function AsistenciasTable() {
         </TabsContent>
       </Tabs>
 
-      {/* Modal para Crear / Editar Registro del Profesor */}
+      {/* Modal para Crear / Editar Registro del Día (Sin Profesor ni Turno) */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="bg-[#1E1E1E] border-[#333333] text-white sm:max-w-[480px]">
+        <DialogContent className="bg-[#1E1E1E] border-[#333333] text-white sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle className="text-white font-bold text-lg flex items-center gap-2">
               <ClipboardList className="w-5 h-5 text-[#FFCC00]" />
-              {editingRegistro ? 'Editar Planilla del Profesor' : 'Cargar Planilla del Profesor'}
+              {editingRegistro ? 'Editar Planilla del Día' : 'Cargar Planilla del Día'}
             </DialogTitle>
             <DialogDescription className="text-[#888888] text-xs">
-              Ingresá la cantidad de alumnos y recaudación del día.
+              Ingresá los alumnos y el valor total del día (1 carga por día).
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveModal} className="space-y-4 pt-2">
             {/* Fecha */}
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Fecha</Label>
+              <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Día</Label>
               <Input
                 type="date"
                 value={formFecha}
@@ -1138,7 +1494,7 @@ export default function AsistenciasTable() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Precio Total ($)</Label>
+                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Valor Total ($)</Label>
                 <Input
                   type="number"
                   min="0"
@@ -1149,35 +1505,6 @@ export default function AsistenciasTable() {
                   required
                   className="bg-[#2A2A2A] border-[#383838] text-white font-bold focus:border-[#FFCC00]"
                 />
-              </div>
-            </div>
-
-            {/* Turno y Profesor */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Profesor</Label>
-                <Input
-                  type="text"
-                  placeholder="Profesor"
-                  value={formProfesor}
-                  onChange={(e) => setFormProfesor(e.target.value)}
-                  className="bg-[#2A2A2A] border-[#383838] text-white focus:border-[#FFCC00]"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Turno</Label>
-                <Select value={formTurno} onValueChange={setFormTurno}>
-                  <SelectTrigger className="bg-[#2A2A2A] border-[#383838] text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1E1E1E] border-[#333333] text-white">
-                    <SelectItem value="Tarde">Tarde</SelectItem>
-                    <SelectItem value="Mañana">Mañana</SelectItem>
-                    <SelectItem value="Completo">Completo</SelectItem>
-                    <SelectItem value="Noche">Noche</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
@@ -1207,7 +1534,7 @@ export default function AsistenciasTable() {
                 disabled={submittingModal}
                 className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] font-bold"
               >
-                {submittingModal ? 'Guardando...' : editingRegistro ? 'Guardar Cambios' : 'Crear Registro'}
+                {submittingModal ? 'Guardando...' : editingRegistro ? 'Guardar Cambios' : 'Guardar Día'}
               </Button>
             </DialogFooter>
           </form>

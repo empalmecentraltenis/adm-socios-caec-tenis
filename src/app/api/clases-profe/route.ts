@@ -59,11 +59,11 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/clases-profe - Cargar nuevo registro diario del profesor
+// POST /api/clases-profe - Cargar o actualizar registro diario del profesor (solo 1 por día)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { fecha, cantidadAlumnos, precioTotal, profesor, turno, observaciones } = body;
+    const { fecha, cantidadAlumnos, precioTotal, observaciones } = body;
 
     if (!fecha) {
       return NextResponse.json(
@@ -88,27 +88,53 @@ export async function POST(request: Request) {
       );
     }
 
-    // Convertir fecha YYYY-MM-DD a mediodía UTC para evitar desplazamientos de zona horaria
+    // Convertir fecha YYYY-MM-DD a mediodía UTC
     const [year, month, day] = fecha.split('-').map(Number);
+    const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
     const fechaUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
 
-    const nuevoRegistro = await db.registroClaseProfesor.create({
-      data: {
-        fecha: fechaUtc,
-        cantidadAlumnos: parsedAlumnos,
-        precioTotal: parsedPrecio,
-        profesor: profesor?.trim() || 'Profesor',
-        turno: turno?.trim() || null,
-        observaciones: observaciones?.trim() || null,
+    // Verificar si ya existe registro para ese día (solo 1 carga por día)
+    const existing = await db.registroClaseProfesor.findFirst({
+      where: {
+        fecha: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
       },
     });
+
+    let registro;
+    let esActualizacion = false;
+
+    if (existing) {
+      esActualizacion = true;
+      registro = await db.registroClaseProfesor.update({
+        where: { id: existing.id },
+        data: {
+          cantidadAlumnos: parsedAlumnos,
+          precioTotal: parsedPrecio,
+          observaciones: observaciones?.trim() || null,
+        },
+      });
+    } else {
+      registro = await db.registroClaseProfesor.create({
+        data: {
+          fecha: fechaUtc,
+          cantidadAlumnos: parsedAlumnos,
+          precioTotal: parsedPrecio,
+          profesor: 'Profesor',
+          observaciones: observaciones?.trim() || null,
+        },
+      });
+    }
 
     // Registrar actividad en el sistema
     try {
       await db.actividad.create({
         data: {
-          accion: 'clase_profe_registrada',
-          detalle: `El profesor cargó la planilla del ${fecha}: ${parsedAlumnos} alumnos, Total: $${parsedPrecio.toLocaleString('es-AR')}`,
+          accion: esActualizacion ? 'clase_profe_actualizada' : 'clase_profe_registrada',
+          detalle: `Planilla del ${fecha} ${esActualizacion ? 'actualizada' : 'registrada'}: ${parsedAlumnos} alumnos, Total: $${parsedPrecio.toLocaleString('es-AR')}`,
         },
       });
     } catch (actError) {
@@ -117,10 +143,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      mensaje: 'Registro de clase guardado exitosamente',
+      mensaje: esActualizacion
+        ? 'Planilla del día actualizada correctamente'
+        : 'Planilla del día guardada correctamente',
       registro: {
-        ...nuevoRegistro,
-        fechaFormateada: nuevoRegistro.fecha.toISOString().split('T')[0],
+        ...registro,
+        fechaFormateada: registro.fecha.toISOString().split('T')[0],
       },
     });
   } catch (error: any) {
