@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import SessionProvider from "@/components/providers/SessionProvider";
-import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +13,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-import BotpressChat from "@/components/layout/BotpressChat";
 
 export const metadata: Metadata = {
   title: "CAEC - Panel de Administración",
@@ -39,7 +36,6 @@ export default function RootLayout({
           {children}
           <Toaster />
         </SessionProvider>
-        <BotpressChat />
       </body>
     </html>
   );
