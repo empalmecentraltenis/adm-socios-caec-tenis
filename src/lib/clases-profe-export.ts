@@ -12,6 +12,16 @@ interface RegistroProfe {
   observaciones?: string;
 }
 
+export interface SemanaResumen {
+  numero: number;
+  nombre: string;
+  periodo: string;
+  diasConClase: number;
+  totalAlumnos: number;
+  totalCosto: number;
+  promedioPorAlumno: number;
+}
+
 const formatARS = (val: number) => {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -38,7 +48,63 @@ const tryLoadLogo = async (doc: jsPDF, x = 12, y = 11, w = 12, h = 12) => {
 };
 
 // ============================================================================
-// 1. EXPORTAR REPORTE SEMANAL EN PDF PARA COMISIÓN DIRECTIVA
+// HELPER: CALCULAR SEMANAS DEL MES (Semana 1, Semana 2... con inicio, fin y totales)
+// ============================================================================
+export const calcularSemanasDelMes = (
+  monthStr: string, // YYYY-MM
+  registros: RegistroProfe[]
+): SemanaResumen[] => {
+  const [yearNum, monthNum] = monthStr.split('-').map(Number);
+  const firstDayOfMonth = new Date(yearNum, monthNum - 1, 1);
+  const lastDayOfMonth = new Date(yearNum, monthNum, 0);
+
+  const semanas: SemanaResumen[] = [];
+  let currentStart = new Date(firstDayOfMonth);
+  let weekIndex = 1;
+
+  while (currentStart <= lastDayOfMonth) {
+    const dayOfWeek = currentStart.getDay(); // 0: Dom, 1: Lun...
+    const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+
+    let currentEnd = new Date(currentStart);
+    currentEnd.setDate(currentEnd.getDate() + daysToSunday);
+    if (currentEnd > lastDayOfMonth) {
+      currentEnd = new Date(lastDayOfMonth);
+    }
+
+    const startStr = format(currentStart, 'yyyy-MM-dd');
+    const endStr = format(currentEnd, 'yyyy-MM-dd');
+
+    const recordsInWeek = registros.filter((r) => {
+      const rDateStr = r.fecha.split('T')[0];
+      return rDateStr >= startStr && rDateStr <= endStr;
+    });
+
+    const totalAlumnos = recordsInWeek.reduce((acc, r) => acc + r.cantidadAlumnos, 0);
+    const totalCosto = recordsInWeek.reduce((acc, r) => acc + r.precioTotal, 0);
+    const diasConClase = recordsInWeek.length;
+    const promedioPorAlumno = totalAlumnos > 0 ? Math.round(totalCosto / totalAlumnos) : 0;
+
+    semanas.push({
+      numero: weekIndex,
+      nombre: `Semana ${weekIndex}`,
+      periodo: `${format(currentStart, 'dd/MM/yyyy')} al ${format(currentEnd, 'dd/MM/yyyy')}`,
+      diasConClase,
+      totalAlumnos,
+      totalCosto,
+      promedioPorAlumno,
+    });
+
+    currentStart = new Date(currentEnd);
+    currentStart.setDate(currentStart.getDate() + 1);
+    weekIndex++;
+  }
+
+  return semanas;
+};
+
+// ============================================================================
+// 1. EXPORTAR REPORTE SEMANAL EN PDF PARA COMISIÓN DIRECTIVA (Detalle Diario de la Semana)
 // ============================================================================
 export const exportSemanaPDF = async (
   daysOfCurrentWeek: Date[],
@@ -136,7 +202,7 @@ export const exportSemanaPDF = async (
 
   autoTable(doc, {
     startY: 49,
-    head: [['Día de la Semana', 'Fecha', 'Alumnos', 'Recaudación ($)', 'Promedio / Alumno', 'Observaciones']],
+    head: [['Día de la Semana', 'Fecha', 'Alumnos', 'Total Costo / Recaudación', 'Promedio / Alumno', 'Observaciones']],
     body: tableData,
     headStyles: {
       fillColor: [255, 204, 0],
@@ -164,7 +230,6 @@ export const exportSemanaPDF = async (
       fillColor: [250, 250, 250],
     },
     didParseCell: (data) => {
-      // Destacar la última fila de totales
       if (data.row.index === tableData.length - 1) {
         data.cell.styles.fillColor = [255, 245, 200];
         data.cell.styles.fontStyle = 'bold';
@@ -198,7 +263,7 @@ export const exportSemanaPDF = async (
 };
 
 // ============================================================================
-// 2. EXPORTAR REPORTE MENSUAL EN PDF PARA COMISIÓN DIRECTIVA
+// 2. EXPORTAR REPORTE MENSUAL EN PDF PARA COMISIÓN DIRECTIVA (Desglose por Semana, NO diario)
 // ============================================================================
 export const exportMesPDF = async (
   monthStr: string, // YYYY-MM
@@ -225,7 +290,7 @@ export const exportMesPDF = async (
   doc.setFont('helvetica', 'bold');
   doc.text('SUBCOMISIÓN DE TENIS — CLUB EMPALME CENTRAL', 105, 17.5, { align: 'center' });
 
-  // Subtítulo
+  // Subtítulo Comisión Directiva
   doc.setFillColor(255, 204, 0);
   doc.rect(10, 22, 190, 8, 'F');
   doc.setTextColor(0, 0, 0);
@@ -246,7 +311,7 @@ export const exportMesPDF = async (
   doc.rect(10, 32, 95, 7, 'D');
   doc.rect(105, 32, 95, 7, 'D');
   doc.text(`TOTAL ALUMNOS DEL MES:  ${stats.totalAlumnos}`, 15, 36.5);
-  doc.text(`TOTAL RECAUDACIÓN DEL MES:  ${formatARS(stats.totalRecaudado)}`, 110, 36.5);
+  doc.text(`TOTAL COSTO / RECAUDACIÓN:  ${formatARS(stats.totalRecaudado)}`, 110, 36.5);
 
   doc.rect(10, 39, 95, 7, 'F');
   doc.rect(105, 39, 95, 7, 'F');
@@ -255,11 +320,78 @@ export const exportMesPDF = async (
   doc.text(`DÍAS DE CLASES DICTADAS:  ${stats.totalClases} días`, 15, 43.5);
   doc.text(`PROMEDIO:  ~${promAlumnosDia} alumnos / día (${formatARS(promPorAlumnoMes)} / alumno)`, 110, 43.5);
 
-  // Tabla 1: Rendimiento por Día de la Semana
+  // =========================================================================
+  // TABLA PRINCIPAL: DETALLE DE LAS CLASES SEMANALES (SEMANA 1, 2, 3...)
+  // =========================================================================
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(20, 20, 20);
+  doc.text('DETALLE DE CLASES SEMANALES (RESUMEN POR SEMANA):', 10, 51);
+
+  const semanas = calcularSemanasDelMes(monthStr, registros);
+  const semanasRows: any[] = semanas.map((s) => [
+    s.nombre,
+    s.periodo,
+    `${s.diasConClase} días`,
+    `${s.totalAlumnos} alumnos`,
+    formatARS(s.totalCosto),
+    s.totalAlumnos > 0 ? formatARS(s.promedioPorAlumno) : '-',
+  ]);
+
+  // Fila de Totales del Mes
+  semanasRows.push([
+    'TOTAL MES',
+    mesNombre,
+    `${stats.totalClases} días`,
+    `${stats.totalAlumnos} alumnos`,
+    formatARS(stats.totalRecaudado),
+    formatARS(promPorAlumnoMes),
+  ]);
+
+  autoTable(doc, {
+    startY: 53,
+    head: [['Semana', 'Período (Desde - Hasta)', 'Días de Clase', 'Total Alumnos', 'Total Costo / Recaudación', 'Promedio / Alumno']],
+    body: semanasRows,
+    headStyles: {
+      fillColor: [255, 204, 0],
+      textColor: [0, 0, 0],
+      fontSize: 9,
+      fontStyle: 'bold',
+      halign: 'center',
+    },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 3,
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1,
+      valign: 'middle',
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 26 },
+      1: { halign: 'center', cellWidth: 48 },
+      2: { halign: 'center', cellWidth: 25 },
+      3: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
+      4: { halign: 'right', fontStyle: 'bold', cellWidth: 33 },
+      5: { halign: 'right', cellWidth: 30 },
+    },
+    alternateRowStyles: {
+      fillColor: [250, 250, 250],
+    },
+    didParseCell: (data) => {
+      if (data.row.index === semanasRows.length - 1) {
+        data.cell.styles.fillColor = [255, 245, 200];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  const nextY = (doc as any).lastAutoTable.finalY + 8;
+
+  // TABLA COMPLEMENTARIA: DISTRIBUCIÓN POR DÍA DE LA SEMANA (LUNES A DOMINGO)
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(40, 40, 40);
-  doc.text('RESUMEN DE ASISTENCIA Y RECAUDACIÓN POR DÍA DE LA SEMANA:', 10, 50);
+  doc.setTextColor(30, 30, 30);
+  doc.text('RESUMEN DE ASISTENCIA Y COSTO POR DÍA DE LA SEMANA:', 10, nextY);
 
   const diaSemanaRows = desglosePorDiaSemana.map((d) => [
     d.nombre,
@@ -271,8 +403,8 @@ export const exportMesPDF = async (
   ]);
 
   autoTable(doc, {
-    startY: 52,
-    head: [['Día', 'Clases en el Mes', 'Total Alumnos', 'Promedio Alumnos', 'Total Recaudado', 'Promedio $ / Clase']],
+    startY: nextY + 2,
+    head: [['Día de la Semana', 'Clases en el Mes', 'Total Alumnos', 'Promedio Alumnos', 'Total Costo', 'Promedio $ / Clase']],
     body: diaSemanaRows,
     headStyles: {
       fillColor: [230, 230, 230],
@@ -283,7 +415,7 @@ export const exportMesPDF = async (
     },
     styles: {
       fontSize: 7.5,
-      cellPadding: 1.8,
+      cellPadding: 2,
       lineColor: [210, 210, 210],
       lineWidth: 0.1,
     },
@@ -297,81 +429,12 @@ export const exportMesPDF = async (
     },
   });
 
-  const nextY = (doc as any).lastAutoTable.finalY + 6;
-
-  // Tabla 2: Detalle Cronológico de Días Cargados
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(40, 40, 40);
-  doc.text('DETALLE DIARIO DE CLASES DICTADAS:', 10, nextY);
-
-  const detalleRows: any[] = registros.map((r) => {
-    const [y, m, d] = r.fecha.split('T')[0].split('-').map(Number);
-    const dateObj = new Date(y, m - 1, d, 12, 0, 0);
-    const diaNombre = format(dateObj, 'EEEE', { locale: es }).toUpperCase();
-    const fechaFormatted = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-    const prom = r.cantidadAlumnos > 0 ? Math.round(r.precioTotal / r.cantidadAlumnos) : 0;
-
-    return [
-      diaNombre,
-      fechaFormatted,
-      `${r.cantidadAlumnos}`,
-      formatARS(r.precioTotal),
-      formatARS(prom),
-      r.observaciones || '-',
-    ];
-  });
-
-  // Fila total al final
-  detalleRows.push([
-    'TOTAL MENSUAL',
-    `${stats.totalClases} días`,
-    `${stats.totalAlumnos}`,
-    formatARS(stats.totalRecaudado),
-    formatARS(promPorAlumnoMes),
-    `Promedio diario: ~${promAlumnosDia} alumnos`,
-  ]);
-
-  autoTable(doc, {
-    startY: nextY + 2,
-    head: [['Día', 'Fecha', 'Alumnos', 'Total del Día', 'Promedio / Alumno', 'Observaciones']],
-    body: detalleRows,
-    headStyles: {
-      fillColor: [255, 204, 0],
-      textColor: [0, 0, 0],
-      fontSize: 8.5,
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    styles: {
-      fontSize: 7.5,
-      cellPadding: 1.8,
-      lineColor: [210, 210, 210],
-      lineWidth: 0.1,
-    },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 28 },
-      1: { halign: 'center', cellWidth: 24 },
-      2: { halign: 'center', fontStyle: 'bold', cellWidth: 22 },
-      3: { halign: 'right', fontStyle: 'bold', cellWidth: 34 },
-      4: { halign: 'right', cellWidth: 32 },
-      5: { cellWidth: 50 },
-    },
-    didParseCell: (data) => {
-      if (data.row.index === detalleRows.length - 1) {
-        data.cell.styles.fillColor = [255, 245, 200];
-        data.cell.styles.fontStyle = 'bold';
-      }
-    },
-  });
-
-  // Firmas institucionales
+  // Firmas institucionales (entran perfecto en la misma hoja A4)
   const finalTableY = (doc as any).lastAutoTable.finalY;
   const pageHeight = doc.internal.pageSize.height;
-  let signatureY = finalTableY + 16;
+  let signatureY = finalTableY + 14;
 
-  // Si queda muy cerca del final de la hoja, saltar de página
-  if (signatureY + 20 > pageHeight) {
+  if (signatureY + 22 > pageHeight) {
     doc.addPage();
     signatureY = 30;
   }
@@ -400,6 +463,50 @@ export const exportMesPDF = async (
 // ============================================================================
 // 3. EXPORTAR A EXCEL (XLSX) PARA COMISIÓN DIRECTIVA / TESORERÍA
 // ============================================================================
+export const exportMesExcel = (
+  monthStr: string,
+  registros: RegistroProfe[],
+  stats: { totalAlumnos: number; totalRecaudado: number; totalClases: number }
+) => {
+  const semanas = calcularSemanasDelMes(monthStr, registros);
+  const dataForExcel: any[] = semanas.map((s) => ({
+    'Semana': s.nombre,
+    'Período': s.periodo,
+    'Días de Clase': s.diasConClase,
+    'Total Alumnos': s.totalAlumnos,
+    'Total Costo / Recaudación ($)': s.totalCosto,
+    'Promedio por Alumno ($)': s.promedioPorAlumno,
+  }));
+
+  const promPorAlumnoMes = stats.totalAlumnos > 0 ? Math.round(stats.totalRecaudado / stats.totalAlumnos) : 0;
+  dataForExcel.push({
+    'Semana': 'TOTAL MES',
+    'Período': monthStr,
+    'Días de Clase': stats.totalClases,
+    'Total Alumnos': stats.totalAlumnos,
+    'Total Costo / Recaudación ($)': stats.totalRecaudado,
+    'Promedio por Alumno ($)': promPorAlumnoMes,
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Resumen Semanal Mes');
+
+  worksheet['!cols'] = [
+    { wch: 14 },
+    { wch: 28 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 28 },
+    { wch: 24 },
+  ];
+
+  XLSX.writeFile(
+    workbook,
+    `Resumen_Mensual_Semanas_CAEC_${monthStr}.xlsx`
+  );
+};
+
 export const exportClasesExcel = (
   tipo: 'semana' | 'mes',
   periodoLabel: string,
@@ -410,7 +517,7 @@ export const exportClasesExcel = (
     'Día de la Semana': r.dia,
     'Fecha': r.fecha,
     'Cantidad de Alumnos': r.alumnos,
-    'Total Recaudado ($)': r.total,
+    'Total Costo / Recaudación ($)': r.total,
     'Promedio por Alumno ($)': r.promedio,
     'Observaciones': r.obs,
   }));
@@ -419,14 +526,13 @@ export const exportClasesExcel = (
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Clases Tenis');
 
-  // Ajustar anchos de columnas
   worksheet['!cols'] = [
     { wch: 6 },
     { wch: 18 },
     { wch: 14 },
     { wch: 20 },
-    { wch: 20 },
-    { wch: 22 },
+    { wch: 26 },
+    { wch: 24 },
     { wch: 35 },
   ];
 

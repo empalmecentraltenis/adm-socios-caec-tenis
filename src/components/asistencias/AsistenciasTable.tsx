@@ -57,7 +57,7 @@ import {
   FileDown,
   Download
 } from 'lucide-react';
-import { exportSemanaPDF, exportMesPDF, exportClasesExcel } from '@/lib/clases-profe-export';
+import { exportSemanaPDF, exportMesPDF, exportMesExcel, exportClasesExcel } from '@/lib/clases-profe-export';
 import { 
   format, 
   startOfWeek, 
@@ -573,25 +573,17 @@ export default function AsistenciasTable() {
     }
   };
 
-  // Exportar Mes a Excel (.xlsx)
+  // Exportar Mes a Excel (.xlsx) con desglose semanal
   const handleExportMesExcel = () => {
     try {
-      const data = registrosProfeMensual.map((r) => {
-        const [y, m, d] = r.fecha.split('T')[0].split('-').map(Number);
-        const dateObj = new Date(y, m - 1, d, 12, 0, 0);
-        return {
-          dia: format(dateObj, 'EEEE', { locale: es }).toUpperCase(),
-          fecha: `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`,
-          alumnos: r.cantidadAlumnos,
-          total: r.precioTotal,
-          promedio: r.cantidadAlumnos > 0 ? Math.round(r.precioTotal / r.cantidadAlumnos) : 0,
-          obs: r.observaciones || '',
-        };
+      exportMesExcel(selectedMonth, registrosProfeMensual, {
+        totalAlumnos: totalAlumnosMes,
+        totalRecaudado: totalRecaudadoMes,
+        totalClases: totalClasesMes,
       });
-      exportClasesExcel('mes', selectedMonth, data);
       toast({
         title: 'Planilla Excel generada',
-        description: 'Se descargó el archivo .xlsx con los registros del mes.',
+        description: 'Se descargó el archivo .xlsx con el desglose semanal del mes.',
       });
     } catch (err: any) {
       toast({
