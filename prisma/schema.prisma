@@ -179,3 +179,19 @@ model PlazoFijo {
 
   @@map("plazos_fijos")
 }
+
+model RegistroClaseProfesor {
+  id              String   @id @default(cuid())
+  fecha           DateTime @db.Date
+  cantidadAlumnos Int      @map("cantidad_alumnos")
+  precioTotal     Float    @map("precio_total")
+  profesor        String?  @default("Profesor")
+  turno           String?  // Ej: 'Mañana', 'Tarde', 'Completo'
+  observaciones   String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([fecha])
+  @@map("registros_clase_profesor")
+}
+

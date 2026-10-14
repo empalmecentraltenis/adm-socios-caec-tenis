@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import SessionProvider from "@/components/providers/SessionProvider";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,8 @@ export default function RootLayout({
           {children}
           <Toaster />
         </SessionProvider>
+        <Script src="https://cdn.botpress.cloud/webchat/v5.0/inject.js" strategy="afterInteractive" />
+        <Script src="https://files.bpcontent.cloud/2026/09/22/13/20260922131653-C4YS3AF8.js" strategy="afterInteractive" />
       </body>
     </html>
   );
