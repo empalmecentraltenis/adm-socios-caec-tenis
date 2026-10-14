@@ -385,59 +385,10 @@ export const exportMesPDF = async (
     },
   });
 
-  const nextY = (doc as any).lastAutoTable.finalY + 8;
-
-  // TABLA COMPLEMENTARIA: DISTRIBUCIÓN POR DÍA DE LA SEMANA (LUNES A DOMINGO)
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 30, 30);
-  doc.text('RESUMEN DE ASISTENCIA Y COSTO POR DÍA DE LA SEMANA:', 10, nextY);
-
-  const diaSemanaRows = desglosePorDiaSemana.map((d) => [
-    d.nombre,
-    `${d.count} ${d.count === 1 ? 'clase' : 'clases'}`,
-    `${d.alumnos} alumnos`,
-    d.count > 0 ? `${d.avgAlumnos} alum / día` : '-',
-    formatARS(d.total),
-    d.count > 0 ? formatARS(d.avgPrecio) : '-',
-  ]);
-
-  autoTable(doc, {
-    startY: nextY + 2,
-    head: [['Día de la Semana', 'Clases en el Mes', 'Total Alumnos', 'Promedio Alumnos', 'Total Costo', 'Promedio $ / Clase']],
-    body: diaSemanaRows,
-    headStyles: {
-      fillColor: [230, 230, 230],
-      textColor: [0, 0, 0],
-      fontSize: 8,
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    styles: {
-      fontSize: 7.5,
-      cellPadding: 2,
-      lineColor: [210, 210, 210],
-      lineWidth: 0.1,
-    },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 28 },
-      1: { halign: 'center', cellWidth: 30 },
-      2: { halign: 'center', fontStyle: 'bold', cellWidth: 30 },
-      3: { halign: 'center', cellWidth: 32 },
-      4: { halign: 'right', fontStyle: 'bold', cellWidth: 35 },
-      5: { halign: 'right', cellWidth: 35 },
-    },
-  });
-
-  // Firmas institucionales (entran perfecto en la misma hoja A4)
+  // Firmas institucionales para Comisión Directiva
   const finalTableY = (doc as any).lastAutoTable.finalY;
   const pageHeight = doc.internal.pageSize.height;
-  let signatureY = finalTableY + 14;
-
-  if (signatureY + 22 > pageHeight) {
-    doc.addPage();
-    signatureY = 30;
-  }
+  const signatureY = Math.max(finalTableY + 35, pageHeight - 35);
 
   doc.setDrawColor(120, 120, 120);
   doc.setLineWidth(0.3);
