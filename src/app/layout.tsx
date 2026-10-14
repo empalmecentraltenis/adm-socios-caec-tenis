@@ -15,6 +15,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+import BotpressChat from "@/components/layout/BotpressChat";
+
 export const metadata: Metadata = {
   title: "CAEC - Panel de Administración",
   description: "Dashboard de Administración de Socios - Empalme Central Tenis CAEC",
@@ -37,8 +39,7 @@ export default function RootLayout({
           {children}
           <Toaster />
         </SessionProvider>
-        <Script src="https://cdn.botpress.cloud/webchat/v5.0/inject.js" strategy="afterInteractive" />
-        <Script src="https://files.bpcontent.cloud/2026/09/22/13/20260922131653-C4YS3AF8.js" strategy="afterInteractive" />
+        <BotpressChat />
       </body>
     </html>
   );

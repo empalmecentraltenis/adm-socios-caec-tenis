@@ -186,6 +186,22 @@ export default function ProfePage() {
 
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-between p-4 sm:p-6 lg:p-8">
+      {/* Ocultar cualquier rastro del bot en esta página */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            #bp-web-widget,
+            [class*="bp-widget"],
+            iframe[src*="botpress"],
+            div[id*="bp-"] {
+              display: none !important;
+              visibility: hidden !important;
+              opacity: 0 !important;
+              pointer-events: none !important;
+            }
+          `,
+        }}
+      />
       <div className="w-full max-w-lg mx-auto space-y-6">
         {/* Header con marca CAEC */}
         <div className="text-center space-y-2 pt-2">

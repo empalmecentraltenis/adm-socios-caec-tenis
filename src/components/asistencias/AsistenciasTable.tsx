@@ -53,8 +53,11 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
-  BarChart3
+  BarChart3,
+  FileDown,
+  Download
 } from 'lucide-react';
+import { exportSemanaPDF, exportMesPDF, exportClasesExcel } from '@/lib/clases-profe-export';
 import { 
   format, 
   startOfWeek, 
@@ -530,6 +533,75 @@ export default function AsistenciasTable() {
     }
   };
 
+  // Exportar Informe Semanal en PDF para Comisión Directiva
+  const handleExportSemanaPDF = async () => {
+    try {
+      await exportSemanaPDF(daysOfCurrentWeek, registrosMap, semanaStats);
+      toast({
+        title: 'Informe Semanal generado',
+        description: 'Se descargó el PDF oficial con firmas para Comisión Directiva.',
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: 'Error al exportar PDF',
+        description: err.message || 'No se pudo generar el documento.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Exportar Informe Mensual en PDF para Comisión Directiva
+  const handleExportMesPDF = async () => {
+    try {
+      await exportMesPDF(selectedMonth, registrosProfeMensual, desglosePorDiaSemana, {
+        totalAlumnos: totalAlumnosMes,
+        totalRecaudado: totalRecaudadoMes,
+        totalClases: totalClasesMes,
+      });
+      toast({
+        title: 'Informe Mensual generado',
+        description: 'Se descargó el PDF oficial del mes para Comisión Directiva.',
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: 'Error al exportar PDF',
+        description: err.message || 'No se pudo generar el documento.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Exportar Mes a Excel (.xlsx)
+  const handleExportMesExcel = () => {
+    try {
+      const data = registrosProfeMensual.map((r) => {
+        const [y, m, d] = r.fecha.split('T')[0].split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d, 12, 0, 0);
+        return {
+          dia: format(dateObj, 'EEEE', { locale: es }).toUpperCase(),
+          fecha: `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`,
+          alumnos: r.cantidadAlumnos,
+          total: r.precioTotal,
+          promedio: r.cantidadAlumnos > 0 ? Math.round(r.precioTotal / r.cantidadAlumnos) : 0,
+          obs: r.observaciones || '',
+        };
+      });
+      exportClasesExcel('mes', selectedMonth, data);
+      toast({
+        title: 'Planilla Excel generada',
+        description: 'Se descargó el archivo .xlsx con los registros del mes.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error al exportar Excel',
+        description: err.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Reporte agrupado de alumnos
   const reporteAgrupado = asistenciasMensuales.reduce((acc: Record<string, ReporteSocio>, asistencia) => {
     if (!acc[asistencia.socio.id]) {
@@ -644,25 +716,27 @@ export default function AsistenciasTable() {
 
       {/* Selector de Pestañas */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-[#1E1E1E] border border-[#333333] p-1 h-12 mb-4 grid grid-cols-3 max-w-xl print:hidden">
+        <TabsList className="bg-[#1E1E1E] border border-[#333333] p-1 h-12 mb-4 grid grid-cols-3 w-full max-w-2xl print:hidden">
           <TabsTrigger 
             value="profe" 
-            className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 rounded-md transition-all flex items-center justify-center gap-1.5"
+            className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 px-2 sm:px-3 rounded-md transition-all flex items-center justify-center gap-1.5 sm:gap-2 overflow-hidden"
           >
-            <BarChart3 className="w-4 h-4" />
-            Reporte del Día, Semana y Mes
+            <BarChart3 className="w-4 h-4 shrink-0" />
+            <span className="truncate">Planilla y Reportes</span>
           </TabsTrigger>
           <TabsTrigger 
             value="diaria" 
-            className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 rounded-md transition-all"
+            className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 px-2 sm:px-3 rounded-md transition-all flex items-center justify-center gap-1.5 sm:gap-2 overflow-hidden"
           >
-            Presentes Alumnos (DNI)
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span className="truncate">Presentes Diarios</span>
           </TabsTrigger>
           <TabsTrigger 
             value="mensual"
-            className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 rounded-md transition-all"
+            className="data-[state=active]:bg-[#FFCC00] data-[state=active]:text-[#121212] text-[#999999] text-xs sm:text-sm font-semibold h-10 px-2 sm:px-3 rounded-md transition-all flex items-center justify-center gap-1.5 sm:gap-2 overflow-hidden"
           >
-            Alumnos Mensual
+            <Users className="w-4 h-4 shrink-0" />
+            <span className="truncate">Alumnos Mensual</span>
           </TabsTrigger>
         </TabsList>
 
@@ -684,7 +758,7 @@ export default function AsistenciasTable() {
 
             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="h-8 text-xs bg-[#2A2A2A] border-[#383838] text-white focus:ring-[#FFCC00] w-[170px]">
+                <SelectTrigger className="h-8 text-xs bg-[#2A2A2A] border-[#383838] text-white focus:ring-[#FFCC00] w-[160px]">
                   <SelectValue placeholder="Seleccionar mes" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1E1E1E] border-[#333333] text-white">
@@ -695,6 +769,30 @@ export default function AsistenciasTable() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Botón Exportar Semana */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportSemanaPDF}
+                className="border-[#FFCC00]/50 text-[#FFCC00] hover:bg-[#FFCC00]/10 hover:text-white h-8 text-xs font-semibold"
+                title="Descargar informe semanal oficial en PDF para Comisión Directiva"
+              >
+                <FileDown className="h-3.5 w-3.5 mr-1" />
+                Semana (PDF)
+              </Button>
+
+              {/* Botón Exportar Mes */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportMesPDF}
+                className="border-[#FFCC00]/50 text-[#FFCC00] hover:bg-[#FFCC00]/10 hover:text-white h-8 text-xs font-semibold"
+                title="Descargar informe mensual oficial en PDF para Comisión Directiva"
+              >
+                <FileDown className="h-3.5 w-3.5 mr-1" />
+                Mes (PDF)
+              </Button>
 
               <Button
                 size="sm"
@@ -859,13 +957,13 @@ export default function AsistenciasTable() {
                 </p>
               </div>
 
-              {/* Navegación entre semanas */}
-              <div className="flex items-center gap-2 self-start sm:self-auto">
+              {/* Navegación y Exportación entre semanas */}
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentWeekDate(subWeeks(currentWeekDate, 1))}
-                  className="h-8 px-2 border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+                  className="h-8 px-2 border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white text-xs"
                   title="Semana anterior"
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" /> Ant.
@@ -882,10 +980,20 @@ export default function AsistenciasTable() {
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentWeekDate(addWeeks(currentWeekDate, 1))}
-                  className="h-8 px-2 border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+                  className="h-8 px-2 border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white text-xs"
                   title="Semana siguiente"
                 >
                   Sig. <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportSemanaPDF}
+                  className="h-8 text-xs border-[#FFCC00]/50 text-[#FFCC00] hover:bg-[#FFCC00]/10 hover:text-white font-semibold"
+                  title="Descargar informe semanal para presentar en Comisión Directiva"
+                >
+                  <FileDown className="w-3.5 h-3.5 mr-1" />
+                  PDF Semana
                 </Button>
               </div>
             </div>
@@ -1046,12 +1154,37 @@ export default function AsistenciasTable() {
               HISTORIAL DE CARGAS DEL MES (TABLA COMPLETA)
              ===================================================================== */}
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-white text-sm font-bold flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-[#FFCC00]" />
-                Historial de Días Cargados en el Mes ({registrosProfeMensual.length})
-              </h4>
-              <span className="text-xs text-[#777777]">1 carga por día</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-white text-sm font-bold flex items-center gap-2">
+                  <CalendarIcon className="w-4 h-4 text-[#FFCC00]" />
+                  Historial de Días Cargados en el Mes ({registrosProfeMensual.length})
+                </h4>
+                <span className="text-xs text-[#777777]">1 carga por día</span>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportMesPDF}
+                  className="h-8 text-xs border-[#FFCC00]/50 text-[#FFCC00] hover:bg-[#FFCC00]/10 hover:text-white font-semibold"
+                  title="Exportar informe mensual oficial en PDF para Comisión Directiva"
+                >
+                  <FileDown className="w-3.5 h-3.5 mr-1" />
+                  PDF Mes
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportMesExcel}
+                  className="h-8 text-xs border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+                  title="Exportar a planilla Excel (.xlsx)"
+                >
+                  <Download className="w-3.5 h-3.5 mr-1" />
+                  Excel
+                </Button>
+              </div>
             </div>
 
             {loadingProfe && registrosProfeMensual.length === 0 ? (
