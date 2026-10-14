@@ -63,7 +63,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { fecha, cantidadAlumnos, precioTotal, observaciones } = body;
+    const { fecha, cantidadClases, cantidadAlumnos, precioTotal, observaciones } = body;
 
     if (!fecha) {
       return NextResponse.json(
@@ -71,6 +71,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const parsedClases = parseInt(String(cantidadClases ?? 1), 10);
+    const validClases = isNaN(parsedClases) || parsedClases < 1 ? 1 : parsedClases;
 
     const parsedAlumnos = parseInt(String(cantidadAlumnos), 10);
     if (isNaN(parsedAlumnos) || parsedAlumnos < 0) {
@@ -112,6 +115,7 @@ export async function POST(request: Request) {
       registro = await db.registroClaseProfesor.update({
         where: { id: existing.id },
         data: {
+          cantidadClases: validClases,
           cantidadAlumnos: parsedAlumnos,
           precioTotal: parsedPrecio,
           observaciones: observaciones?.trim() || null,
@@ -121,6 +125,7 @@ export async function POST(request: Request) {
       registro = await db.registroClaseProfesor.create({
         data: {
           fecha: fechaUtc,
+          cantidadClases: validClases,
           cantidadAlumnos: parsedAlumnos,
           precioTotal: parsedPrecio,
           profesor: 'Profesor',
@@ -134,7 +139,7 @@ export async function POST(request: Request) {
       await db.actividad.create({
         data: {
           accion: esActualizacion ? 'clase_profe_actualizada' : 'clase_profe_registrada',
-          detalle: `Planilla del ${fecha} ${esActualizacion ? 'actualizada' : 'registrada'}: ${parsedAlumnos} alumnos, Total: $${parsedPrecio.toLocaleString('es-AR')}`,
+          detalle: `Planilla del ${fecha} ${esActualizacion ? 'actualizada' : 'registrada'}: ${validClases} clase${validClases !== 1 ? 's' : ''}, ${parsedAlumnos} alumnos, Total: $${parsedPrecio.toLocaleString('es-AR')}`,
         },
       });
     } catch (actError) {
@@ -164,7 +169,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, fecha, cantidadAlumnos, precioTotal, profesor, turno, observaciones } = body;
+    const { id, fecha, cantidadClases, cantidadAlumnos, precioTotal, profesor, turno, observaciones } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
@@ -175,6 +180,14 @@ export async function PUT(request: Request) {
     if (fecha) {
       const [year, month, day] = fecha.split('-').map(Number);
       updateData.fecha = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+    }
+
+    if (cantidadClases !== undefined) {
+      const parsedClases = parseInt(String(cantidadClases), 10);
+      if (isNaN(parsedClases) || parsedClases < 1) {
+        return NextResponse.json({ error: 'Cantidad de clases inválida (debe ser al menos 1)' }, { status: 400 });
+      }
+      updateData.cantidadClases = parsedClases;
     }
 
     if (cantidadAlumnos !== undefined) {

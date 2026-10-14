@@ -7,6 +7,7 @@ import { es } from 'date-fns/locale';
 interface RegistroProfe {
   id: string;
   fecha: string;
+  cantidadClases?: number;
   cantidadAlumnos: number;
   precioTotal: number;
   observaciones?: string;
@@ -16,6 +17,7 @@ export interface SemanaResumen {
   numero: number;
   nombre: string;
   periodo: string;
+  totalClases: number;
   diasConClase: number;
   totalAlumnos: number;
   totalCosto: number;
@@ -82,6 +84,7 @@ export const calcularSemanasDelMes = (
 
     const totalAlumnos = recordsInWeek.reduce((acc, r) => acc + r.cantidadAlumnos, 0);
     const totalCosto = recordsInWeek.reduce((acc, r) => acc + r.precioTotal, 0);
+    const totalClases = recordsInWeek.reduce((acc, r) => acc + (r.cantidadClases ?? 1), 0);
     const diasConClase = recordsInWeek.length;
     const promedioPorAlumno = totalAlumnos > 0 ? Math.round(totalCosto / totalAlumnos) : 0;
 
@@ -89,6 +92,7 @@ export const calcularSemanasDelMes = (
       numero: weekIndex,
       nombre: `Semana ${weekIndex}`,
       periodo: `${format(currentStart, 'dd/MM/yyyy')} al ${format(currentEnd, 'dd/MM/yyyy')}`,
+      totalClases,
       diasConClase,
       totalAlumnos,
       totalCosto,
@@ -109,7 +113,7 @@ export const calcularSemanasDelMes = (
 export const exportSemanaPDF = async (
   daysOfCurrentWeek: Date[],
   registrosMap: Map<string, RegistroProfe>,
-  semanaStats: { alumnos: number; total: number; diasConClase: number }
+  semanaStats: { alumnos: number; total: number; diasConClase: number; clases?: number }
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -119,6 +123,7 @@ export const exportSemanaPDF = async (
 
   const weekStartStr = format(daysOfCurrentWeek[0], 'dd/MM/yyyy');
   const weekEndStr = format(daysOfCurrentWeek[6], 'dd/MM/yyyy');
+  const totalClasesSemana = semanaStats.clases ?? semanaStats.diasConClase;
 
   await tryLoadLogo(doc, 12, 10, 11, 11);
 
@@ -151,13 +156,13 @@ export const exportSemanaPDF = async (
   doc.text(`TOTAL ALUMNOS DE LA SEMANA:  ${semanaStats.alumnos}`, 15, 36.5);
   doc.text(`TOTAL RECAUDACIÓN SEMANAL:  ${formatARS(semanaStats.total)}`, 110, 36.5);
 
-  // Fila 2: Días con Clases y Promedio por Alumno
+  // Fila 2: Clases Dictadas y Promedio por Alumno
   const promPorAlumno = semanaStats.alumnos > 0 ? Math.round(semanaStats.total / semanaStats.alumnos) : 0;
   doc.rect(10, 39, 95, 7, 'F');
   doc.rect(105, 39, 95, 7, 'F');
   doc.rect(10, 39, 95, 7, 'D');
   doc.rect(105, 39, 95, 7, 'D');
-  doc.text(`DÍAS CON CLASES DICTADAS:  ${semanaStats.diasConClase} de 7 días`, 15, 43.5);
+  doc.text(`CLASES DICTADAS:  ${totalClasesSemana} clases (${semanaStats.diasConClase} días)`, 15, 43.5);
   doc.text(`PROMEDIO ESTIMADO / ALUMNO:  ${formatARS(promPorAlumno)}`, 110, 43.5);
 
   // Preparar Filas de la Tabla (Lunes a Domingo)
@@ -173,6 +178,7 @@ export const exportSemanaPDF = async (
       tableData.push([
         diaNombre,
         fechaFormatted,
+        `${reg.cantidadClases ?? 1} ${(reg.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}`,
         `${reg.cantidadAlumnos} alumnos`,
         formatARS(reg.precioTotal),
         formatARS(prom),
@@ -182,6 +188,7 @@ export const exportSemanaPDF = async (
       tableData.push([
         diaNombre,
         fechaFormatted,
+        '-',
         '0 alumnos',
         '$ 0',
         '-',
@@ -194,15 +201,16 @@ export const exportSemanaPDF = async (
   tableData.push([
     'TOTAL SEMANA',
     `${weekStartStr} al ${weekEndStr}`,
+    `${totalClasesSemana} clases`,
     `${semanaStats.alumnos} alumnos`,
     formatARS(semanaStats.total),
     formatARS(promPorAlumno),
-    `${semanaStats.diasConClase} días de clase dictados`,
+    `${semanaStats.diasConClase} días con actividad`,
   ]);
 
   autoTable(doc, {
     startY: 49,
-    head: [['Día de la Semana', 'Fecha', 'Alumnos', 'Total Costo / Recaudación', 'Promedio / Alumno', 'Observaciones']],
+    head: [['Día de la Semana', 'Fecha', 'Clases', 'Alumnos', 'Total Costo / Recaudación', 'Promedio / Alumno', 'Observaciones']],
     body: tableData,
     headStyles: {
       fillColor: [255, 204, 0],
@@ -219,12 +227,13 @@ export const exportSemanaPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 32 },
-      1: { halign: 'center', cellWidth: 24 },
-      2: { halign: 'center', fontStyle: 'bold', cellWidth: 26 },
-      3: { halign: 'right', fontStyle: 'bold', cellWidth: 32 },
-      4: { halign: 'right', cellWidth: 30 },
-      5: { cellWidth: 46 },
+      0: { fontStyle: 'bold', cellWidth: 28 },
+      1: { halign: 'center', cellWidth: 22 },
+      2: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
+      3: { halign: 'center', fontStyle: 'bold', cellWidth: 24 },
+      4: { halign: 'right', fontStyle: 'bold', cellWidth: 32 },
+      5: { halign: 'right', cellWidth: 26 },
+      6: { cellWidth: 38 },
     },
     alternateRowStyles: {
       fillColor: [250, 250, 250],
@@ -268,8 +277,8 @@ export const exportSemanaPDF = async (
 export const exportMesPDF = async (
   monthStr: string, // YYYY-MM
   registros: RegistroProfe[],
-  desglosePorDiaSemana: any[],
-  stats: { totalAlumnos: number; totalRecaudado: number; totalClases: number }
+  _desglosePorDiaSemana?: any[],
+  stats: { totalAlumnos: number; totalRecaudado: number; totalClases: number; totalDiasConClase?: number } = { totalAlumnos: 0, totalRecaudado: 0, totalClases: 0, totalDiasConClase: 0 }
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -279,6 +288,7 @@ export const exportMesPDF = async (
 
   const [year, monthNum] = monthStr.split('-');
   const mesNombre = format(new Date(parseInt(year), parseInt(monthNum) - 1, 1), 'MMMM yyyy', { locale: es }).toUpperCase();
+  const diasDictados = stats.totalDiasConClase ?? stats.totalClases;
 
   await tryLoadLogo(doc, 12, 10, 11, 11);
 
@@ -303,7 +313,7 @@ export const exportMesPDF = async (
   doc.setTextColor(0, 0, 0);
 
   const promPorAlumnoMes = stats.totalAlumnos > 0 ? Math.round(stats.totalRecaudado / stats.totalAlumnos) : 0;
-  const promAlumnosDia = stats.totalClases > 0 ? (stats.totalAlumnos / stats.totalClases).toFixed(1) : '0';
+  const promAlumnosClase = stats.totalClases > 0 ? (stats.totalAlumnos / stats.totalClases).toFixed(1) : '0';
 
   doc.setFillColor(245, 245, 245);
   doc.rect(10, 32, 95, 7, 'F');
@@ -317,8 +327,8 @@ export const exportMesPDF = async (
   doc.rect(105, 39, 95, 7, 'F');
   doc.rect(10, 39, 95, 7, 'D');
   doc.rect(105, 39, 95, 7, 'D');
-  doc.text(`DÍAS DE CLASES DICTADAS:  ${stats.totalClases} días`, 15, 43.5);
-  doc.text(`PROMEDIO:  ~${promAlumnosDia} alumnos / día (${formatARS(promPorAlumnoMes)} / alumno)`, 110, 43.5);
+  doc.text(`TOTAL CLASES DICTADAS:  ${stats.totalClases} clases (${diasDictados} días)`, 15, 43.5);
+  doc.text(`PROMEDIO:  ~${promAlumnosClase} alum / clase (${formatARS(promPorAlumnoMes)} / alumno)`, 110, 43.5);
 
   // =========================================================================
   // TABLA PRINCIPAL: DETALLE DE LAS CLASES SEMANALES (SEMANA 1, 2, 3...)
@@ -332,7 +342,8 @@ export const exportMesPDF = async (
   const semanasRows: any[] = semanas.map((s) => [
     s.nombre,
     s.periodo,
-    `${s.diasConClase} días`,
+    `${s.totalClases} ${s.totalClases === 1 ? 'clase' : 'clases'}`,
+    `${s.diasConClase} ${s.diasConClase === 1 ? 'día' : 'días'}`,
     `${s.totalAlumnos} alumnos`,
     formatARS(s.totalCosto),
     s.totalAlumnos > 0 ? formatARS(s.promedioPorAlumno) : '-',
@@ -342,7 +353,8 @@ export const exportMesPDF = async (
   semanasRows.push([
     'TOTAL MES',
     mesNombre,
-    `${stats.totalClases} días`,
+    `${stats.totalClases} clases`,
+    `${diasDictados} días`,
     `${stats.totalAlumnos} alumnos`,
     formatARS(stats.totalRecaudado),
     formatARS(promPorAlumnoMes),
@@ -350,7 +362,7 @@ export const exportMesPDF = async (
 
   autoTable(doc, {
     startY: 53,
-    head: [['Semana', 'Período (Desde - Hasta)', 'Días de Clase', 'Total Alumnos', 'Total Costo / Recaudación', 'Promedio / Alumno']],
+    head: [['Semana', 'Período (Desde - Hasta)', 'Clases Dictadas', 'Días', 'Total Alumnos', 'Total Costo / Recaudación', 'Promedio / Alumno']],
     body: semanasRows,
     headStyles: {
       fillColor: [255, 204, 0],
@@ -367,12 +379,13 @@ export const exportMesPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 26 },
-      1: { halign: 'center', cellWidth: 48 },
-      2: { halign: 'center', cellWidth: 25 },
-      3: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
-      4: { halign: 'right', fontStyle: 'bold', cellWidth: 33 },
-      5: { halign: 'right', cellWidth: 30 },
+      0: { fontStyle: 'bold', cellWidth: 22 },
+      1: { halign: 'center', cellWidth: 44 },
+      2: { halign: 'center', fontStyle: 'bold', cellWidth: 25 },
+      3: { halign: 'center', cellWidth: 19 },
+      4: { halign: 'center', fontStyle: 'bold', cellWidth: 26 },
+      5: { halign: 'right', fontStyle: 'bold', cellWidth: 30 },
+      6: { halign: 'right', cellWidth: 24 },
     },
     alternateRowStyles: {
       fillColor: [250, 250, 250],
@@ -417,12 +430,15 @@ export const exportMesPDF = async (
 export const exportMesExcel = (
   monthStr: string,
   registros: RegistroProfe[],
-  stats: { totalAlumnos: number; totalRecaudado: number; totalClases: number }
+  stats: { totalAlumnos: number; totalRecaudado: number; totalClases: number; totalDiasConClase?: number }
 ) => {
   const semanas = calcularSemanasDelMes(monthStr, registros);
+  const diasDictados = stats.totalDiasConClase ?? stats.totalClases;
+
   const dataForExcel: any[] = semanas.map((s) => ({
     'Semana': s.nombre,
     'Período': s.periodo,
+    'Clases Dictadas': s.totalClases,
     'Días de Clase': s.diasConClase,
     'Total Alumnos': s.totalAlumnos,
     'Total Costo / Recaudación ($)': s.totalCosto,
@@ -433,7 +449,8 @@ export const exportMesExcel = (
   dataForExcel.push({
     'Semana': 'TOTAL MES',
     'Período': monthStr,
-    'Días de Clase': stats.totalClases,
+    'Clases Dictadas': stats.totalClases,
+    'Días de Clase': diasDictados,
     'Total Alumnos': stats.totalAlumnos,
     'Total Costo / Recaudación ($)': stats.totalRecaudado,
     'Promedio por Alumno ($)': promPorAlumnoMes,
@@ -446,6 +463,7 @@ export const exportMesExcel = (
   worksheet['!cols'] = [
     { wch: 14 },
     { wch: 28 },
+    { wch: 16 },
     { wch: 16 },
     { wch: 16 },
     { wch: 28 },

@@ -103,6 +103,7 @@ interface RegistroProfe {
   id: string;
   fecha: string;
   fechaFormateada?: string;
+  cantidadClases?: number;
   cantidadAlumnos: number;
   precioTotal: number;
   observaciones?: string;
@@ -167,6 +168,7 @@ export default function AsistenciasTable() {
 
   // Campos del formulario modal
   const [formFecha, setFormFecha] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [formClases, setFormClases] = useState<string>('1');
   const [formAlumnos, setFormAlumnos] = useState<string>('');
   const [formPrecio, setFormPrecio] = useState<string>('');
   const [formObservaciones, setFormObservaciones] = useState<string>('');
@@ -354,6 +356,7 @@ export default function AsistenciasTable() {
     let alumnos = 0;
     let total = 0;
     let diasConClase = 0;
+    let clases = 0;
 
     daysOfCurrentWeek.forEach((day) => {
       const key = format(day, 'yyyy-MM-dd');
@@ -362,10 +365,11 @@ export default function AsistenciasTable() {
         alumnos += reg.cantidadAlumnos;
         total += reg.precioTotal;
         diasConClase += 1;
+        clases += reg.cantidadClases ?? 1;
       }
     });
 
-    return { alumnos, total, diasConClase };
+    return { alumnos, total, diasConClase, clases };
   }, [daysOfCurrentWeek, registrosMap]);
 
   // Cálculos del día seleccionado
@@ -381,10 +385,14 @@ export default function AsistenciasTable() {
     return registrosProfeMensual.reduce((acc, r) => acc + r.cantidadAlumnos, 0);
   }, [registrosProfeMensual]);
 
-  const totalClasesMes = registrosProfeMensual.length;
+  const totalClasesMes = useMemo(() => {
+    return registrosProfeMensual.reduce((acc, r) => acc + (r.cantidadClases ?? 1), 0);
+  }, [registrosProfeMensual]);
+  const totalDiasConClaseMes = registrosProfeMensual.length;
+
   const promedioPorAlumnoMes = totalAlumnosMes > 0 ? Math.round(totalRecaudadoMes / totalAlumnosMes) : 0;
-  const promedioAlumnosPorDia = totalClasesMes > 0 ? (totalAlumnosMes / totalClasesMes).toFixed(1) : '0';
-  const promedioRecaudacionPorDia = totalClasesMes > 0 ? Math.round(totalRecaudadoMes / totalClasesMes) : 0;
+  const promedioAlumnosPorClase = totalClasesMes > 0 ? (totalAlumnosMes / totalClasesMes).toFixed(1) : '0';
+  const promedioRecaudacionPorClase = totalClasesMes > 0 ? Math.round(totalRecaudadoMes / totalClasesMes) : 0;
 
   // Desglose recurrente por Día de la Semana en el Mes (Lunes, Martes, etc.)
   const desglosePorDiaSemana = useMemo(() => {
@@ -427,10 +435,11 @@ export default function AsistenciasTable() {
     });
   }, [registrosProfeMensual]);
 
-  // Modal ABM helpers (solo alumnos, precio, fecha y observaciones)
+  // Modal ABM helpers (clases, alumnos, precio, fecha y observaciones)
   const handleOpenCreateModal = (presetDate?: string) => {
     setEditingRegistro(null);
     setFormFecha(presetDate || format(selectedDate, 'yyyy-MM-dd'));
+    setFormClases('1');
     setFormAlumnos('');
     setFormPrecio('');
     setFormObservaciones('');
@@ -440,6 +449,7 @@ export default function AsistenciasTable() {
   const handleOpenEditModal = (registro: RegistroProfe) => {
     setEditingRegistro(registro);
     setFormFecha(registro.fecha.split('T')[0]);
+    setFormClases(String(registro.cantidadClases ?? 1));
     setFormAlumnos(String(registro.cantidadAlumnos));
     setFormPrecio(String(registro.precioTotal));
     setFormObservaciones(registro.observaciones || '');
@@ -448,9 +458,14 @@ export default function AsistenciasTable() {
 
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
+    const clasesNum = parseInt(formClases, 10);
     const alumnosNum = parseInt(formAlumnos, 10);
     const precioNum = parseFloat(formPrecio.replace(/\./g, '').replace(',', '.'));
 
+    if (isNaN(clasesNum) || clasesNum < 1) {
+      toast({ title: 'Error', description: 'Cantidad de clases inválida (mínimo 1)', variant: 'destructive' });
+      return;
+    }
     if (isNaN(alumnosNum) || alumnosNum < 0) {
       toast({ title: 'Error', description: 'Cantidad de alumnos inválida', variant: 'destructive' });
       return;
@@ -468,6 +483,7 @@ export default function AsistenciasTable() {
       const body = {
         id: editingRegistro?.id,
         fecha: formFecha,
+        cantidadClases: clasesNum,
         cantidadAlumnos: alumnosNum,
         precioTotal: precioNum,
         observaciones: formObservaciones.trim() || null,
@@ -558,6 +574,7 @@ export default function AsistenciasTable() {
         totalAlumnos: totalAlumnosMes,
         totalRecaudado: totalRecaudadoMes,
         totalClases: totalClasesMes,
+        totalDiasConClase: totalDiasConClaseMes,
       });
       toast({
         title: 'Informe Mensual generado',
@@ -580,6 +597,7 @@ export default function AsistenciasTable() {
         totalAlumnos: totalAlumnosMes,
         totalRecaudado: totalRecaudadoMes,
         totalClases: totalClasesMes,
+        totalDiasConClase: totalDiasConClaseMes,
       });
       toast({
         title: 'Planilla Excel generada',
@@ -828,9 +846,14 @@ export default function AsistenciasTable() {
                 {selectedDayRecord ? (
                   <div className="space-y-1.5">
                     <div className="flex items-baseline justify-between">
-                      <span className="text-2xl font-extrabold text-white">
-                        {selectedDayRecord.cantidadAlumnos} <span className="text-xs font-normal text-[#888888]">alumnos</span>
-                      </span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-xs font-bold text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-0.5 rounded border border-[#FFCC00]/20">
+                          {selectedDayRecord.cantidadClases ?? 1} {(selectedDayRecord.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
+                        </span>
+                        <span className="text-2xl font-extrabold text-white">
+                          {selectedDayRecord.cantidadAlumnos} <span className="text-xs font-normal text-[#888888]">alumnos</span>
+                        </span>
+                      </div>
                       <span className="text-xl font-extrabold text-emerald-400">
                         $ {selectedDayRecord.precioTotal.toLocaleString('es-AR')}
                       </span>
@@ -884,9 +907,9 @@ export default function AsistenciasTable() {
                     </span>
                   </div>
                   <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
-                    <span>Días con clases:</span>
+                    <span>Clases dictadas:</span>
                     <span className="font-semibold text-white">
-                      {semanaStats.diasConClase} de 7 días
+                      {semanaStats.clases} clases ({semanaStats.diasConClase} de 7 días)
                     </span>
                   </div>
                 </div>
@@ -920,16 +943,16 @@ export default function AsistenciasTable() {
                     </span>
                   </div>
                   <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
-                    <span>Promedio diario:</span>
+                    <span>Promedio por clase:</span>
                     <span className="font-semibold text-[#FFCC00]">
-                      ~{promedioAlumnosPorDia} alumnos (${promedioRecaudacionPorDia.toLocaleString('es-AR')})
+                      ~{promedioAlumnosPorClase} alumnos (${promedioRecaudacionPorClase.toLocaleString('es-AR')})
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="pt-2 text-[10px] text-[#666666]">
-                Total de {totalClasesMes} clases dictadas en el mes
+                Total de {totalClasesMes} clases dictadas en {totalDiasConClaseMes} días del mes
               </div>
             </div>
           </div>
@@ -1026,8 +1049,13 @@ export default function AsistenciasTable() {
 
                       {reg ? (
                         <div className="my-1.5 space-y-0.5">
-                          <div className="text-base font-extrabold text-white">
-                            {reg.cantidadAlumnos} <span className="text-[10px] font-normal text-[#888888]">alumnos</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-[#FFCC00]">
+                              {reg.cantidadClases ?? 1} {(reg.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
+                            </span>
+                            <span className="text-xs font-semibold text-white">
+                              {reg.cantidadAlumnos} al.
+                            </span>
                           </div>
                           <div className="text-sm font-bold text-emerald-400">
                             $ {reg.precioTotal.toLocaleString('es-AR')}
@@ -1080,7 +1108,7 @@ export default function AsistenciasTable() {
             {/* Resumen total al pie de la semana */}
             <div className="bg-[#171717] rounded-lg p-2.5 px-4 flex flex-col sm:flex-row items-center justify-between text-xs border border-[#2B2B2B] gap-2">
               <span className="text-[#888888]">
-                Total de la semana: <strong className="text-white">{semanaStats.alumnos} alumnos</strong> en <strong className="text-white">{semanaStats.diasConClase} días de clase</strong>
+                Total de la semana: <strong className="text-[#FFCC00]">{semanaStats.clases} clases</strong> (<strong className="text-white">{semanaStats.alumnos} alumnos</strong>) en <strong className="text-white">{semanaStats.diasConClase} días con actividad</strong>
               </span>
               <span className="text-emerald-400 font-bold text-sm">
                 Recaudación semanal: $ {semanaStats.total.toLocaleString('es-AR')}
@@ -1196,6 +1224,7 @@ export default function AsistenciasTable() {
                     <TableRow className="border-[#333333] hover:bg-transparent">
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Día de la Semana</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Fecha</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Clases</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Alumnos del Día</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Valor Total del Día</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Promedio / Alumno</TableHead>
@@ -1221,6 +1250,13 @@ export default function AsistenciasTable() {
                           {/* Fecha */}
                           <TableCell className="text-white text-sm py-2.5 font-mono whitespace-nowrap">
                             {format(new Date(registro.fecha), 'dd/MM/yyyy')}
+                          </TableCell>
+
+                          {/* Cantidad Clases */}
+                          <TableCell className="text-center py-2.5">
+                            <span className="font-bold text-white text-xs bg-[#2A2A2A] px-2 py-0.5 rounded border border-[#3A3A3A]">
+                              {registro.cantidadClases ?? 1}
+                            </span>
                           </TableCell>
 
                           {/* Cantidad Alumnos */}
@@ -1602,10 +1638,24 @@ export default function AsistenciasTable() {
               />
             </div>
 
-            {/* Alumnos y Precio */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Clases, Alumnos y Precio */}
+            <div className="grid grid-cols-3 gap-2.5">
               <div className="space-y-1.5">
-                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Alumnos del Día</Label>
+                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Clases</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="Ej: 2"
+                  value={formClases}
+                  onChange={(e) => setFormClases(e.target.value)}
+                  required
+                  className="bg-[#2A2A2A] border-[#383838] text-white font-bold focus:border-[#FFCC00]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Alumnos</Label>
                 <Input
                   type="number"
                   min="0"
@@ -1619,7 +1669,7 @@ export default function AsistenciasTable() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Valor Total ($)</Label>
+                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Total ($)</Label>
                 <Input
                   type="number"
                   min="0"

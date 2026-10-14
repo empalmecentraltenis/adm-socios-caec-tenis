@@ -25,6 +25,7 @@ interface Registro {
   id: string;
   fecha: string;
   fechaFormateada?: string;
+  cantidadClases?: number;
   cantidadAlumnos: number;
   precioTotal: number;
   observaciones?: string;
@@ -41,6 +42,7 @@ export default function ProfePage() {
   };
 
   const [fecha, setFecha] = useState<string>(getTodayStr());
+  const [cantidadClases, setCantidadClases] = useState<string>('1');
   const [cantidadAlumnos, setCantidadAlumnos] = useState<string>('');
   const [precioTotal, setPrecioTotal] = useState<string>('');
   const [observaciones, setObservaciones] = useState<string>('');
@@ -66,6 +68,7 @@ export default function ProfePage() {
         if (data.length > 0) {
           const rec = data[0];
           setExistingRecord(rec);
+          setCantidadClases(String(rec.cantidadClases ?? 1));
           setCantidadAlumnos(String(rec.cantidadAlumnos));
           setPrecioTotal(String(rec.precioTotal));
           setObservaciones(rec.observaciones || '');
@@ -73,6 +76,7 @@ export default function ProfePage() {
           setExistingRecord(null);
           // Limpiar solo si no venimos de guardar
           if (status !== 'success') {
+            setCantidadClases('1');
             setCantidadAlumnos('');
             setPrecioTotal('');
             setObservaciones('');
@@ -120,6 +124,13 @@ export default function ProfePage() {
       return;
     }
 
+    const clasesNum = parseInt(cantidadClases, 10);
+    if (isNaN(clasesNum) || clasesNum < 1) {
+      setStatus('error');
+      setMessage('Ingresá una cantidad de clases válida (al menos 1).');
+      return;
+    }
+
     const alumnosNum = parseInt(cantidadAlumnos, 10);
     if (isNaN(alumnosNum) || alumnosNum < 0) {
       setStatus('error');
@@ -144,6 +155,7 @@ export default function ProfePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fecha,
+          cantidadClases: clasesNum,
           cantidadAlumnos: alumnosNum,
           precioTotal: precioNum,
           observaciones: observaciones.trim() || null,
@@ -173,6 +185,7 @@ export default function ProfePage() {
   const handleResetForm = () => {
     setStatus('idle');
     setMessage('');
+    setCantidadClases('1');
     setCantidadAlumnos('');
     setPrecioTotal('');
     setObservaciones('');
@@ -180,9 +193,11 @@ export default function ProfePage() {
     setExistingRecord(null);
   };
 
+  const clasesNumber = parseInt(cantidadClases, 10) || 1;
   const alumnosNumber = parseInt(cantidadAlumnos, 10) || 0;
   const precioNumber = parseFloat(precioTotal.replace(/\./g, '').replace(',', '.')) || 0;
   const promedioPorAlumno = alumnosNumber > 0 ? Math.round(precioNumber / alumnosNumber) : 0;
+  const promedioPorClase = clasesNumber > 0 ? Math.round(precioNumber / clasesNumber) : 0;
 
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-between p-4 sm:p-6 lg:p-8">
@@ -236,6 +251,12 @@ export default function ProfePage() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center border-b border-[#333333] pb-2">
+                      <span className="text-[#888888]">Clases Dictadas:</span>
+                      <span className="font-bold text-white">
+                        {lastSaved.cantidadClases ?? 1} {(lastSaved.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-[#333333] pb-2">
                       <span className="text-[#888888]">Total Alumnos:</span>
                       <span className="font-bold text-[#FFCC00]">
                         {lastSaved.cantidadAlumnos} alumno{lastSaved.cantidadAlumnos !== 1 ? 's' : ''}
@@ -251,6 +272,12 @@ export default function ProfePage() {
                       <div className="flex justify-between items-center text-xs text-[#888888] pt-1">
                         <span>Promedio por alumno:</span>
                         <span>$ {Math.round(lastSaved.precioTotal / lastSaved.cantidadAlumnos).toLocaleString('es-AR')}</span>
+                      </div>
+                    )}
+                    {(lastSaved.cantidadClases ?? 1) > 0 && (
+                      <div className="flex justify-between items-center text-xs text-[#888888]">
+                        <span>Promedio por clase:</span>
+                        <span>$ {Math.round(lastSaved.precioTotal / (lastSaved.cantidadClases ?? 1)).toLocaleString('es-AR')}</span>
                       </div>
                     )}
                   </div>
@@ -306,13 +333,32 @@ export default function ProfePage() {
                   )}
                 </div>
 
-                {/* Grid Alumnos y Precio */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Grid Clases, Alumnos y Precio */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Cantidad de Clases */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="clases" className="text-xs uppercase font-semibold text-[#CCCCCC] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#FFCC00]" />
+                      Clases Dictadas
+                    </Label>
+                    <Input
+                      id="clases"
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="Ej: 2"
+                      value={cantidadClases}
+                      onChange={(e) => setCantidadClases(e.target.value)}
+                      required
+                      className="h-12 bg-[#2A2A2A] border-[#383838] text-white text-xl font-bold pl-4 focus:border-[#FFCC00] focus:ring-[#FFCC00]"
+                    />
+                  </div>
+
                   {/* Cantidad de Alumnos */}
                   <div className="space-y-1.5">
                     <Label htmlFor="alumnos" className="text-xs uppercase font-semibold text-[#CCCCCC] flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-[#FFCC00]" />
-                      Alumnos del Día
+                      Total Alumnos
                     </Label>
                     <Input
                       id="alumnos"
@@ -331,7 +377,7 @@ export default function ProfePage() {
                   <div className="space-y-1.5">
                     <Label htmlFor="precio" className="text-xs uppercase font-semibold text-[#CCCCCC] flex items-center gap-1.5">
                       <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                      Precio Total del Día ($)
+                      Total del Día ($)
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888888] font-bold text-lg">
@@ -353,15 +399,24 @@ export default function ProfePage() {
                 </div>
 
                 {/* Resumen dinámico / métrica instantánea */}
-                {(alumnosNumber > 0 || precioNumber > 0) && (
-                  <div className="p-3 bg-[#262626] border border-[#383838] rounded-lg flex items-center justify-between text-xs animate-in fade-in">
-                    <div className="flex items-center gap-2 text-[#999999]">
-                      <TrendingUp className="w-4 h-4 text-[#FFCC00]" />
-                      <span>Promedio por alumno:</span>
+                {(alumnosNumber > 0 || precioNumber > 0 || clasesNumber > 0) && (
+                  <div className="p-3 bg-[#262626] border border-[#383838] rounded-lg grid grid-cols-2 gap-2 text-xs animate-in fade-in">
+                    <div className="flex flex-col">
+                      <span className="text-[#888888] text-[11px] flex items-center gap-1">
+                        <TrendingUp className="w-3.5 h-3.5 text-[#FFCC00]" /> Promedio / Alumno:
+                      </span>
+                      <span className="font-bold text-emerald-400 text-sm mt-0.5">
+                        ${promedioPorAlumno.toLocaleString('es-AR')}
+                      </span>
                     </div>
-                    <span className="font-bold text-emerald-400 text-sm">
-                      ${promedioPorAlumno.toLocaleString('es-AR')}
-                    </span>
+                    <div className="flex flex-col text-right">
+                      <span className="text-[#888888] text-[11px]">
+                        Promedio / Clase:
+                      </span>
+                      <span className="font-bold text-white text-sm mt-0.5">
+                        ${promedioPorClase.toLocaleString('es-AR')}
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -442,11 +497,14 @@ export default function ProfePage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-0.5 rounded border border-[#FFCC00]/20">
+                          {reg.cantidadClases ?? 1} {(reg.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
+                        </span>
                         <span className="text-sm font-semibold text-white">
                           {reg.cantidadAlumnos} alumno{reg.cantidadAlumnos !== 1 ? 's' : ''}
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#777777] capitalize">
+                      <p className="text-[11px] text-[#777777] capitalize mt-0.5">
                         {format(new Date(reg.fecha), 'EEEE', { locale: es })}
                         {reg.observaciones ? ` · ${reg.observaciones}` : ''}
                       </p>

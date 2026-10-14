@@ -183,6 +183,7 @@ model PlazoFijo {
 model RegistroClaseProfesor {
   id              String   @id @default(cuid())
   fecha           DateTime @db.Date
+  cantidadClases  Int      @default(1) @map("cantidad_clases")
   cantidadAlumnos Int      @map("cantidad_alumnos")
   precioTotal     Float    @map("precio_total")
   profesor        String?  @default("Profesor")
