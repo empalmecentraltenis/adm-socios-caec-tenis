@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { parseLocalDate } from '@/lib/utils';
 
 interface Registro {
   id: string;
@@ -246,7 +247,7 @@ export default function ProfePage() {
                     <div className="flex justify-between items-center border-b border-[#333333] pb-2">
                       <span className="text-[#888888]">Día:</span>
                       <span className="font-semibold text-white capitalize">
-                        {format(new Date(lastSaved.fecha), 'EEEE dd/MM/yyyy', { locale: es })}
+                        {format(parseLocalDate(lastSaved.fecha), 'EEEE dd/MM/yyyy', { locale: es })}
                       </span>
                     </div>
                     <div className="flex justify-between items-center border-b border-[#333333] pb-2">
@@ -472,10 +473,10 @@ export default function ProfePage() {
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-10 rounded-lg bg-[#252525] border border-[#333333] flex flex-col items-center justify-center">
                       <span className="text-[10px] uppercase font-bold text-[#FFCC00] leading-none">
-                        {format(new Date(reg.fecha), 'EEE', { locale: es })}
+                        {format(parseLocalDate(reg.fecha), 'EEE', { locale: es })}
                       </span>
                       <span className="text-sm font-extrabold text-white leading-none mt-0.5">
-                        {format(new Date(reg.fecha), 'dd/MM')}
+                        {format(parseLocalDate(reg.fecha), 'dd/MM')}
                       </span>
                     </div>
                     <div>
@@ -488,7 +489,7 @@ export default function ProfePage() {
                         </span>
                       </div>
                       <p className="text-[11px] text-[#777777] capitalize mt-0.5">
-                        {format(new Date(reg.fecha), 'EEEE', { locale: es })}
+                        {format(parseLocalDate(reg.fecha), 'EEEE', { locale: es })}
                         {reg.observaciones ? ` · ${reg.observaciones}` : ''}
                       </p>
                     </div>

@@ -68,7 +68,7 @@ import {
   subWeeks 
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 interface Cuota {
@@ -1153,13 +1153,13 @@ export default function AsistenciasTable({ readOnly = false }: { readOnly?: bool
                           {/* Día de la semana */}
                           <TableCell className="py-2.5 whitespace-nowrap">
                             <Badge className="bg-[#2A2A2A] text-white border-[#444] capitalize font-bold text-xs">
-                              {format(new Date(registro.fecha), 'EEEE', { locale: es })}
+                              {format(parseLocalDate(registro.fecha), 'EEEE', { locale: es })}
                             </Badge>
                           </TableCell>
 
                           {/* Fecha */}
                           <TableCell className="text-white text-sm py-2.5 font-mono whitespace-nowrap">
-                            {format(new Date(registro.fecha), 'dd/MM/yyyy')}
+                            {format(parseLocalDate(registro.fecha), 'dd/MM/yyyy')}
                           </TableCell>
 
                           {/* Cantidad Clases */}

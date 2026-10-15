@@ -44,10 +44,16 @@ export async function GET(request: Request) {
       take: limit,
     });
 
-    const formatted = registros.map((r) => ({
-      ...r,
-      fechaFormateada: r.fecha.toISOString().split('T')[0],
-    }));
+    const formatted = registros.map((r) => {
+      const fechaStr = r.fecha instanceof Date
+        ? r.fecha.toISOString().split('T')[0]
+        : String(r.fecha).split('T')[0];
+      return {
+        ...r,
+        fecha: fechaStr,
+        fechaFormateada: fechaStr,
+      };
+    });
 
     return NextResponse.json(formatted);
   } catch (error) {
@@ -153,7 +159,12 @@ export async function POST(request: Request) {
         : 'Planilla del día guardada correctamente',
       registro: {
         ...registro,
-        fechaFormateada: registro.fecha.toISOString().split('T')[0],
+        fecha: registro.fecha instanceof Date
+          ? registro.fecha.toISOString().split('T')[0]
+          : String(registro.fecha).split('T')[0],
+        fechaFormateada: registro.fecha instanceof Date
+          ? registro.fecha.toISOString().split('T')[0]
+          : String(registro.fecha).split('T')[0],
       },
     });
   } catch (error: any) {
@@ -220,7 +231,12 @@ export async function PUT(request: Request) {
       mensaje: 'Registro actualizado correctamente',
       registro: {
         ...updated,
-        fechaFormateada: updated.fecha.toISOString().split('T')[0],
+        fecha: updated.fecha instanceof Date
+          ? updated.fecha.toISOString().split('T')[0]
+          : String(updated.fecha).split('T')[0],
+        fechaFormateada: updated.fecha instanceof Date
+          ? updated.fecha.toISOString().split('T')[0]
+          : String(updated.fecha).split('T')[0],
       },
     });
   } catch (error: any) {
