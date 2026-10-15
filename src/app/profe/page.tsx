@@ -197,7 +197,6 @@ export default function ProfePage() {
   const alumnosNumber = parseInt(cantidadAlumnos, 10) || 0;
   const precioNumber = parseFloat(precioTotal.replace(/\./g, '').replace(',', '.')) || 0;
   const promedioPorAlumno = alumnosNumber > 0 ? Math.round(precioNumber / alumnosNumber) : 0;
-  const promedioPorClase = clasesNumber > 0 ? Math.round(precioNumber / clasesNumber) : 0;
 
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-between p-4 sm:p-6 lg:p-8">
@@ -272,12 +271,6 @@ export default function ProfePage() {
                       <div className="flex justify-between items-center text-xs text-[#888888] pt-1">
                         <span>Promedio por alumno:</span>
                         <span>$ {Math.round(lastSaved.precioTotal / lastSaved.cantidadAlumnos).toLocaleString('es-AR')}</span>
-                      </div>
-                    )}
-                    {(lastSaved.cantidadClases ?? 1) > 0 && (
-                      <div className="flex justify-between items-center text-xs text-[#888888]">
-                        <span>Promedio por clase:</span>
-                        <span>$ {Math.round(lastSaved.precioTotal / (lastSaved.cantidadClases ?? 1)).toLocaleString('es-AR')}</span>
                       </div>
                     )}
                   </div>
@@ -399,24 +392,14 @@ export default function ProfePage() {
                 </div>
 
                 {/* Resumen dinámico / métrica instantánea */}
-                {(alumnosNumber > 0 || precioNumber > 0 || clasesNumber > 0) && (
-                  <div className="p-3 bg-[#262626] border border-[#383838] rounded-lg grid grid-cols-2 gap-2 text-xs animate-in fade-in">
-                    <div className="flex flex-col">
-                      <span className="text-[#888888] text-[11px] flex items-center gap-1">
-                        <TrendingUp className="w-3.5 h-3.5 text-[#FFCC00]" /> Promedio / Alumno:
-                      </span>
-                      <span className="font-bold text-emerald-400 text-sm mt-0.5">
-                        ${promedioPorAlumno.toLocaleString('es-AR')}
-                      </span>
-                    </div>
-                    <div className="flex flex-col text-right">
-                      <span className="text-[#888888] text-[11px]">
-                        Promedio / Clase:
-                      </span>
-                      <span className="font-bold text-white text-sm mt-0.5">
-                        ${promedioPorClase.toLocaleString('es-AR')}
-                      </span>
-                    </div>
+                {alumnosNumber > 0 && precioNumber > 0 && (
+                  <div className="p-3 bg-[#262626] border border-[#383838] rounded-lg flex items-center justify-between text-xs animate-in fade-in">
+                    <span className="text-[#888888] text-[11px] flex items-center gap-1">
+                      <TrendingUp className="w-3.5 h-3.5 text-[#FFCC00]" /> Promedio por Alumno:
+                    </span>
+                    <span className="font-bold text-emerald-400 text-sm">
+                      ${promedioPorAlumno.toLocaleString('es-AR')}
+                    </span>
                   </div>
                 )}
 

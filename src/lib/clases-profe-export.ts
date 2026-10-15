@@ -156,14 +156,13 @@ export const exportSemanaPDF = async (
   doc.text(`TOTAL ALUMNOS DE LA SEMANA:  ${semanaStats.alumnos}`, 15, 36.5);
   doc.text(`TOTAL RECAUDACIÓN SEMANAL:  ${formatARS(semanaStats.total)}`, 110, 36.5);
 
-  // Fila 2: Clases Dictadas y Promedio por Alumno
-  const promPorAlumno = semanaStats.alumnos > 0 ? Math.round(semanaStats.total / semanaStats.alumnos) : 0;
+  // Fila 2: Clases Dictadas y Días con Actividad
   doc.rect(10, 39, 95, 7, 'F');
   doc.rect(105, 39, 95, 7, 'F');
   doc.rect(10, 39, 95, 7, 'D');
   doc.rect(105, 39, 95, 7, 'D');
-  doc.text(`CLASES DICTADAS:  ${totalClasesSemana} clases (${semanaStats.diasConClase} días)`, 15, 43.5);
-  doc.text(`PROMEDIO ESTIMADO / ALUMNO:  ${formatARS(promPorAlumno)}`, 110, 43.5);
+  doc.text(`TOTAL CLASES DICTADAS:  ${totalClasesSemana} clases`, 15, 43.5);
+  doc.text(`DÍAS CON ACTIVIDAD:  ${semanaStats.diasConClase} de 7 días`, 110, 43.5);
 
   // Preparar Filas de la Tabla (Lunes a Domingo)
   const tableData: any[] = [];
@@ -174,14 +173,12 @@ export const exportSemanaPDF = async (
     const fechaFormatted = format(day, 'dd/MM/yyyy');
 
     if (reg) {
-      const prom = reg.cantidadAlumnos > 0 ? Math.round(reg.precioTotal / reg.cantidadAlumnos) : 0;
       tableData.push([
         diaNombre,
         fechaFormatted,
         `${reg.cantidadClases ?? 1} ${(reg.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}`,
         `${reg.cantidadAlumnos} alumnos`,
         formatARS(reg.precioTotal),
-        formatARS(prom),
         reg.observaciones || 'Clases normales',
       ]);
     } else {
@@ -191,7 +188,6 @@ export const exportSemanaPDF = async (
         '-',
         '0 alumnos',
         '$ 0',
-        '-',
         'Sin actividad registrada',
       ]);
     }
@@ -204,13 +200,12 @@ export const exportSemanaPDF = async (
     `${totalClasesSemana} clases`,
     `${semanaStats.alumnos} alumnos`,
     formatARS(semanaStats.total),
-    formatARS(promPorAlumno),
     `${semanaStats.diasConClase} días con actividad`,
   ]);
 
   autoTable(doc, {
     startY: 49,
-    head: [['Día de la Semana', 'Fecha', 'Clases', 'Alumnos', 'Total Costo / Recaudación', 'Promedio / Alumno', 'Observaciones']],
+    head: [['Día de la Semana', 'Fecha', 'Clases Dictadas', 'Total Alumnos', 'Recaudación Total', 'Observaciones']],
     body: tableData,
     headStyles: {
       fillColor: [255, 204, 0],
@@ -227,13 +222,12 @@ export const exportSemanaPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 28 },
-      1: { halign: 'center', cellWidth: 22 },
-      2: { halign: 'center', fontStyle: 'bold', cellWidth: 20 },
-      3: { halign: 'center', fontStyle: 'bold', cellWidth: 24 },
-      4: { halign: 'right', fontStyle: 'bold', cellWidth: 32 },
-      5: { halign: 'right', cellWidth: 26 },
-      6: { cellWidth: 38 },
+      0: { fontStyle: 'bold', cellWidth: 32 },
+      1: { halign: 'center', cellWidth: 26 },
+      2: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
+      3: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
+      4: { halign: 'right', fontStyle: 'bold', cellWidth: 36 },
+      5: { cellWidth: 40 },
     },
     alternateRowStyles: {
       fillColor: [250, 250, 250],
@@ -327,8 +321,8 @@ export const exportMesPDF = async (
   doc.rect(105, 39, 95, 7, 'F');
   doc.rect(10, 39, 95, 7, 'D');
   doc.rect(105, 39, 95, 7, 'D');
-  doc.text(`TOTAL CLASES DICTADAS:  ${stats.totalClases} clases (${diasDictados} días)`, 15, 43.5);
-  doc.text(`PROMEDIO:  ~${promAlumnosClase} alum / clase (${formatARS(promPorAlumnoMes)} / alumno)`, 110, 43.5);
+  doc.text(`TOTAL CLASES DICTADAS:  ${stats.totalClases} clases`, 15, 43.5);
+  doc.text(`DÍAS CON ACTIVIDAD:  ${diasDictados} días en el mes`, 110, 43.5);
 
   // =========================================================================
   // TABLA PRINCIPAL: DETALLE DE LAS CLASES SEMANALES (SEMANA 1, 2, 3...)
@@ -346,7 +340,6 @@ export const exportMesPDF = async (
     `${s.diasConClase} ${s.diasConClase === 1 ? 'día' : 'días'}`,
     `${s.totalAlumnos} alumnos`,
     formatARS(s.totalCosto),
-    s.totalAlumnos > 0 ? formatARS(s.promedioPorAlumno) : '-',
   ]);
 
   // Fila de Totales del Mes
@@ -357,12 +350,11 @@ export const exportMesPDF = async (
     `${diasDictados} días`,
     `${stats.totalAlumnos} alumnos`,
     formatARS(stats.totalRecaudado),
-    formatARS(promPorAlumnoMes),
   ]);
 
   autoTable(doc, {
     startY: 53,
-    head: [['Semana', 'Período (Desde - Hasta)', 'Clases Dictadas', 'Días', 'Total Alumnos', 'Total Costo / Recaudación', 'Promedio / Alumno']],
+    head: [['Semana', 'Período (Desde - Hasta)', 'Clases Dictadas', 'Días con Actividad', 'Total Alumnos', 'Recaudación Total']],
     body: semanasRows,
     headStyles: {
       fillColor: [255, 204, 0],
@@ -379,13 +371,12 @@ export const exportMesPDF = async (
       valign: 'middle',
     },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 22 },
-      1: { halign: 'center', cellWidth: 44 },
-      2: { halign: 'center', fontStyle: 'bold', cellWidth: 25 },
-      3: { halign: 'center', cellWidth: 19 },
-      4: { halign: 'center', fontStyle: 'bold', cellWidth: 26 },
-      5: { halign: 'right', fontStyle: 'bold', cellWidth: 30 },
-      6: { halign: 'right', cellWidth: 24 },
+      0: { fontStyle: 'bold', cellWidth: 26 },
+      1: { halign: 'center', cellWidth: 48 },
+      2: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
+      3: { halign: 'center', cellWidth: 28 },
+      4: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
+      5: { halign: 'right', fontStyle: 'bold', cellWidth: 32 },
     },
     alternateRowStyles: {
       fillColor: [250, 250, 250],
@@ -439,21 +430,18 @@ export const exportMesExcel = (
     'Semana': s.nombre,
     'Período': s.periodo,
     'Clases Dictadas': s.totalClases,
-    'Días de Clase': s.diasConClase,
+    'Días con Actividad': s.diasConClase,
     'Total Alumnos': s.totalAlumnos,
     'Total Costo / Recaudación ($)': s.totalCosto,
-    'Promedio por Alumno ($)': s.promedioPorAlumno,
   }));
 
-  const promPorAlumnoMes = stats.totalAlumnos > 0 ? Math.round(stats.totalRecaudado / stats.totalAlumnos) : 0;
   dataForExcel.push({
     'Semana': 'TOTAL MES',
     'Período': monthStr,
     'Clases Dictadas': stats.totalClases,
-    'Días de Clase': diasDictados,
+    'Días con Actividad': diasDictados,
     'Total Alumnos': stats.totalAlumnos,
     'Total Costo / Recaudación ($)': stats.totalRecaudado,
-    'Promedio por Alumno ($)': promPorAlumnoMes,
   });
 
   const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
@@ -464,10 +452,9 @@ export const exportMesExcel = (
     { wch: 14 },
     { wch: 28 },
     { wch: 16 },
-    { wch: 16 },
+    { wch: 20 },
     { wch: 16 },
     { wch: 28 },
-    { wch: 24 },
   ];
 
   XLSX.writeFile(
@@ -485,9 +472,9 @@ export const exportClasesExcel = (
     'N°': i + 1,
     'Día de la Semana': r.dia,
     'Fecha': r.fecha,
+    'Clases Dictadas': (r as any).clases ?? 1,
     'Cantidad de Alumnos': r.alumnos,
     'Total Costo / Recaudación ($)': r.total,
-    'Promedio por Alumno ($)': r.promedio,
     'Observaciones': r.obs,
   }));
 
@@ -499,9 +486,9 @@ export const exportClasesExcel = (
     { wch: 6 },
     { wch: 18 },
     { wch: 14 },
+    { wch: 16 },
     { wch: 20 },
     { wch: 26 },
-    { wch: 24 },
     { wch: 35 },
   ];
 

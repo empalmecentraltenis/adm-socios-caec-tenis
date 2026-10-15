@@ -115,15 +115,7 @@ const MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
-const DIAS_SEMANA_ORDENADOS = [
-  { index: 1, nombre: 'Lunes', corto: 'Lun' },
-  { index: 2, nombre: 'Martes', corto: 'Mar' },
-  { index: 3, nombre: 'Miércoles', corto: 'Mié' },
-  { index: 4, nombre: 'Jueves', corto: 'Jue' },
-  { index: 5, nombre: 'Viernes', corto: 'Vie' },
-  { index: 6, nombre: 'Sábado', corto: 'Sáb' },
-  { index: 0, nombre: 'Domingo', corto: 'Dom' },
-];
+
 
 function generateMonthOptions() {
   const options: { value: string; label: string }[] = [];
@@ -390,50 +382,7 @@ export default function AsistenciasTable() {
   }, [registrosProfeMensual]);
   const totalDiasConClaseMes = registrosProfeMensual.length;
 
-  const promedioPorAlumnoMes = totalAlumnosMes > 0 ? Math.round(totalRecaudadoMes / totalAlumnosMes) : 0;
-  const promedioAlumnosPorClase = totalClasesMes > 0 ? (totalAlumnosMes / totalClasesMes).toFixed(1) : '0';
-  const promedioRecaudacionPorClase = totalClasesMes > 0 ? Math.round(totalRecaudadoMes / totalClasesMes) : 0;
 
-  // Desglose recurrente por Día de la Semana en el Mes (Lunes, Martes, etc.)
-  const desglosePorDiaSemana = useMemo(() => {
-    // Array para almacenar estadísticas por día de la semana (1: Lun, 2: Mar, ..., 0: Dom)
-    const stats: Record<number, { count: number; alumnos: number; total: number }> = {
-      1: { count: 0, alumnos: 0, total: 0 },
-      2: { count: 0, alumnos: 0, total: 0 },
-      3: { count: 0, alumnos: 0, total: 0 },
-      4: { count: 0, alumnos: 0, total: 0 },
-      5: { count: 0, alumnos: 0, total: 0 },
-      6: { count: 0, alumnos: 0, total: 0 },
-      0: { count: 0, alumnos: 0, total: 0 },
-    };
-
-    registrosProfeMensual.forEach((r) => {
-      // Parsear fecha exacta
-      const [y, m, d] = r.fecha.split('T')[0].split('-').map(Number);
-      const dateObj = new Date(y, m - 1, d, 12, 0, 0);
-      const dayOfWeek = dateObj.getDay();
-
-      if (stats[dayOfWeek]) {
-        stats[dayOfWeek].count += 1;
-        stats[dayOfWeek].alumnos += r.cantidadAlumnos;
-        stats[dayOfWeek].total += r.precioTotal;
-      }
-    });
-
-    return DIAS_SEMANA_ORDENADOS.map((d) => {
-      const data = stats[d.index];
-      const avgAlumnos = data.count > 0 ? (data.alumnos / data.count).toFixed(1) : '0';
-      const avgPrecio = data.count > 0 ? Math.round(data.total / data.count) : 0;
-      return {
-        ...d,
-        count: data.count,
-        alumnos: data.alumnos,
-        total: data.total,
-        avgAlumnos,
-        avgPrecio,
-      };
-    });
-  }, [registrosProfeMensual]);
 
   // Modal ABM helpers (clases, alumnos, precio, fecha y observaciones)
   const handleOpenCreateModal = (presetDate?: string) => {
@@ -570,7 +519,7 @@ export default function AsistenciasTable() {
   // Exportar Informe Mensual en PDF para Comisión Directiva
   const handleExportMesPDF = async () => {
     try {
-      await exportMesPDF(selectedMonth, registrosProfeMensual, desglosePorDiaSemana, {
+      await exportMesPDF(selectedMonth, registrosProfeMensual, undefined, {
         totalAlumnos: totalAlumnosMes,
         totalRecaudado: totalRecaudadoMes,
         totalClases: totalClasesMes,
@@ -859,9 +808,9 @@ export default function AsistenciasTable() {
                       </span>
                     </div>
                     <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
-                      <span>Promedio por alumno:</span>
-                      <span className="font-semibold text-white">
-                        ${selectedDayRecord.cantidadAlumnos > 0 ? Math.round(selectedDayRecord.precioTotal / selectedDayRecord.cantidadAlumnos).toLocaleString('es-AR') : 0}
+                      <span>Total de clases:</span>
+                      <span className="font-semibold text-[#FFCC00]">
+                        {selectedDayRecord.cantidadClases ?? 1} {(selectedDayRecord.cantidadClases ?? 1) === 1 ? 'clase dictada' : 'clases dictadas'}
                       </span>
                     </div>
                   </div>
@@ -899,17 +848,22 @@ export default function AsistenciasTable() {
 
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-extrabold text-white">
-                      {semanaStats.alumnos} <span className="text-xs font-normal text-[#888888]">alumnos</span>
-                    </span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                        {semanaStats.clases} {semanaStats.clases === 1 ? 'clase' : 'clases'}
+                      </span>
+                      <span className="text-2xl font-extrabold text-white">
+                        {semanaStats.alumnos} <span className="text-xs font-normal text-[#888888]">alumnos</span>
+                      </span>
+                    </div>
                     <span className="text-xl font-extrabold text-emerald-400">
                       $ {semanaStats.total.toLocaleString('es-AR')}
                     </span>
                   </div>
                   <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
-                    <span>Clases dictadas:</span>
+                    <span>Días con actividad:</span>
                     <span className="font-semibold text-white">
-                      {semanaStats.clases} clases ({semanaStats.diasConClase} de 7 días)
+                      {semanaStats.diasConClase} de 7 días
                     </span>
                   </div>
                 </div>
@@ -935,24 +889,29 @@ export default function AsistenciasTable() {
 
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-2xl font-extrabold text-white">
-                      {totalAlumnosMes} <span className="text-xs font-normal text-[#888888]">alumnos</span>
-                    </span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                        {totalClasesMes} {totalClasesMes === 1 ? 'clase' : 'clases'}
+                      </span>
+                      <span className="text-2xl font-extrabold text-white">
+                        {totalAlumnosMes} <span className="text-xs font-normal text-[#888888]">alumnos</span>
+                      </span>
+                    </div>
                     <span className="text-xl font-extrabold text-emerald-400">
                       $ {totalRecaudadoMes.toLocaleString('es-AR')}
                     </span>
                   </div>
                   <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
-                    <span>Promedio por clase:</span>
-                    <span className="font-semibold text-[#FFCC00]">
-                      ~{promedioAlumnosPorClase} alumnos (${promedioRecaudacionPorClase.toLocaleString('es-AR')})
+                    <span>Días con clases:</span>
+                    <span className="font-semibold text-white">
+                      {totalDiasConClaseMes} {totalDiasConClaseMes === 1 ? 'día con actividad' : 'días con actividad'}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="pt-2 text-[10px] text-[#666666]">
-                Total de {totalClasesMes} clases dictadas en {totalDiasConClaseMes} días del mes
+                Total mensual: {totalClasesMes} clases y {totalAlumnosMes} alumnos registrados
               </div>
             </div>
           </div>
@@ -1070,8 +1029,8 @@ export default function AsistenciasTable() {
 
                     <div className="pt-2 border-t border-[#2E2E2E] flex justify-between items-center text-[10px]">
                       {reg ? (
-                        <span className="text-[#888888]">
-                          ${reg.cantidadAlumnos > 0 ? Math.round(reg.precioTotal / reg.cantidadAlumnos).toLocaleString('es-AR') : 0} c/u
+                        <span className="text-[#888888] truncate max-w-[90px]" title={reg.observaciones || 'Registrado'}>
+                          {reg.observaciones || 'Registrado'}
                         </span>
                       ) : (
                         <button
@@ -1113,60 +1072,6 @@ export default function AsistenciasTable() {
               <span className="text-emerald-400 font-bold text-sm">
                 Recaudación semanal: $ {semanaStats.total.toLocaleString('es-AR')}
               </span>
-            </div>
-          </div>
-
-          {/* =====================================================================
-              RESUMEN POR DÍA DE LA SEMANA (LUNES A DOMINGO) EN EL MES
-             ===================================================================== */}
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
-            <div>
-              <h4 className="text-white text-sm font-bold flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-purple-400" />
-                Rendimiento Acumulado por Día de la Semana en el Mes
-              </h4>
-              <p className="text-[#888888] text-xs">
-                Muestra qué días de la semana tienen mayor concurrencia y cuánto se recauda habitualmente cada día
-              </p>
-            </div>
-
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-[#333333] hover:bg-transparent">
-                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Día de la Semana</TableHead>
-                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Clases Dictadas</TableHead>
-                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Total Alumnos</TableHead>
-                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Promedio Alumnos / Día</TableHead>
-                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Recaudación Total</TableHead>
-                    <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Promedio $ / Día</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {desglosePorDiaSemana.map((d) => (
-                    <TableRow key={d.index} className="border-[#333333] hover:bg-[#252525]">
-                      <TableCell className="text-white text-sm font-bold py-2.5">
-                        {d.nombre}
-                      </TableCell>
-                      <TableCell className="text-center py-2.5 text-xs text-[#CCCCCC]">
-                        {d.count} {d.count === 1 ? 'día' : 'días'}
-                      </TableCell>
-                      <TableCell className="text-center py-2.5 font-bold text-[#FFCC00] text-sm">
-                        {d.alumnos}
-                      </TableCell>
-                      <TableCell className="text-center py-2.5 text-xs text-white">
-                        {d.count > 0 ? `${d.avgAlumnos} alumnos` : '-'}
-                      </TableCell>
-                      <TableCell className="text-right py-2.5 font-mono font-bold text-emerald-400 text-sm">
-                        $ {d.total.toLocaleString('es-AR')}
-                      </TableCell>
-                      <TableCell className="text-right py-2.5 font-mono text-[#AAAAAA] text-xs">
-                        {d.count > 0 ? `$ ${d.avgPrecio.toLocaleString('es-AR')}` : '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             </div>
           </div>
 
@@ -1227,17 +1132,12 @@ export default function AsistenciasTable() {
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Clases</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Alumnos del Día</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Valor Total del Día</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Promedio / Alumno</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Observaciones</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {registrosProfeMensual.map((registro) => {
-                      const promedio = registro.cantidadAlumnos > 0 
-                        ? Math.round(registro.precioTotal / registro.cantidadAlumnos) 
-                        : 0;
-
                       return (
                         <TableRow key={registro.id} className="border-[#333333] hover:bg-[#252525]">
                           {/* Día de la semana */}
@@ -1269,11 +1169,6 @@ export default function AsistenciasTable() {
                           {/* Precio Total del Día */}
                           <TableCell className="text-right py-2.5 font-mono font-bold text-emerald-400 text-sm">
                             $ {registro.precioTotal.toLocaleString('es-AR')}
-                          </TableCell>
-
-                          {/* Promedio */}
-                          <TableCell className="text-right py-2.5 font-mono text-[#AAAAAA] text-xs">
-                            $ {promedio.toLocaleString('es-AR')}
                           </TableCell>
 
                           {/* Observaciones */}
@@ -1352,7 +1247,7 @@ export default function AsistenciasTable() {
                       $ {registroProfeDiario.precioTotal.toLocaleString('es-AR')}
                     </div>
                     <div className="text-[11px] text-[#999999]">
-                      {registroProfeDiario.cantidadAlumnos} alumno{registroProfeDiario.cantidadAlumnos !== 1 ? 's' : ''} en total
+                      {registroProfeDiario.cantidadClases ?? 1} {(registroProfeDiario.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'} · {registroProfeDiario.cantidadAlumnos} alumno{registroProfeDiario.cantidadAlumnos !== 1 ? 's' : ''} en total
                     </div>
                   </div>
                   <Button
