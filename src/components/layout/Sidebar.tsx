@@ -23,7 +23,7 @@ const navItems = [
 
 export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen, isReadOnly }: SidebarProps) {
   const filteredNavItems = isReadOnly 
-    ? navItems.filter(item => ['socios', 'balance', 'inversiones'].includes(item.id)) 
+    ? navItems.filter(item => ['socios', 'balance', 'inversiones', 'asistencias'].includes(item.id)) 
     : navItems;
 
   return (

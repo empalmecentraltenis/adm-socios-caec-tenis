@@ -132,7 +132,7 @@ function generateMonthOptions() {
 }
 const monthOptions = generateMonthOptions();
 
-export default function AsistenciasTable() {
+export default function AsistenciasTable({ readOnly = false }: { readOnly?: boolean } = {}) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('profe'); // Default a Planilla Profesor
   const [qrType, setQrType] = useState<'profe' | 'alumnos'>('profe');
@@ -386,6 +386,7 @@ export default function AsistenciasTable() {
 
   // Modal ABM helpers (clases, alumnos, precio, fecha y observaciones)
   const handleOpenCreateModal = (presetDate?: string) => {
+    if (readOnly) return;
     setEditingRegistro(null);
     setFormFecha(presetDate || format(selectedDate, 'yyyy-MM-dd'));
     setFormClases('1');
@@ -396,6 +397,7 @@ export default function AsistenciasTable() {
   };
 
   const handleOpenEditModal = (registro: RegistroProfe) => {
+    if (readOnly) return;
     setEditingRegistro(registro);
     setFormFecha(registro.fecha.split('T')[0]);
     setFormClases(String(registro.cantidadClases ?? 1));
@@ -753,14 +755,16 @@ export default function AsistenciasTable() {
                 Mes (PDF)
               </Button>
 
-              <Button
-                size="sm"
-                onClick={() => handleOpenCreateModal()}
-                className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] h-8 text-xs font-bold"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Cargar Día
-              </Button>
+              {!readOnly && (
+                <Button
+                  size="sm"
+                  onClick={() => handleOpenCreateModal()}
+                  className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] h-8 text-xs font-bold"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Cargar Día
+                </Button>
+              )}
 
               <Button
                 variant="outline"
@@ -817,13 +821,15 @@ export default function AsistenciasTable() {
                 ) : (
                   <div className="py-2 text-center space-y-1">
                     <p className="text-xs text-[#888888]">Sin planilla cargada para este día</p>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenCreateModal(format(selectedDate, 'yyyy-MM-dd'))}
-                      className="text-xs text-[#FFCC00] hover:underline font-semibold"
-                    >
-                      + Cargar este día
-                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCreateModal(format(selectedDate, 'yyyy-MM-dd'))}
+                        className="text-xs text-[#FFCC00] hover:underline font-semibold"
+                      >
+                        + Cargar este día
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1032,7 +1038,7 @@ export default function AsistenciasTable() {
                         <span className="text-[#888888] truncate max-w-[90px]" title={reg.observaciones || 'Registrado'}>
                           {reg.observaciones || 'Registrado'}
                         </span>
-                      ) : (
+                      ) : !readOnly ? (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1043,9 +1049,11 @@ export default function AsistenciasTable() {
                         >
                           + Cargar
                         </button>
+                      ) : (
+                        <span className="text-[#555555]">-</span>
                       )}
 
-                      {reg && (
+                      {reg && !readOnly && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1133,7 +1141,9 @@ export default function AsistenciasTable() {
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Alumnos del Día</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right">Valor Total del Día</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Observaciones</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Acciones</TableHead>
+                      {!readOnly && (
+                        <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Acciones</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1177,29 +1187,31 @@ export default function AsistenciasTable() {
                           </TableCell>
 
                           {/* Acciones */}
-                          <TableCell className="text-center py-2.5">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenEditModal(registro)}
-                                className="h-7 w-7 text-[#888888] hover:text-white hover:bg-[#2C2C2C]"
-                                title="Editar"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteRegistro(registro.id)}
-                                disabled={isDeleting}
-                                className="h-7 w-7 text-[#888888] hover:text-rose-400 hover:bg-rose-500/10"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
+                          {!readOnly && (
+                            <TableCell className="text-center py-2.5">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenEditModal(registro)}
+                                  className="h-7 w-7 text-[#888888] hover:text-white hover:bg-[#2C2C2C]"
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteRegistro(registro.id)}
+                                  disabled={isDeleting}
+                                  className="h-7 w-7 text-[#888888] hover:text-rose-400 hover:bg-rose-500/10"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}
@@ -1250,17 +1262,19 @@ export default function AsistenciasTable() {
                       {registroProfeDiario.cantidadClases ?? 1} {(registroProfeDiario.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'} · {registroProfeDiario.cantidadAlumnos} alumno{registroProfeDiario.cantidadAlumnos !== 1 ? 's' : ''} en total
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleOpenEditModal(registroProfeDiario)}
-                    className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1" />
-                    Editar
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleOpenEditModal(registroProfeDiario)}
+                      className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1" />
+                      Editar
+                    </Button>
+                  )}
                 </div>
-              ) : (
+              ) : !readOnly ? (
                 <Button
                   size="sm"
                   onClick={() => handleOpenCreateModal(format(selectedDate, 'yyyy-MM-dd'))}
@@ -1269,7 +1283,7 @@ export default function AsistenciasTable() {
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   Cargar Planilla
                 </Button>
-              )}
+              ) : null}
             </div>
 
             {registroProfeDiario?.observaciones && (
@@ -1508,108 +1522,110 @@ export default function AsistenciasTable() {
       </Tabs>
 
       {/* Modal para Crear / Editar Registro del Día (Sin Profesor ni Turno) */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="bg-[#1E1E1E] border-[#333333] text-white sm:max-w-[440px]">
-          <DialogHeader>
-            <DialogTitle className="text-white font-bold text-lg flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-[#FFCC00]" />
-              {editingRegistro ? 'Editar Planilla del Día' : 'Cargar Planilla del Día'}
-            </DialogTitle>
-            <DialogDescription className="text-[#888888] text-xs">
-              Ingresá los alumnos y el valor total del día (1 carga por día).
-            </DialogDescription>
-          </DialogHeader>
+      {!readOnly && (
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="bg-[#1E1E1E] border-[#333333] text-white sm:max-w-[440px]">
+            <DialogHeader>
+              <DialogTitle className="text-white font-bold text-lg flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-[#FFCC00]" />
+                {editingRegistro ? 'Editar Planilla del Día' : 'Cargar Planilla del Día'}
+              </DialogTitle>
+              <DialogDescription className="text-[#888888] text-xs">
+                Ingresá los alumnos y el valor total del día (1 carga por día).
+              </DialogDescription>
+            </DialogHeader>
 
-          <form onSubmit={handleSaveModal} className="space-y-4 pt-2">
-            {/* Fecha */}
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Día</Label>
-              <Input
-                type="date"
-                value={formFecha}
-                onChange={(e) => setFormFecha(e.target.value)}
-                required
-                className="bg-[#2A2A2A] border-[#383838] text-white focus:border-[#FFCC00]"
-              />
-            </div>
-
-            {/* Clases, Alumnos y Precio */}
-            <div className="grid grid-cols-3 gap-2.5">
+            <form onSubmit={handleSaveModal} className="space-y-4 pt-2">
+              {/* Fecha */}
               <div className="space-y-1.5">
-                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Clases</Label>
+                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Día</Label>
                 <Input
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="Ej: 2"
-                  value={formClases}
-                  onChange={(e) => setFormClases(e.target.value)}
+                  type="date"
+                  value={formFecha}
+                  onChange={(e) => setFormFecha(e.target.value)}
                   required
-                  className="bg-[#2A2A2A] border-[#383838] text-white font-bold focus:border-[#FFCC00]"
+                  className="bg-[#2A2A2A] border-[#383838] text-white focus:border-[#FFCC00]"
                 />
               </div>
 
+              {/* Clases, Alumnos y Precio */}
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Clases</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="Ej: 2"
+                    value={formClases}
+                    onChange={(e) => setFormClases(e.target.value)}
+                    required
+                    className="bg-[#2A2A2A] border-[#383838] text-white font-bold focus:border-[#FFCC00]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Alumnos</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Ej: 15"
+                    value={formAlumnos}
+                    onChange={(e) => setFormAlumnos(e.target.value)}
+                    required
+                    className="bg-[#2A2A2A] border-[#383838] text-white font-bold focus:border-[#FFCC00]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Total ($)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="Ej: 45000"
+                    value={formPrecio}
+                    onChange={(e) => setFormPrecio(e.target.value)}
+                    required
+                    className="bg-[#2A2A2A] border-[#383838] text-white font-bold focus:border-[#FFCC00]"
+                  />
+                </div>
+              </div>
+
+              {/* Observaciones */}
               <div className="space-y-1.5">
-                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Alumnos</Label>
+                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Observaciones (Opcional)</Label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Ej: 15"
-                  value={formAlumnos}
-                  onChange={(e) => setFormAlumnos(e.target.value)}
-                  required
-                  className="bg-[#2A2A2A] border-[#383838] text-white font-bold focus:border-[#FFCC00]"
+                  type="text"
+                  placeholder="Notas adicionales..."
+                  value={formObservaciones}
+                  onChange={(e) => setFormObservaciones(e.target.value)}
+                  className="bg-[#2A2A2A] border-[#383838] text-white focus:border-[#FFCC00]"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Total ($)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="100"
-                  placeholder="Ej: 45000"
-                  value={formPrecio}
-                  onChange={(e) => setFormPrecio(e.target.value)}
-                  required
-                  className="bg-[#2A2A2A] border-[#383838] text-white font-bold focus:border-[#FFCC00]"
-                />
-              </div>
-            </div>
-
-            {/* Observaciones */}
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase font-semibold text-[#CCCCCC]">Observaciones (Opcional)</Label>
-              <Input
-                type="text"
-                placeholder="Notas adicionales..."
-                value={formObservaciones}
-                onChange={(e) => setFormObservaciones(e.target.value)}
-                className="bg-[#2A2A2A] border-[#383838] text-white focus:border-[#FFCC00]"
-              />
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsModalOpen(false)}
-                className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={submittingModal}
-                className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] font-bold"
-              >
-                {submittingModal ? 'Guardando...' : editingRegistro ? 'Guardar Cambios' : 'Guardar Día'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsModalOpen(false)}
+                  className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submittingModal}
+                  className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] font-bold"
+                >
+                  {submittingModal ? 'Guardando...' : editingRegistro ? 'Guardar Cambios' : 'Guardar Día'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

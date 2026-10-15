@@ -219,7 +219,7 @@ export default function Home() {
           {activeTab === 'reportes' && <ReportesTable />}
 
           {/* Asistencias Tab */}
-          {activeTab === 'asistencias' && <AsistenciasTable />}
+          {activeTab === 'asistencias' && <AsistenciasTable readOnly={isReadOnly} />}
 
           {/* Configuración Tab */}
           {activeTab === 'configuracion' && <ConfiguracionPanel readOnly={isReadOnly} />}
