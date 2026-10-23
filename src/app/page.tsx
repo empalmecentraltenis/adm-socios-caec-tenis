@@ -20,12 +20,13 @@ import ReportesTable from '@/components/reportes/ReportesTable';
 import ConfiguracionPanel from '@/components/configuracion/ConfiguracionPanel';
 import BalanceMensual from '@/components/balance/BalanceMensual';
 import InversionesPanel from '@/components/inversiones/InversionesPanel';
-import AsistenciasTable from '@/components/asistencias/AsistenciasTable';
+import ClasesProfesorPanel from '@/components/profe/ClasesProfesorPanel';
+import AsistenciaAlumnosPanel from '@/components/asistencias/AsistenciaAlumnosPanel';
 import TurnosLuzPanel from '@/components/luz/TurnosLuzPanel';
 import InvitadosPanel from '@/components/invitados/InvitadosPanel';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'socios' | 'luz' | 'invitados' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'asistencias';
+type TabType = 'dashboard' | 'socios' | 'luz' | 'invitados' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'profe' | 'asistencias';
 
 interface DashboardData {
   kpis: {
@@ -156,7 +157,8 @@ export default function Home() {
     configuracion: { title: 'Configuración', subtitle: 'Valores de cuota y categorías' },
     balance: { title: 'Balance Mensual', subtitle: 'Caja de la sub-comisión de tenis' },
     inversiones: { title: 'Inversiones y Ahorros', subtitle: 'Resumen de capital en plazos fijos y dólares' },
-    asistencias: { title: 'Clases / Asistencia', subtitle: 'Registro de asistencia a las clases de tenis' },
+    profe: { title: 'Clases Profesor', subtitle: 'Planilla de carga de clases diarias, recaudación y reportes para Comisión Directiva' },
+    asistencias: { title: 'Asistencia Alumnos', subtitle: 'Registro y seguimiento de concurrencia a clases por código QR' },
   };
 
   return (
@@ -228,8 +230,11 @@ export default function Home() {
           {/* Reportes Tab */}
           {activeTab === 'reportes' && <ReportesTable />}
 
+          {/* Clases Profesor Tab */}
+          {activeTab === 'profe' && <ClasesProfesorPanel readOnly={isReadOnly} />}
+
           {/* Asistencias Tab */}
-          {activeTab === 'asistencias' && <AsistenciasTable readOnly={isReadOnly} />}
+          {activeTab === 'asistencias' && <AsistenciaAlumnosPanel readOnly={isReadOnly} />}
 
           {/* Configuración Tab */}
           {activeTab === 'configuracion' && <ConfiguracionPanel readOnly={isReadOnly} />}

@@ -10,10 +10,11 @@ export async function GET(request: Request) {
     
     let whereClause = {};
     if (monthStr) {
-      // Filtrar por mes (YYYY-MM)
+      // Filtrar por mes (YYYY-MM) considerando zona horaria Argentina (UTC-3)
       const [year, month] = monthStr.split('-');
-      const startOfMonth = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, 1, 0, 0, 0, 0));
-      const endOfMonth = new Date(Date.UTC(parseInt(year), parseInt(month), 0, 23, 59, 59, 999));
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const startOfMonth = new Date(`${year}-${month.padStart(2, '0')}-01T00:00:00.000-03:00`);
+      const endOfMonth = new Date(`${year}-${month.padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999-03:00`);
       
       whereClause = {
         fecha: {
@@ -22,12 +23,9 @@ export async function GET(request: Request) {
         }
       };
     } else if (dateStr) {
-      // Filtrar por fecha exacta (Y-m-d)
-      const startOfDay = new Date(dateStr);
-      startOfDay.setUTCHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(dateStr);
-      endOfDay.setUTCHours(23, 59, 59, 999);
+      // Filtrar por fecha exacta (YYYY-MM-DD) considerando zona horaria Argentina (UTC-3)
+      const startOfDay = new Date(`${dateStr}T00:00:00.000-03:00`);
+      const endOfDay = new Date(`${dateStr}T23:59:59.999-03:00`);
       
       whereClause = {
         fecha: {
@@ -36,12 +34,16 @@ export async function GET(request: Request) {
         }
       };
     } else {
-      // Por defecto traer solo las de hoy para evitar cargar toda la base de datos
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Por defecto traer solo las de hoy en horario argentino (UTC-3)
+      const nowArg = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
+      const y = nowArg.getFullYear();
+      const m = String(nowArg.getMonth() + 1).padStart(2, '0');
+      const d = String(nowArg.getDate()).padStart(2, '0');
+      const todayStr = `${y}-${m}-${d}`;
+      const startOfDay = new Date(`${todayStr}T00:00:00.000-03:00`);
       whereClause = {
         fecha: {
-          gte: today,
+          gte: startOfDay,
         }
       };
     }
@@ -83,19 +85,35 @@ export async function POST(request: Request) {
     }
 
     // Buscar al socio
-    const socio = await db.socio.findUnique({
-      where: { dni },
+    let socio = await db.socio.findUnique({
+      where: { dni: dni.trim() },
       include: {
         cuotas: true,
-        pagos: true
-      }
+        pagos: true,
+      },
     });
 
+    let esNoRegistrado = false;
+
+    // Si no existe, lo creamos automáticamente como Alumno No Registrado para que siempre quede asentado
     if (!socio) {
-      return NextResponse.json(
-        { error: "No se encontró ningún socio con este DNI" },
-        { status: 404 }
-      );
+      esNoRegistrado = true;
+      socio = await db.socio.create({
+        data: {
+          dni: dni.trim(),
+          nombre: "Alumno",
+          apellido: "No Registrado",
+          categoria: "alumno",
+          estado: "inactivo",
+          activo: false,
+          telefono: "",
+          email: null,
+        },
+        include: {
+          cuotas: true,
+          pagos: true,
+        },
+      });
     }
 
     // Evitar registrar múltiples veces en un rango muy corto (ej. 5 minutos)
@@ -104,17 +122,18 @@ export async function POST(request: Request) {
       where: {
         socioId: socio.id,
         fecha: {
-          gte: hace5Minutos
-        }
-      }
+          gte: hace5Minutos,
+        },
+      },
     });
 
     if (asistenciaReciente) {
-       return NextResponse.json({
+      return NextResponse.json({
         success: true,
+        esNoRegistrado,
         mensaje: "Asistencia ya registrada hace unos instantes.",
         asistencia: asistenciaReciente,
-        socio
+        socio,
       });
     }
 
@@ -122,17 +141,21 @@ export async function POST(request: Request) {
     const asistencia = await db.asistenciaClase.create({
       data: {
         socioId: socio.id,
+        notas: esNoRegistrado ? 'Alumno No Registrado (Escaneo QR)' : null,
       },
       include: {
-        socio: true
-      }
+        socio: true,
+      },
     });
     
     return NextResponse.json({
       success: true,
-      mensaje: "Asistencia registrada correctamente",
+      esNoRegistrado,
+      mensaje: esNoRegistrado
+        ? `Asistencia registrada como Alumno No Registrado (DNI ${dni.trim()}). Acercate a administración para completar tu ficha.`
+        : "Asistencia registrada correctamente",
       asistencia,
-      socio
+      socio,
     });
 
   } catch (error) {

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare, Landmark, Zap, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare, Landmark, Zap, UserPlus, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 
@@ -19,13 +19,14 @@ const navItems = [
   { id: 'inversiones', label: 'Inversiones y Ahorros', icon: Landmark },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'reportes', label: 'Deudores', icon: FileText },
-  { id: 'asistencias', label: 'Clases / Asistencia', icon: CheckSquare },
+  { id: 'profe', label: 'Clases Profesor', icon: GraduationCap },
+  { id: 'asistencias', label: 'Asistencia Alumnos', icon: CheckSquare },
   { id: 'configuracion', label: 'Configuración', icon: Settings },
 ];
 
 export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen, isReadOnly }: SidebarProps) {
   const filteredNavItems = isReadOnly 
-    ? navItems.filter(item => ['socios', 'luz', 'invitados', 'balance', 'inversiones', 'asistencias'].includes(item.id)) 
+    ? navItems.filter(item => ['socios', 'luz', 'invitados', 'balance', 'inversiones', 'profe', 'asistencias'].includes(item.id)) 
     : navItems;
 
   return (
