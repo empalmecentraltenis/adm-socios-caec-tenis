@@ -29,7 +29,9 @@ export async function GET() {
       cuota_vitalicio: "0",
       saldo_inicial_enero_2026: "0",
       ahorros_dolares: "0",
-      cotizacion_dolar: "1000"
+      cotizacion_dolar: "1000",
+      precio_luz_turno: "6000",
+      precio_luz_profe: "3000"
     };
 
     for (const c of configs) {
@@ -55,7 +57,9 @@ export async function PUT(request: Request) {
       "cuota_vitalicio",
       "saldo_inicial_enero_2026",
       "ahorros_dolares",
-      "cotizacion_dolar"
+      "cotizacion_dolar",
+      "precio_luz_turno",
+      "precio_luz_profe"
     ];
 
     for (const key of keys) {

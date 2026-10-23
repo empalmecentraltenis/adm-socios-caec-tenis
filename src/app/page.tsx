@@ -21,9 +21,10 @@ import ConfiguracionPanel from '@/components/configuracion/ConfiguracionPanel';
 import BalanceMensual from '@/components/balance/BalanceMensual';
 import InversionesPanel from '@/components/inversiones/InversionesPanel';
 import AsistenciasTable from '@/components/asistencias/AsistenciasTable';
+import TurnosLuzPanel from '@/components/luz/TurnosLuzPanel';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'socios' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'asistencias';
+type TabType = 'dashboard' | 'socios' | 'luz' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'asistencias';
 
 interface DashboardData {
   kpis: {
@@ -148,6 +149,7 @@ export default function Home() {
   const pageTitles: Record<TabType, { title: string; subtitle: string }> = {
     dashboard: { title: 'Dashboard', subtitle: 'Vista general del club' },
     socios: { title: 'Socios / Pagos', subtitle: 'Gestión de socios y registro de pagos' },
+    luz: { title: 'Turnos con Luz', subtitle: 'Control y liquidación de uso de luz para Socios y Profesor' },
     reportes: { title: 'Reportes', subtitle: 'Reporte de morosidad y financieros' },
     configuracion: { title: 'Configuración', subtitle: 'Valores de cuota y categorías' },
     balance: { title: 'Balance Mensual', subtitle: 'Caja de la sub-comisión de tenis' },
@@ -214,6 +216,9 @@ export default function Home() {
               readOnly={isReadOnly}
             />
           )}
+
+          {/* Turnos con Luz Tab */}
+          {activeTab === 'luz' && <TurnosLuzPanel readOnly={isReadOnly} />}
 
           {/* Reportes Tab */}
           {activeTab === 'reportes' && <ReportesTable />}

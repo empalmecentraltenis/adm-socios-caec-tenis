@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Tag, GraduationCap, Crown, Wallet } from 'lucide-react';
+import { Loader2, Save, Tag, GraduationCap, Crown, Wallet, Zap } from 'lucide-react';
 import { formatCurrency, parseCurrency, formatInputCurrency } from '@/lib/formatters';
 
 interface ConfiguracionPanelProps {
@@ -19,6 +19,8 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
   const [cuotaAlumno, setCuotaAlumno] = useState('3500');
   const [cuotaVitalicio, setCuotaVitalicio] = useState('0');
   const [saldoInicialEnero2026, setSaldoInicialEnero2026] = useState('0');
+  const [precioLuzTurno, setPrecioLuzTurno] = useState('6000');
+  const [precioLuzProfe, setPrecioLuzProfe] = useState('3000');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -45,6 +47,8 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
         setCuotaAlumno(clean(data.cuota_alumno));
         setCuotaVitalicio(clean(data.cuota_vitalicio));
         setSaldoInicialEnero2026(clean(data.saldo_inicial_enero_2026));
+        setPrecioLuzTurno(clean(data.precio_luz_turno || '6000'));
+        setPrecioLuzProfe(clean(data.precio_luz_profe || '3000'));
       }
     } catch (error) {
       console.error('Error al cargar configuración:', error);
@@ -65,6 +69,8 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
           cuota_alumno: parseCurrency(cuotaAlumno),
           cuota_vitalicio: parseCurrency(cuotaVitalicio),
           saldo_inicial_enero_2026: parseCurrency(saldoInicialEnero2026),
+          precio_luz_turno: parseCurrency(precioLuzTurno),
+          precio_luz_profe: parseCurrency(precioLuzProfe),
         }),
       });
 
@@ -233,6 +239,84 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-8 border-t border-[#333333] pt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Zap className="h-5 w-5 text-amber-400" />
+          <h3 className="text-white text-lg font-semibold">Tarifas de Iluminación (Turnos con Luz)</h3>
+        </div>
+        <p className="text-[#999999] text-sm mb-4">
+          Costo adicional por turno nocturno (a partir de las 19:00 hs) para socios y profesor.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+          <Card className="bg-[#1E1E1E] border-amber-400/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-amber-400/10">
+                  <Zap className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-white text-base">Turno Socios (Total)</CardTitle>
+                  <CardDescription className="text-[#666666] text-xs">
+                    Se divide entre los socios que juegan
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-[#999999] text-xs leading-relaxed">
+                Single (2 socios): 50% c/u ($3.000). Dobles (4 socios): 25% c/u ($1.500). Si juegan invitados, el socio titular asume la parte del invitado.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-[#CCCCCC] text-xs">Monto Total Turno ($)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
+                  <Input
+                    type="text"
+                    value={precioLuzTurno}
+                    onChange={(e) => setPrecioLuzTurno(formatInputCurrency(e.target.value))}
+                    className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#1E1E1E] border-amber-400/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-amber-400/10">
+                  <GraduationCap className="h-5 w-5 text-amber-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-white text-base">Turno Profesor</CardTitle>
+                  <CardDescription className="text-[#666666] text-xs">
+                    Turnos de clases nocturnos
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-[#999999] text-xs leading-relaxed">
+                Valor fijo por turno bloqueado por clases del profesor a partir de las 19:00 hs.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-[#CCCCCC] text-xs">Monto por Turno Profe ($)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
+                  <Input
+                    type="text"
+                    value={precioLuzProfe}
+                    onChange={(e) => setPrecioLuzProfe(formatInputCurrency(e.target.value))}
+                    className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
