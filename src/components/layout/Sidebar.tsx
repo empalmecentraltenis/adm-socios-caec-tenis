@@ -25,9 +25,8 @@ const navItems = [
 ];
 
 export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen, isReadOnly }: SidebarProps) {
-  const filteredNavItems = isReadOnly 
-    ? navItems.filter(item => ['socios', 'luz', 'invitados', 'balance', 'inversiones', 'profe', 'asistencias'].includes(item.id)) 
-    : navItems;
+  // En modo Solo Lectura (Visualizador) se muestran todas las funcionalidades de consulta y reportes
+  const filteredNavItems = navItems;
 
   return (
     <>

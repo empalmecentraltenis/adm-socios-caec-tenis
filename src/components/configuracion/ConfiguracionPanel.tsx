@@ -157,7 +157,11 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
             Definí el valor de la cuota mensual para cada categoría de socio.
           </p>
         </div>
-        {!readOnly && (
+        {readOnly ? (
+          <div className="px-3 py-1.5 bg-[#FFCC00]/10 border border-[#FFCC00]/30 rounded-lg">
+            <span className="text-[#FFCC00] text-xs font-bold uppercase tracking-wider">Modo Solo Lectura (Consulta)</span>
+          </div>
+        ) : (
           <Button
             onClick={handleSave}
             disabled={saving}
@@ -195,9 +199,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
                     <Input
                       type="text"
+                      disabled={readOnly}
                       value={cat.valor}
                       onChange={(e) => cat.onChange(formatInputCurrency(e.target.value))}
-                      className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                      className={`bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
                     />
                   </div>
                 </div>
@@ -237,9 +242,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
                 <Input
                   type="text"
+                  disabled={readOnly}
                   value={saldoInicialEnero2026}
                   onChange={(e) => setSaldoInicialEnero2026(formatInputCurrency(e.target.value))}
-                  className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                  className={`bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
                 />
               </div>
             </div>
@@ -281,9 +287,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
                   <Input
                     type="text"
+                    disabled={readOnly}
                     value={precioLuzTurno}
                     onChange={(e) => setPrecioLuzTurno(formatInputCurrency(e.target.value))}
-                    className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                    className={`bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
@@ -314,9 +321,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
                   <Input
                     type="text"
+                    disabled={readOnly}
                     value={precioLuzProfe}
                     onChange={(e) => setPrecioLuzProfe(formatInputCurrency(e.target.value))}
-                    className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                    className={`bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
@@ -359,9 +367,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
                   <Input
                     type="text"
+                    disabled={readOnly}
                     value={precioInvitadoExtra}
                     onChange={(e) => setPrecioInvitadoExtra(formatInputCurrency(e.target.value))}
-                    className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                    className={`bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
@@ -390,11 +399,12 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
                 <Label className="text-[#CCCCCC] text-xs">Cantidad de Invitaciones</Label>
                 <Input
                   type="number"
+                  disabled={readOnly}
                   min="0"
                   max="50"
                   value={cupoInvitadosAnual}
                   onChange={(e) => setCupoInvitadosAnual(e.target.value)}
-                  className="bg-[#2A2A2A] border-[#333333] text-white h-9 text-sm font-semibold"
+                  className={`bg-[#2A2A2A] border-[#333333] text-white h-9 text-sm font-semibold ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
                 />
               </div>
             </CardContent>
