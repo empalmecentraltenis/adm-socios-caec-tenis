@@ -31,7 +31,9 @@ export async function GET() {
       ahorros_dolares: "0",
       cotizacion_dolar: "1000",
       precio_luz_turno: "6000",
-      precio_luz_profe: "3000"
+      precio_luz_profe: "3000",
+      precio_invitado_extra: "10000",
+      cupo_invitados_anual: "4"
     };
 
     for (const c of configs) {
@@ -59,7 +61,9 @@ export async function PUT(request: Request) {
       "ahorros_dolares",
       "cotizacion_dolar",
       "precio_luz_turno",
-      "precio_luz_profe"
+      "precio_luz_profe",
+      "precio_invitado_extra",
+      "cupo_invitados_anual"
     ];
 
     for (const key of keys) {

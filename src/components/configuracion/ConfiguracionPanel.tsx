@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Tag, GraduationCap, Crown, Wallet, Zap } from 'lucide-react';
+import { Loader2, Save, Tag, GraduationCap, Crown, Wallet, Zap, UserPlus } from 'lucide-react';
 import { formatCurrency, parseCurrency, formatInputCurrency } from '@/lib/formatters';
 
 interface ConfiguracionPanelProps {
@@ -21,6 +21,8 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
   const [saldoInicialEnero2026, setSaldoInicialEnero2026] = useState('0');
   const [precioLuzTurno, setPrecioLuzTurno] = useState('6000');
   const [precioLuzProfe, setPrecioLuzProfe] = useState('3000');
+  const [precioInvitadoExtra, setPrecioInvitadoExtra] = useState('10000');
+  const [cupoInvitadosAnual, setCupoInvitadosAnual] = useState('4');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -49,6 +51,8 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
         setSaldoInicialEnero2026(clean(data.saldo_inicial_enero_2026));
         setPrecioLuzTurno(clean(data.precio_luz_turno || '6000'));
         setPrecioLuzProfe(clean(data.precio_luz_profe || '3000'));
+        setPrecioInvitadoExtra(clean(data.precio_invitado_extra || '10000'));
+        setCupoInvitadosAnual(String(data.cupo_invitados_anual || '4'));
       }
     } catch (error) {
       console.error('Error al cargar configuración:', error);
@@ -71,6 +75,8 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
           saldo_inicial_enero_2026: parseCurrency(saldoInicialEnero2026),
           precio_luz_turno: parseCurrency(precioLuzTurno),
           precio_luz_profe: parseCurrency(precioLuzProfe),
+          precio_invitado_extra: parseCurrency(precioInvitadoExtra),
+          cupo_invitados_anual: parseInt(cupoInvitadosAnual) || 4,
         }),
       });
 
@@ -313,6 +319,83 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
                     className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="mt-8 border-t border-[#333333] pt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <UserPlus className="h-5 w-5 text-emerald-400" />
+          <h3 className="text-white text-lg font-semibold">Régimen de Invitados</h3>
+        </div>
+        <p className="text-[#999999] text-sm mb-4">
+          Definí el cupo de invitaciones bonificadas al año y el valor que se cobra por cada invitado adicional.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+          <Card className="bg-[#1E1E1E] border-emerald-500/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-emerald-500/10">
+                  <UserPlus className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-white text-base">Costo Invitado Extra</CardTitle>
+                  <CardDescription className="text-[#666666] text-xs">
+                    A partir de la 5ª invitación anual
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-[#999999] text-xs leading-relaxed">
+                Monto que se facturará en secretaría al socio titular por cada invitado que exceda el cupo anual.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-[#CCCCCC] text-xs">Monto por Invitado ($)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#666666] text-sm">$</span>
+                  <Input
+                    type="text"
+                    value={precioInvitadoExtra}
+                    onChange={(e) => setPrecioInvitadoExtra(formatInputCurrency(e.target.value))}
+                    className="bg-[#2A2A2A] border-[#333333] text-white h-9 pl-7 text-sm font-semibold"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-[#1E1E1E] border-emerald-500/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-emerald-500/10">
+                  <Tag className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-white text-base">Cupo Bonificado Anual</CardTitle>
+                  <CardDescription className="text-[#666666] text-xs">
+                    Invitaciones gratuitas por socio/año
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-[#999999] text-xs leading-relaxed">
+                Cantidad máxima de invitaciones sin cargo que cada socio titular puede utilizar por año calendario.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-[#CCCCCC] text-xs">Cantidad de Invitaciones</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={cupoInvitadosAnual}
+                  onChange={(e) => setCupoInvitadosAnual(e.target.value)}
+                  className="bg-[#2A2A2A] border-[#333333] text-white h-9 text-sm font-semibold"
+                />
               </div>
             </CardContent>
           </Card>
