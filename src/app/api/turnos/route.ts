@@ -62,6 +62,10 @@ export async function GET(request: Request) {
         socioDni: t.socioDni,
         socioNombreCompleto: t.socio ? `${t.socio.apellido}, ${t.socio.nombre}` : null,
         acompanante: t.acompanante,
+        validado: t.validado,
+        participantesDnis: t.participantesDnis,
+        validadosDnis: t.validadosDnis,
+        sancionQrAplicada: t.sancionQrAplicada,
       };
     });
 

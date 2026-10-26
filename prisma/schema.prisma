@@ -74,6 +74,14 @@ model Turno {
   acompanante   String?
   estado        String?       @default("libre")
   motivoBloqueo String?       @map("motivo_bloqueo")
+  validado      Boolean?      @default(false)
+  validadoAt    DateTime?     @map("validado_at") @db.Timestamptz(6)
+  canceladoPorDni String?     @map("cancelado_por_dni")
+  cancelacionTipo String?     @map("cancelacion_tipo")
+  canceladoAt   DateTime?     @map("cancelado_at") @db.Timestamptz(6)
+  participantesDnis String[]  @default([]) @map("participantes_dnis")
+  validadosDnis String[]      @default([]) @map("validados_dnis")
+  sancionQrAplicada Boolean?  @default(false) @map("sancion_qr_aplicada")
   createdAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("updated_at") @db.Timestamptz(6)
   
