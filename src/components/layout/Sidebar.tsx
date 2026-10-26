@@ -69,11 +69,11 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
         </button>
 
         {/* Logo */}
-        <div className="flex flex-col items-center gap-2 pt-8 pb-6 px-4">
+        <div className="flex flex-col items-center gap-1.5 pt-5 pb-3 px-4 shrink-0">
           <img
             src="/logo-caec.png"
             alt="Empalme Central Tenis - CAEC"
-            className="w-24 h-24 object-contain drop-shadow-md"
+            className="w-20 h-20 object-contain drop-shadow-md"
           />
           <div className="text-center">
             <p className="text-muted-foreground text-xs font-medium tracking-wide">
@@ -83,10 +83,10 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
         </div>
 
         {/* Separator */}
-        <div className="mx-4 border-t border-sidebar-border" />
+        <div className="mx-4 border-t border-sidebar-border shrink-0" />
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        {/* Navigation with scroll */}
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto min-h-0 scrollbar-thin">
           {filteredNavItems.map((item) => {
             const isActive = activeTab === item.id;
             const Icon = item.icon;
@@ -98,7 +98,7 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
                   onClose();
                 }}
                 className={cn(
-                  'flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200',
+                  'flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200',
                   isActive
                     ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
                     : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
@@ -112,10 +112,10 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
         </nav>
 
         {/* Footer with Logout */}
-        <div className="px-4 py-4 border-t border-sidebar-border space-y-3">
+        <div className="px-4 py-3 border-t border-sidebar-border space-y-2 shrink-0 bg-sidebar">
           <button 
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
           >
             <LogOut className="h-5 w-5" />
             Cerrar Sesión

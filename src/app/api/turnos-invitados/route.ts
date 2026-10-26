@@ -267,6 +267,14 @@ export async function GET(request: Request) {
             invitadosCobrados: cobradosEnTurno,
             cargoTurno,
             ordenInvitacionesAnual: `${ordenInicio} a ${acumuladorInvitadosAnio}`,
+            textoCupo:
+              invitadosEnTurno === 1
+                ? acumuladorInvitadosAnio <= cupoInvitadosAnual
+                  ? `Invitado #${acumuladorInvitadosAnio} de ${cupoInvitadosAnual} (Gratis)`
+                  : `Invitado #${acumuladorInvitadosAnio} del año (Paga extra)`
+                : ordenInicio <= cupoInvitadosAnual && acumuladorInvitadosAnio <= cupoInvitadosAnual
+                  ? `Invitados #${ordenInicio} a #${acumuladorInvitadosAnio} de ${cupoInvitadosAnual} (Gratis)`
+                  : `Invitados #${ordenInicio} al #${acumuladorInvitadosAnio} (${gratisEnTurno} gratis, ${cobradosEnTurno} a pagar)`,
           };
 
           turnosDetallePeriodo.push(turnoItem);
@@ -276,13 +284,19 @@ export async function GET(request: Request) {
 
       // Si el socio tuvo turnos con invitados en el período seleccionado
       if (turnosEnPeriodoDelSocio > 0) {
+        const totalExtrasAnio = Math.max(0, acumuladorInvitadosAnio - cupoInvitadosAnual);
+        const invitadosGratisUsadosAnio = Math.min(acumuladorInvitadosAnio, cupoInvitadosAnual);
+        const invitadosGratisRestantes = Math.max(0, cupoInvitadosAnual - acumuladorInvitadosAnio);
+
         sociosAcumuladoPeriodo.push({
           dni,
           nombreCompleto: socioNombre || `Socio DNI ${dni}`,
           telefono: socioTelefono,
           totalInvitadosAnio: acumuladorInvitadosAnio,
           cupoGratisAnual: cupoInvitadosAnual,
-          invitadosGratisRestantes: Math.max(0, cupoInvitadosAnual - acumuladorInvitadosAnio),
+          invitadosGratisUsadosAnio,
+          invitadosGratisRestantes,
+          totalExtrasAnio,
           turnosEnPeriodo: turnosEnPeriodoDelSocio,
           invitadosEnPeriodo,
           invitadosGratisPeriodo,

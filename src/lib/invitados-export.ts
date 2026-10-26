@@ -42,6 +42,7 @@ interface TurnoInvitadoItem {
   invitadosCobrados: number;
   cargoTurno: number;
   ordenInvitacionesAnual: string;
+  textoCupo?: string;
 }
 
 const formatARS = (val: number) => {
@@ -314,9 +315,10 @@ export const exportInvitadosExcel = (
       'Socio Titular',
       'Documento (DNI)',
       'Teléfono',
-      'Total Invitaciones en el Año',
-      'Gratis en Período (Cupo 4)',
-      'Invitaciones Extras a Cobrar',
+      'Total Invitados en el Año',
+      'Gratis Restantes en el Año (de 4)',
+      'Invitados en este Período',
+      'Extras a Cobrar en este Período',
       'Valor Unitario Extra ($)',
       'Total a Facturar ($)',
     ],
@@ -329,7 +331,8 @@ export const exportInvitadosExcel = (
       s.dni || 'S/D',
       s.telefono || '',
       s.totalInvitadosAnio,
-      s.invitadosGratisPeriodo,
+      s.invitadosGratisRestantes,
+      s.invitadosEnPeriodo,
       s.invitadosCobradosPeriodo,
       s.precioUnitarioExtra,
       s.totalACobrar,
@@ -343,7 +346,8 @@ export const exportInvitadosExcel = (
     '',
     '',
     '',
-    kpis.totalInvitadosGratis,
+    '',
+    kpis.totalInvitadosPeriodo,
     kpis.totalInvitadosCobrados,
     '',
     kpis.totalRecaudacion,
@@ -367,7 +371,7 @@ export const exportInvitadosExcel = (
       'Cantidad Invitados',
       'Invitados Bonificados',
       'Invitados Con Cargo',
-      'Orden Anual Invitación',
+      'Uso del Cupo Anual',
       'Cargo al Titular ($)',
     ],
   ];
@@ -383,7 +387,7 @@ export const exportInvitadosExcel = (
       t.cantidadInvitados,
       t.invitadosGratis,
       t.invitadosCobrados,
-      t.ordenInvitacionesAnual,
+      t.textoCupo || t.ordenInvitacionesAnual,
       t.cargoTurno,
     ]);
   });

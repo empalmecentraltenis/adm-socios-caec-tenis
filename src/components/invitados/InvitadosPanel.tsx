@@ -75,7 +75,9 @@ interface SocioInvitadoAcumulado {
   telefono?: string;
   totalInvitadosAnio: number;
   cupoGratisAnual: number;
+  invitadosGratisUsadosAnio?: number;
   invitadosGratisRestantes: number;
+  totalExtrasAnio?: number;
   turnosEnPeriodo: number;
   invitadosEnPeriodo: number;
   invitadosGratisPeriodo: number;
@@ -93,6 +95,7 @@ interface SocioInvitadoAcumulado {
     invitadosCobrados: number;
     cargoTurno: number;
     ordenInvitacionesAnual: string;
+    textoCupo?: string;
   }>;
 }
 
@@ -119,6 +122,7 @@ interface TurnoInvitadoItem {
   invitadosCobrados: number;
   cargoTurno: number;
   ordenInvitacionesAnual: string;
+  textoCupo?: string;
 }
 
 interface ApiResponse {
@@ -664,8 +668,8 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                       <TableHead className="text-[#AAAAAA] text-xs font-bold w-12 text-center">#</TableHead>
                       <TableHead className="text-[#AAAAAA] text-xs font-bold">Socio Titular</TableHead>
                       <TableHead className="text-[#AAAAAA] text-xs font-bold">Documento</TableHead>
-                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Total en el Año</TableHead>
-                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Gratis (Período)</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Cupo Anual (4 Gratis)</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Uso en este Mes</TableHead>
                       <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Extras a Cobrar</TableHead>
                       <TableHead className="text-[#AAAAAA] text-xs font-bold text-right">Total a Facturar</TableHead>
                       <TableHead className="w-10"></TableHead>
@@ -674,7 +678,6 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                   <TableBody>
                     {sociosFiltrados.map((s, idx) => {
                       const isExpanded = expandedSocioId === s.dni;
-                      const superaCupo = s.totalInvitadosAnio > s.cupoGratisAnual;
 
                       return (
                         <>
@@ -698,27 +701,54 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                               {s.dni ? `DNI ${s.dni}` : '-'}
                             </TableCell>
                             <TableCell className="text-center">
-                              <Badge
-                                variant="outline"
-                                className={`text-xs font-bold ${
-                                  superaCupo
-                                    ? 'bg-amber-400/10 text-amber-400 border-amber-400/20'
-                                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                }`}
-                              >
-                                {s.totalInvitadosAnio} en el año
-                              </Badge>
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="font-extrabold text-xs text-white">
+                                  {s.totalInvitadosAnio} en el año
+                                </span>
+                                {s.invitadosGratisRestantes > 0 ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] py-0 font-semibold"
+                                  >
+                                    ✓ Le queda{s.invitadosGratisRestantes > 1 ? 'n' : ''} {s.invitadosGratisRestantes} gratis
+                                  </Badge>
+                                ) : s.totalInvitadosAnio === s.cupoGratisAnual ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-zinc-800 text-zinc-400 border-zinc-700 text-[10px] py-0 font-medium"
+                                  >
+                                    Cupo gratis completado (0)
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-amber-400/15 text-amber-400 border-amber-400/30 text-[10px] py-0 font-bold"
+                                  >
+                                    {s.totalInvitadosAnio - s.cupoGratisAnual} extra{(s.totalInvitadosAnio - s.cupoGratisAnual) > 1 ? 's' : ''} pagando
+                                  </Badge>
+                                )}
+                              </div>
                             </TableCell>
-                            <TableCell className="text-center text-xs text-emerald-400 font-semibold">
-                              {s.invitadosGratisPeriodo} bonif.
+                            <TableCell className="text-center">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="text-xs font-bold text-white">
+                                  {s.invitadosEnPeriodo} en este mes
+                                </span>
+                                <span className="text-[10px] text-[#888888]">
+                                  {s.invitadosGratisPeriodo > 0 && `${s.invitadosGratisPeriodo} gratis`}
+                                  {s.invitadosGratisPeriodo > 0 && s.invitadosCobradosPeriodo > 0 && ' · '}
+                                  {s.invitadosCobradosPeriodo > 0 && `${s.invitadosCobradosPeriodo} a pagar`}
+                                  {s.invitadosEnPeriodo === 0 && '0 invitados'}
+                                </span>
+                              </div>
                             </TableCell>
                             <TableCell className="text-center">
                               {s.invitadosCobradosPeriodo > 0 ? (
-                                <Badge className="bg-red-500/15 text-red-400 border-red-500/30 text-xs font-bold">
-                                  {s.invitadosCobradosPeriodo} extras
+                                <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold">
+                                  {s.invitadosCobradosPeriodo} extra{s.invitadosCobradosPeriodo > 1 ? 's' : ''}
                                 </Badge>
                               ) : (
-                                <span className="text-xs text-[#777777]">0</span>
+                                <span className="text-xs text-[#777777]">0 extras</span>
                               )}
                             </TableCell>
                             <TableCell className="text-right font-black text-sm">
@@ -768,8 +798,8 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                                           <span className="text-emerald-400 text-[11px] font-medium">
                                             · {td.cantidadInvitados} invitado/s
                                           </span>
-                                          <span className="text-[10px] text-[#777777]">
-                                            (Invitación #{td.ordenInvitacionesAnual} del año)
+                                          <span className="text-[11px] text-[#AAAAAA] font-medium">
+                                            ({td.textoCupo || `Invitación #${td.ordenInvitacionesAnual} del año`})
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -817,7 +847,7 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                       <TableHead className="text-[#AAAAAA] text-xs font-bold">Modalidad</TableHead>
                       <TableHead className="text-[#AAAAAA] text-xs font-bold">Titular Responsable</TableHead>
                       <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Invitados en Turno</TableHead>
-                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Orden Anual</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Uso del Cupo Anual</TableHead>
                       <TableHead className="text-[#AAAAAA] text-xs font-bold text-right">Cargo al Titular</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -863,8 +893,21 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-center text-xs text-[#888888] font-mono">
-                          #{t.ordenInvitacionesAnual}
+                        <TableCell className="text-center text-xs">
+                          {t.textoCupo ? (
+                            <Badge
+                              variant="outline"
+                              className={`text-[11px] font-semibold ${
+                                t.invitadosCobrados > 0
+                                  ? 'bg-amber-400/15 text-amber-400 border-amber-400/30'
+                                  : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              }`}
+                            >
+                              {t.textoCupo}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-[#888888] font-mono">#{t.ordenInvitacionesAnual}</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-black text-xs">
                           {t.cargoTurno > 0 ? (
