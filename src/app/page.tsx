@@ -24,9 +24,10 @@ import ClasesProfesorPanel from '@/components/profe/ClasesProfesorPanel';
 import AsistenciaAlumnosPanel from '@/components/asistencias/AsistenciaAlumnosPanel';
 import TurnosLuzPanel from '@/components/luz/TurnosLuzPanel';
 import InvitadosPanel from '@/components/invitados/InvitadosPanel';
+import SancionesPanel from '@/components/sanciones/SancionesPanel';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'socios' | 'luz' | 'invitados' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'profe' | 'asistencias';
+type TabType = 'dashboard' | 'socios' | 'luz' | 'invitados' | 'sanciones' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'profe' | 'asistencias';
 
 interface DashboardData {
   kpis: {
@@ -153,6 +154,7 @@ export default function Home() {
     socios: { title: 'Socios / Pagos', subtitle: 'Gestión de socios y registro de pagos' },
     luz: { title: 'Turnos con Luz', subtitle: 'Control y liquidación de uso de luz para Socios y Profesor' },
     invitados: { title: 'Control de Invitados', subtitle: 'Cupos anuales bonificados y facturación de invitados extras' },
+    sanciones: { title: 'Control de Sanciones / QR', subtitle: 'Historial de infracciones, socios inhabilitados y reincidentes' },
     reportes: { title: 'Reportes', subtitle: 'Reporte de morosidad y financieros' },
     configuracion: { title: 'Configuración', subtitle: 'Valores de cuota y categorías' },
     balance: { title: 'Balance Mensual', subtitle: 'Caja de la sub-comisión de tenis' },
@@ -226,6 +228,9 @@ export default function Home() {
 
           {/* Invitados Tab */}
           {activeTab === 'invitados' && <InvitadosPanel readOnly={isReadOnly} />}
+
+          {/* Sanciones Tab */}
+          {activeTab === 'sanciones' && <SancionesPanel readOnly={isReadOnly} />}
 
           {/* Reportes Tab */}
           {activeTab === 'reportes' && <ReportesTable />}

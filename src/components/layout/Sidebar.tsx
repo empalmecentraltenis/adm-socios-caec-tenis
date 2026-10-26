@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare, Landmark, Zap, UserPlus, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare, Landmark, Zap, UserPlus, GraduationCap, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 
@@ -15,6 +15,7 @@ const navItems = [
   { id: 'socios', label: 'Socios / Pagos', icon: Users },
   { id: 'luz', label: 'Turnos con Luz', icon: Zap },
   { id: 'invitados', label: 'Invitados', icon: UserPlus },
+  { id: 'sanciones', label: 'Sanciones / QR', icon: ShieldAlert },
   { id: 'balance', label: 'Balance Mensual', icon: Wallet },
   { id: 'inversiones', label: 'Inversiones y Ahorros', icon: Landmark },
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

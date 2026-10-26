@@ -59,6 +59,7 @@ model Socio {
   pagos        PagoCuota[]
   cuotas       Cuota[]
   asistencias  AsistenciaClase[]
+  penalizaciones Penalizacion[]
   datos_confirmados Boolean? @default(false)
 
   @@map("socios")
@@ -86,6 +87,7 @@ model Turno {
   updatedAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("updated_at") @db.Timestamptz(6)
   
   listaEspera   ListaEspera[]
+  penalizaciones Penalizacion[]
   cancha        Cancha        @relation(fields: [canchaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   socio         Socio?        @relation(fields: [socioDni], references: [dni], onDelete: NoAction, onUpdate: NoAction)
 
@@ -202,5 +204,23 @@ model RegistroClaseProfesor {
 
   @@index([fecha])
   @@map("registros_clase_profesor")
+}
+
+model Penalizacion {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  socioDni    String    @map("socio_dni")
+  turnoId     String?   @map("turno_id") @db.Uuid
+  fechaInicio DateTime  @map("fecha_inicio") @db.Date
+  fechaFin    DateTime  @map("fecha_fin") @db.Date
+  motivo      String
+  activa      Boolean   @default(true)
+  createdAt   DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+
+  socio       Socio     @relation(fields: [socioDni], references: [dni], onDelete: Cascade)
+  turno       Turno?    @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+
+  @@index([socioDni])
+  @@index([activa, fechaFin])
+  @@map("penalizaciones")
 }
 
