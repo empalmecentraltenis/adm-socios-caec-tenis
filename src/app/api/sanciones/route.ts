@@ -352,7 +352,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Crear sanción manual extraordinaria para un socio
-    const { socioDni, diasSancion = 14, motivo } = body;
+    const { socioDni, diasSancion = 7, motivo } = body;
 
     if (!socioDni || !motivo) {
       return NextResponse.json({ error: 'DNI del socio y motivo son obligatorios' }, { status: 400 });

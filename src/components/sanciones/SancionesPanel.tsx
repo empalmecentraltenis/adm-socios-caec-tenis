@@ -145,7 +145,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
   // Modal para nueva sanción manual
   const [nuevaSancionOpen, setNuevaSancionOpen] = useState<boolean>(false);
   const [inputDni, setInputDni] = useState<string>('');
-  const [inputDias, setInputDias] = useState<number>(14);
+  const [inputDias, setInputDias] = useState<number>(7);
   const [inputMotivo, setInputMotivo] = useState<string>('');
   const [submittingNueva, setSubmittingNueva] = useState<boolean>(false);
 
@@ -265,7 +265,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           socioDni: inputDni.trim(),
-          diasSancion: Number(inputDias) || 14,
+          diasSancion: Number(inputDias) || 7,
           motivo: inputMotivo.trim(),
         }),
       });
