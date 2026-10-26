@@ -124,7 +124,6 @@ export default function ClasesProfesorPanel({ readOnly = false }: { readOnly?: b
   // URL pública para la app mobile del profesor
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const profeUrl = `${origin}/profe`;
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(profeUrl)}&margin=10`;
 
   // Fetch registro del profesor para la fecha diaria seleccionada
   const fetchRegistroProfeDiario = useCallback(async (date: Date) => {
@@ -185,28 +184,6 @@ export default function ClasesProfesorPanel({ readOnly = false }: { readOnly?: b
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  function handlePrintQr() {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    const title = '🎾 Planilla Diaria de Clases - CAEC Tenis';
-    const subtitle = 'Escaneá para cargar la cantidad de alumnos y recaudación del día';
-    const printUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(profeUrl)}&margin=10`;
-
-    win.document.write(
-      '<!DOCTYPE html><html><head><title>' + title + '</title>' +
-      '<style>body{font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#fff;}' +
-      'h1{font-size:26px;margin-bottom:8px;color:#111;text-align:center;}p{color:#555;margin-bottom:24px;font-size:16px;text-align:center;}' +
-      'img{border:4px solid #FFCC00;border-radius:14px;padding:8px;}.url{margin-top:16px;font-size:14px;color:#888;word-break:break-all;font-family:monospace;}</style>' +
-      '</head><body>' +
-      '<h1>' + title + '</h1>' +
-      '<p>' + subtitle + '</p>' +
-      '<img src="' + printUrl + '" />' +
-      '<p class="url">' + profeUrl + '</p>' +
-      '</body></html>'
-    );
-    win.document.close();
-    win.onload = () => win.print();
-  }
 
   // Mapa de registros por fecha (YYYY-MM-DD) para acceso O(1)
   const registrosMap = useMemo(() => {
@@ -445,27 +422,11 @@ export default function ClasesProfesorPanel({ readOnly = false }: { readOnly?: b
 
   return (
     <div className="space-y-5">
-      {/* Panel Superior: Acceso Rápido y QR para el Profesor */}
-      <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-5 shadow-lg print:hidden">
-        <div className="flex flex-col lg:flex-row items-center gap-6">
-          <div className="flex-shrink-0 flex flex-col items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={qrImageUrl}
-              alt="Código QR Profesor"
-              width={130}
-              height={130}
-              className="rounded-xl border-2 border-[#FFCC00]/60 shadow-md bg-white p-1"
-            />
-            <div className="mt-2 text-center">
-              <span className="text-[11px] font-bold text-[#FFCC00] uppercase tracking-wider">
-                QR Profesor
-              </span>
-            </div>
-          </div>
-
-          <div className="flex-1 text-center lg:text-left">
-            <div className="flex items-center gap-2 justify-center lg:justify-start mb-1.5 flex-wrap">
+      {/* Panel Superior: Acceso Rápido para el Profesor */}
+      <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-5 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <GraduationCap className="h-5 w-5 text-[#FFCC00]" />
               <h3 className="text-white text-base font-bold">
                 Página del Profesor · Carga Diaria de Clases
@@ -475,44 +436,34 @@ export default function ClasesProfesorPanel({ readOnly = false }: { readOnly?: b
               </Badge>
             </div>
 
-            <p className="text-[#AAAAAA] text-xs mb-2 leading-relaxed">
+            <p className="text-[#AAAAAA] text-xs mb-3 leading-relaxed">
               El profesor ingresa a este link todos los días desde su celular para registrar la cantidad de clases dictadas, alumnos que tuvo y el total recaudado del día.
             </p>
 
-            <div className="inline-flex items-center gap-2 bg-[#121212] px-3 py-1.5 rounded-lg border border-[#333333] text-[12px] font-mono text-[#CCCCCC] mb-3 max-w-full overflow-hidden text-ellipsis">
+            <div className="inline-flex items-center gap-2 bg-[#121212] px-3 py-1.5 rounded-lg border border-[#333333] text-[12px] font-mono text-[#CCCCCC] max-w-full overflow-hidden text-ellipsis">
               <span className="truncate">{profeUrl}</span>
             </div>
+          </div>
 
-            <div className="flex gap-2 flex-wrap justify-center lg:justify-start">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCopyLink}
-                className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
-              >
-                {copiedLink ? <Check className="h-3.5 w-3.5 mr-1.5 text-green-400" /> : <Copy className="h-3.5 w-3.5 mr-1.5" />}
-                {copiedLink ? 'Copiado!' : 'Copiar Link'}
-              </Button>
+          <div className="flex gap-2 flex-wrap items-center sm:self-center">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCopyLink}
+              className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-9 text-xs font-semibold"
+            >
+              {copiedLink ? <Check className="h-3.5 w-3.5 mr-1.5 text-green-400" /> : <Copy className="h-3.5 w-3.5 mr-1.5" />}
+              {copiedLink ? 'Copiado!' : 'Copiar Link'}
+            </Button>
 
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handlePrintQr}
-                className="border-[#383838] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
-              >
-                <Printer className="h-3.5 w-3.5 mr-1.5" />
-                Imprimir QR
-              </Button>
-
-              <Button
-                size="sm"
-                onClick={() => window.open(profeUrl, '_blank')}
-                className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] h-8 text-xs font-bold shadow-sm"
-              >
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Abrir en nueva pestaña
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              onClick={() => window.open(profeUrl, '_blank')}
+              className="bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] h-9 text-xs font-bold shadow-sm"
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              Abrir enlace
+            </Button>
           </div>
         </div>
       </div>

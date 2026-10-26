@@ -266,9 +266,6 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
     else setCurrentDate((prev) => addMonths(prev, 1));
   };
 
-  const handleHoy = () => {
-    setCurrentDate(new Date());
-  };
 
   // Guardar tarifas editadas
   const handleSaveTarifas = async () => {
@@ -421,14 +418,6 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
               className="h-8 w-8 bg-[#242424] border-[#333333] text-white hover:bg-[#2A2A2A]"
             >
               <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleHoy}
-              className="h-8 bg-[#242424] border-[#333333] text-xs font-semibold text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A]"
-            >
-              Hoy
             </Button>
             <Button
               variant="outline"

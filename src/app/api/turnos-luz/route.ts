@@ -65,39 +65,55 @@ export async function GET(request: Request) {
       endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999));
     }
 
-    // 3. Consultar turnos en la base de datos
-    const turnosDb = await db.turno.findMany({
-      where: {
-        fecha: {
-          gte: startDate,
-          lte: endDate,
+    // 3. Consultar turnos y socios en la base de datos
+    const [turnosDb, allSocios] = await Promise.all([
+      db.turno.findMany({
+        where: {
+          fecha: {
+            gte: startDate,
+            lte: endDate,
+          },
+          estado: { in: ['ocupado', 'bloqueado'] },
         },
-        estado: { in: ['ocupado', 'bloqueado'] },
-      },
-      include: {
-        socio: {
-          select: {
-            id: true,
-            dni: true,
-            nombre: true,
-            apellido: true,
-            telefono: true,
-            categoria: true,
+        include: {
+          socio: {
+            select: {
+              id: true,
+              dni: true,
+              nombre: true,
+              apellido: true,
+              telefono: true,
+              categoria: true,
+            },
+          },
+          cancha: {
+            select: {
+              id: true,
+              nombre: true,
+            },
           },
         },
-        cancha: {
-          select: {
-            id: true,
-            nombre: true,
-          },
+        orderBy: [
+          { fecha: 'asc' },
+          { horaInicio: 'asc' },
+          { canchaId: 'asc' },
+        ],
+      }),
+      db.socio.findMany({
+        select: {
+          id: true,
+          dni: true,
+          nombre: true,
+          apellido: true,
+          telefono: true,
         },
-      },
-      orderBy: [
-        { fecha: 'asc' },
-        { horaInicio: 'asc' },
-        { canchaId: 'asc' },
-      ],
-    });
+      }),
+    ]);
+
+    const socioMapByDni = new Map<string, typeof allSocios[0]>();
+    for (const s of allSocios) {
+      socioMapByDni.set(s.dni, s);
+    }
 
     const extractTime = (dateObj: Date | string): string => {
       try {
@@ -182,22 +198,10 @@ export async function GET(request: Request) {
       // B) Turnos de Socios (estado === 'ocupado')
       if (t.estado === 'ocupado') {
         const titularDni = t.socioDni || '';
-        const titularNombre = t.socio
-          ? `${t.socio.apellido}, ${t.socio.nombre}`
-          : (titularDni ? `DNI: ${titularDni}` : 'Socio Titular');
-
-        // Procesar acompañantes
-        const rawAcomp = (t.acompanante || '').trim();
-        let acompsList: string[] = [];
-
-        if (rawAcomp) {
-          // Si está separado por '/'
-          if (rawAcomp.includes('/')) {
-            acompsList = rawAcomp.split('/').map(s => s.trim()).filter(Boolean);
-          } else {
-            acompsList = [rawAcomp];
-          }
-        }
+        const titularSocio = titularDni ? socioMapByDni.get(titularDni) : null;
+        const titularNombre = titularSocio
+          ? `${titularSocio.apellido}, ${titularSocio.nombre}`
+          : (t.socio ? `${t.socio.apellido}, ${t.socio.nombre}` : (titularDni ? `DNI: ${titularDni}` : 'Socio Titular'));
 
         const jugadores: JugadorTurno[] = [];
 
@@ -210,17 +214,78 @@ export async function GET(request: Request) {
           monto: 0,
         });
 
-        // Agregar acompañantes identificando si son Invitados
-        for (const item of acompsList) {
-          const itemLower = item.toLowerCase();
-          const esInvitado = itemLower.includes('especial') || itemLower.includes('invitado');
+        // Resolver acompañantes usando participantesDnis (DNI oficial)
+        const dnisAcomps = (t.participantesDnis || []).filter((d: string) => d && d !== titularDni);
 
-          jugadores.push({
-            nombre: esInvitado ? 'Invitado Especial' : item,
-            esTitular: false,
-            esInvitado,
-            monto: 0,
-          });
+        if (dnisAcomps.length > 0) {
+          for (const d of dnisAcomps) {
+            if (d === '123987456') {
+              jugadores.push({
+                nombre: 'Invitado Especial',
+                esTitular: false,
+                esInvitado: true,
+                dni: '123987456',
+                monto: 0,
+              });
+            } else {
+              const socPart = socioMapByDni.get(d);
+              jugadores.push({
+                nombre: socPart ? `${socPart.apellido}, ${socPart.nombre}` : `DNI: ${d}`,
+                esTitular: false,
+                esInvitado: false,
+                dni: d,
+                monto: 0,
+              });
+            }
+          }
+        } else {
+          // Fallback para turnos con texto libre en acompanante
+          const rawAcomp = (t.acompanante || '').trim();
+          let acompsList: string[] = [];
+
+          if (rawAcomp) {
+            if (rawAcomp.includes('/')) {
+              acompsList = rawAcomp.split('/').map((s: string) => s.trim()).filter(Boolean);
+            } else {
+              acompsList = [rawAcomp];
+            }
+          }
+
+          for (const item of acompsList) {
+            const itemLower = item.toLowerCase();
+            const esInvitado = itemLower.includes('especial') || itemLower.includes('invitado');
+
+            if (esInvitado) {
+              jugadores.push({
+                nombre: 'Invitado Especial',
+                esTitular: false,
+                esInvitado: true,
+                dni: '123987456',
+                monto: 0,
+              });
+            } else {
+              // Búsqueda inteligente por apellido en socios para completar el DNI
+              const norm = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+              const itemNorm = norm(item);
+              const matchedSocio = allSocios.find((s) => {
+                const apNorm = norm(s.apellido);
+                const nomNorm = norm(s.nombre);
+                return (
+                  itemNorm.includes(apNorm) ||
+                  `${apNorm} ${nomNorm}`.includes(itemNorm) ||
+                  `${nomNorm} ${apNorm}`.includes(itemNorm)
+                );
+              });
+
+              jugadores.push({
+                nombre: matchedSocio ? `${matchedSocio.apellido}, ${matchedSocio.nombre}` : item,
+                esTitular: false,
+                esInvitado: false,
+                dni: matchedSocio ? matchedSocio.dni : '',
+                monto: 0,
+              });
+            }
+          }
         }
 
         // Determinar modalidad

@@ -48,6 +48,8 @@ interface CanchaStat {
   nombre: string;
   reservasHistoricas: number;
   reservasMes: number;
+  reservasSocios?: number;
+  reservasProfe?: number;
   porcentajeMes: number;
 }
 
@@ -85,6 +87,10 @@ interface GestionTurnosData {
   kpis: {
     totalReservasHistoricas: number;
     reservasMesActual: number;
+    reservasSociosMesActual?: number;
+    reservasProfeMesActual?: number;
+    porcentajeSociosMes?: number;
+    porcentajeProfeMes?: number;
     reservasAnioActual: number;
     topHorario: string;
     topHorarioMes: string;
@@ -277,13 +283,65 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1 */}
+        {/* KPI 1: Turnos de Socios */}
         <Card className="border-border">
           <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Reservas del Mes
+              Turnos de Socios
             </CardTitle>
             <div className="p-2 bg-primary/10 text-primary rounded-lg">
+              <Users className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <div>
+                <p className="text-2xl font-black text-foreground">
+                  {data?.kpis.reservasSociosMesActual ?? data?.kpis.reservasMesActual ?? 0}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {data?.kpis.porcentajeSociosMes ?? 100}% del mes • Turnos jugados por socios
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* KPI 2: Clases Profesor / Alumnos */}
+        <Card className="border-border">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Clases Profe / Alumnos
+            </CardTitle>
+            <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
+              <Trophy className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <div>
+                <p className="text-2xl font-black text-amber-400">
+                  {data?.kpis.reservasProfeMesActual ?? 0}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {data?.kpis.porcentajeProfeMes ?? 0}% del mes • Clases escuela y profesor
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* KPI 3: Total Ocupación Mes */}
+        <Card className="border-border">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Total Ocupación Mes
+            </CardTitle>
+            <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
               <CalendarDays className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -296,46 +354,20 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                   {data?.kpis.reservasMesActual || 0}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  En {mesNombre} • Total {data?.periodo.anio}: {data?.kpis.reservasAnioActual || 0}
+                  Socios + Clases • Total {data?.periodo.anio}: {data?.kpis.reservasAnioActual || 0}
                 </p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* KPI 2 */}
-        <Card className="border-border">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Total Histórico
-            </CardTitle>
-            <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
-              <Trophy className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div>
-                <p className="text-2xl font-black text-foreground">
-                  {data?.kpis.totalReservasHistoricas || 0}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Turnos ocupados registrados
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* KPI 3 */}
+        {/* KPI 4: Horario Pico */}
         <Card className="border-border">
           <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Horario Más Usado
             </CardTitle>
-            <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
+            <div className="p-2 bg-purple-500/10 text-purple-500 rounded-lg">
               <Clock className="h-4 w-4" />
             </div>
           </CardHeader>
@@ -354,32 +386,6 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
             )}
           </CardContent>
         </Card>
-
-        {/* KPI 4 */}
-        <Card className="border-border">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Tasa de Validación QR
-            </CardTitle>
-            <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg">
-              <UserCheck className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div>
-                <p className="text-2xl font-black text-emerald-500">
-                  {data?.kpis.tasaValidacion ?? 100}%
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {data?.kpis.validadosMes || 0} validados / {data?.kpis.reservasMesActual || 0} turnos
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Uso por Canchas */}
@@ -390,7 +396,7 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
             <span>Ocupación por Canchas en {mesNombre}</span>
           </CardTitle>
           <CardDescription>
-            Distribución de turnos reservados por cada cancha habilitada
+            Distribución de turnos reservados por cada cancha habilitada (Socios vs Clases Profesor)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -420,7 +426,7 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
 
                   <div>
                     <div className="flex items-baseline justify-between mb-1">
-                      <span className="text-xs text-muted-foreground font-medium">Turnos mes</span>
+                      <span className="text-xs text-muted-foreground font-medium">Total turnos mes</span>
                       <span className="text-lg font-black text-primary">{cancha.reservasMes}</span>
                     </div>
                     {/* Barra de progreso */}
@@ -429,6 +435,11 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                         className="bg-primary h-2.5 rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(100, cancha.porcentajeMes)}%` }}
                       />
+                    </div>
+                    {/* Desglose Socios vs Clases Profesor */}
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 mt-2 border-t border-border/40">
+                      <span>🎾 Socios: <strong className="text-foreground">{cancha.reservasSocios ?? '-'}</strong></span>
+                      <span>🎓 Clases Profe: <strong className="text-amber-400 font-bold">{cancha.reservasProfe ?? '-'}</strong></span>
                     </div>
                   </div>
                 </div>

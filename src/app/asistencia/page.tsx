@@ -46,9 +46,9 @@ export default function AsistenciaPage() {
           return hoy >= vencimiento;
         }).length;
 
-        if (data.esNoRegistrado) {
-          setStatus('warning');
-          setMessage(`¡Presente registrado! Tu DNI (${dni.trim()}) quedó guardado como Alumno No Registrado. Por favor acercate a administración/secretaría para completar tus datos.`);
+        if (data.esNoRegistrado || socio.nombre === 'Alumno') {
+          setStatus('success');
+          setMessage(`¡Asistencia registrada correctamente!`);
         } else if (socio.estado === 'inactivo' || mesesAdeudados >= 4) {
           setStatus('warning');
           setMessage(`Asistencia registrada. Por favor, acercate a administración para regularizar tu situación.`);

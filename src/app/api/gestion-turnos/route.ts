@@ -32,7 +32,16 @@ export async function GET(request: Request) {
       }),
       db.turno.findMany({
         where: {
-          estado: 'ocupado',
+          OR: [
+            { estado: 'ocupado' },
+            {
+              estado: 'bloqueado',
+              OR: [
+                { motivoBloqueo: { contains: 'clase', mode: 'insensitive' } },
+                { motivoBloqueo: { contains: 'profe', mode: 'insensitive' } },
+              ],
+            },
+          ],
         },
         include: {
           cancha: true,
@@ -53,6 +62,14 @@ export async function GET(request: Request) {
     ]);
 
     const totalReservasHistoricas = turnosOcupados.length;
+
+    // Helper para detectar si el turno corresponde al profesor o alumnos de escuela
+    const esTurnoProfeClase = (t: any): boolean => {
+      if (t.estado === 'bloqueado') return true;
+      if (t.socio?.categoria === 'alumno') return true;
+      const motivo = (t.motivoBloqueo || '').toLowerCase();
+      return motivo.includes('clase') || motivo.includes('profe');
+    };
 
     // Helper para extraer hora limpia
     const extractHourStr = (dateObj: Date | string): string => {
@@ -77,18 +94,29 @@ export async function GET(request: Request) {
       return fStr === anioParam;
     });
 
-    // 3. Estadísticas por Cancha
+    // Desglose Socios vs Profesor / Alumnos
+    const reservasSociosMesActual = turnosDelMes.filter((t) => !esTurnoProfeClase(t)).length;
+    const reservasProfeMesActual = turnosDelMes.filter((t) => esTurnoProfeClase(t)).length;
+    const porcentajeSociosMes = turnosDelMes.length > 0 ? Math.round((reservasSociosMesActual / turnosDelMes.length) * 100) : 0;
+    const porcentajeProfeMes = turnosDelMes.length > 0 ? Math.round((reservasProfeMesActual / turnosDelMes.length) * 100) : 0;
+
+    // 3. Estadísticas por Cancha con desglose
     const canchasStats = canchasDb
       .filter((c) => c.id !== 3) // Excluimos Cancha 3 si está inactiva/temporal
       .map((c) => {
         const reservasHistoricas = turnosOcupados.filter((t) => t.canchaId === c.id).length;
-        const reservasMes = turnosDelMes.filter((t) => t.canchaId === c.id).length;
+        const turnosCanchaMes = turnosDelMes.filter((t) => t.canchaId === c.id);
+        const reservasMes = turnosCanchaMes.length;
+        const reservasSocios = turnosCanchaMes.filter((t) => !esTurnoProfeClase(t)).length;
+        const reservasProfe = turnosCanchaMes.filter((t) => esTurnoProfeClase(t)).length;
         const porcentajeMes = turnosDelMes.length > 0 ? Math.round((reservasMes / turnosDelMes.length) * 100) : 0;
         return {
           id: c.id,
           nombre: c.nombre,
           reservasHistoricas,
           reservasMes,
+          reservasSocios,
+          reservasProfe,
           porcentajeMes,
         };
       });
@@ -201,6 +229,10 @@ export async function GET(request: Request) {
       kpis: {
         totalReservasHistoricas,
         reservasMesActual: turnosDelMes.length,
+        reservasSociosMesActual,
+        reservasProfeMesActual,
+        porcentajeSociosMes,
+        porcentajeProfeMes,
         reservasAnioActual: turnosDelAnio.length,
         topHorario: topHorarioHist ? `${topHorarioHist[0]} hs (${topHorarioHist[1]} veces)` : 'N/A',
         topHorarioMes: topHorarioMes ? `${topHorarioMes[0]} hs (${topHorarioMes[1]} veces)` : 'N/A',

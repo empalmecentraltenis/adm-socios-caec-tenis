@@ -133,6 +133,8 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
   // Filtros y búsqueda
   const [search, setSearch] = useState<string>('');
   const [filtro, setFiltro] = useState<'todos' | 'activos' | 'reincidentes' | 'criticos'>('todos');
+  const [mesFiltro, setMesFiltro] = useState<string>('todos');
+  const [diaFiltro, setDiaFiltro] = useState<string>('todos');
   const [vista, setVista] = useState<'socios' | 'recientes'>('socios');
   const [expandedSocioDni, setExpandedSocioDni] = useState<string | null>(null);
 
@@ -296,11 +298,110 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
     }
   };
 
+  // Obtener meses y días únicos presentes en las sanciones
+  const { mesesDisponibles, diasDisponibles } = useMemo(() => {
+    const mesesMap = new Map<string, string>();
+    const diasMap = new Map<string, string>();
+
+    const todasSanciones: Array<{ fechaInicio?: string; createdAt?: string }> = [];
+    if (data?.sancionesRecientes) {
+      data.sancionesRecientes.forEach((s) => todasSanciones.push(s));
+    }
+    if (data?.socios) {
+      data.socios.forEach((soc) => {
+        soc.sanciones.forEach((s) => todasSanciones.push(s));
+      });
+    }
+
+    todasSanciones.forEach((s) => {
+      const fecha = s.fechaInicio || (s.createdAt ? s.createdAt.substring(0, 10) : '');
+      if (fecha && fecha.length >= 7) {
+        const mesKey = fecha.substring(0, 7);
+        try {
+          const [yyyy, mm] = mesKey.split('-');
+          const dateObj = new Date(Number(yyyy), Number(mm) - 1, 1);
+          mesesMap.set(mesKey, format(dateObj, 'MMMM yyyy', { locale: es }));
+        } catch {
+          mesesMap.set(mesKey, mesKey);
+        }
+
+        if (fecha.length >= 10) {
+          try {
+            const [yyyy, mm, dd] = fecha.split('-');
+            const dateObj = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+            diasMap.set(fecha, format(dateObj, 'dd/MM/yyyy (EEE)', { locale: es }));
+          } catch {
+            diasMap.set(fecha, fecha);
+          }
+        }
+      }
+    });
+
+    let diasArray = Array.from(diasMap.entries()).map(([valor, label]) => ({ valor, label }));
+    if (mesFiltro !== 'todos') {
+      diasArray = diasArray.filter((d) => d.valor.startsWith(mesFiltro));
+    }
+
+    const mesesArray = Array.from(mesesMap.entries())
+      .map(([valor, label]) => ({ valor, label }))
+      .sort((a, b) => b.valor.localeCompare(a.valor));
+
+    diasArray.sort((a, b) => b.valor.localeCompare(a.valor));
+
+    return { mesesDisponibles: mesesArray, diasDisponibles: diasArray };
+  }, [data, mesFiltro]);
+
+  // Filtrar socios según mes y día
+  const sociosFiltradosPorFecha = useMemo(() => {
+    if (!data?.socios) return [];
+    if (mesFiltro === 'todos' && diaFiltro === 'todos') return data.socios;
+
+    return data.socios
+      .map((socio) => {
+        const sancionesEnPeriodo = socio.sanciones.filter((s) => {
+          const f = s.fechaInicio || (s.createdAt ? s.createdAt.substring(0, 10) : '');
+          if (diaFiltro !== 'todos') {
+            return f === diaFiltro;
+          }
+          if (mesFiltro !== 'todos') {
+            return f.startsWith(mesFiltro);
+          }
+          return true;
+        });
+
+        if (sancionesEnPeriodo.length === 0) return null;
+
+        return {
+          ...socio,
+          sanciones: sancionesEnPeriodo,
+          totalSanciones: sancionesEnPeriodo.length,
+        };
+      })
+      .filter((s): s is SocioSancionado => s !== null);
+  }, [data?.socios, mesFiltro, diaFiltro]);
+
+  // Filtrar sanciones recientes según mes y día
+  const sancionesRecientesFiltradas = useMemo(() => {
+    if (!data?.sancionesRecientes) return [];
+    if (mesFiltro === 'todos' && diaFiltro === 'todos') return data.sancionesRecientes;
+
+    return data.sancionesRecientes.filter((s) => {
+      const f = s.fechaInicio || (s.createdAt ? s.createdAt.substring(0, 10) : '');
+      if (diaFiltro !== 'todos') {
+        return f === diaFiltro;
+      }
+      if (mesFiltro !== 'todos') {
+        return f.startsWith(mesFiltro);
+      }
+      return true;
+    });
+  }, [data?.sancionesRecientes, mesFiltro, diaFiltro]);
+
   // Exportar a Excel
   const handleExportExcel = () => {
-    if (!data || !data.socios) return;
+    if (!sociosFiltradosPorFecha.length) return;
 
-    const exportRows = data.socios.map((s, index) => ({
+    const exportRows = sociosFiltradosPorFecha.map((s, index) => ({
       '#': index + 1,
       'Apellido y Nombre': s.nombreCompleto,
       'DNI': s.socioDni,
@@ -308,7 +409,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
       'Categoría': s.categoria.toUpperCase(),
       'Estado Actual': s.estaInhabilitado ? 'INHABILITADO' : 'HABILITADO',
       'Inhabilitado Hasta': s.fechaFinSancionActual ? format(parseISO(s.fechaFinSancionActual), 'dd/MM/yyyy') : '-',
-      'Total Sanciones Históricas': s.totalSanciones,
+      'Total Sanciones': s.totalSanciones,
       'Nivel de Reincidencia': s.nivelLabel,
       'Última Infracción': s.ultimaSancionFecha ? format(parseISO(s.ultimaSancionFecha), 'dd/MM/yyyy') : '-',
       'Último Motivo': s.ultimaSancionMotivo,
@@ -352,7 +453,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
   };
 
   const kpis = data?.kpis;
-  const sociosList = data?.socios || [];
+  const sociosList = sociosFiltradosPorFecha;
 
   return (
     <div className="space-y-6">
@@ -532,80 +633,142 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
         </Card>
       </div>
 
-      {/* 3. Barra de Búsqueda, Filtros y Selector de Vista */}
-      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
-        {/* Buscador */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por socio, DNI o teléfono..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-10 bg-card border-border"
-          />
+      {/* 3. Barra de Búsqueda, Filtros Temporales (Mes/Día), Categoría y Selector de Vista */}
+      <div className="space-y-3">
+        {/* Fila 1: Filtros de Fecha (Mes y Día) + Buscador */}
+        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 bg-card border border-border p-3 rounded-xl">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Selector de Mes */}
+            <div className="flex items-center gap-1.5 bg-muted/40 border border-border rounded-lg px-2.5 py-1.5">
+              <CalendarIcon size={14} className="text-rose-400" />
+              <span className="text-xs font-semibold text-muted-foreground">Mes:</span>
+              <select
+                value={mesFiltro}
+                onChange={(e) => {
+                  setMesFiltro(e.target.value);
+                  setDiaFiltro('todos');
+                }}
+                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+              >
+                <option value="todos" className="bg-card text-foreground">Todos los meses</option>
+                {mesesDisponibles.map((m) => (
+                  <option key={m.valor} value={m.valor} className="bg-card text-foreground capitalize">
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Selector de Día */}
+            <div className="flex items-center gap-1.5 bg-muted/40 border border-border rounded-lg px-2.5 py-1.5">
+              <Clock size={14} className="text-rose-400" />
+              <span className="text-xs font-semibold text-muted-foreground">Día:</span>
+              <select
+                value={diaFiltro}
+                onChange={(e) => setDiaFiltro(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+              >
+                <option value="todos" className="bg-card text-foreground">Todos los días</option>
+                {diasDisponibles.map((d) => (
+                  <option key={d.valor} value={d.valor} className="bg-card text-foreground">
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Resetear filtros temporales */}
+            {(mesFiltro !== 'todos' || diaFiltro !== 'todos') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMesFiltro('todos');
+                  setDiaFiltro('todos');
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
+              >
+                Limpiar fecha
+              </Button>
+            )}
+          </div>
+
+          {/* Buscador de socio */}
+          <div className="relative w-full md:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por socio, DNI o teléfono..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 text-xs bg-muted/20 border-border"
+            />
+          </div>
         </div>
 
-        {/* Filtros por Categoría de Sanción */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <Button
-            variant={filtro === 'todos' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFiltro('todos')}
-            className="text-xs h-9"
-          >
-            Todos ({data?.kpis.totalSociosConSanciones || 0})
-          </Button>
+        {/* Fila 2: Filtros por Categoría de Sanción + Selector de Vista */}
+        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
+          {/* Filtros por Categoría */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            <Button
+              variant={filtro === 'todos' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFiltro('todos')}
+              className="text-xs h-9"
+            >
+              Todos ({sociosFiltradosPorFecha.length})
+            </Button>
 
-          <Button
-            variant={filtro === 'activos' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFiltro('activos')}
-            className={`text-xs h-9 ${filtro === 'activos' ? 'bg-rose-600 hover:bg-rose-500' : 'text-rose-400 border-rose-500/30'}`}
-          >
-            🔴 Inhabilitados Hoy ({data?.kpis.totalInhabilitadosHoy || 0})
-          </Button>
+            <Button
+              variant={filtro === 'activos' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFiltro('activos')}
+              className={`text-xs h-9 ${filtro === 'activos' ? 'bg-rose-600 hover:bg-rose-500' : 'text-rose-400 border-rose-500/30'}`}
+            >
+              🔴 Inhabilitados Hoy ({kpis?.totalInhabilitadosHoy || 0})
+            </Button>
 
-          <Button
-            variant={filtro === 'reincidentes' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFiltro('reincidentes')}
-            className={`text-xs h-9 ${filtro === 'reincidentes' ? 'bg-amber-600 hover:bg-amber-500' : 'text-amber-400 border-amber-500/30'}`}
-          >
-            ⚠️ Reincidentes 2+ ({data?.kpis.totalReincidentes || 0})
-          </Button>
+            <Button
+              variant={filtro === 'reincidentes' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFiltro('reincidentes')}
+              className={`text-xs h-9 ${filtro === 'reincidentes' ? 'bg-amber-600 hover:bg-amber-500' : 'text-amber-400 border-amber-500/30'}`}
+            >
+              ⚠️ Reincidentes 2+ ({kpis?.totalReincidentes || 0})
+            </Button>
 
-          <Button
-            variant={filtro === 'criticos' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFiltro('criticos')}
-            className={`text-xs h-9 ${filtro === 'criticos' ? 'bg-red-700 hover:bg-red-600' : 'text-red-400 border-red-500/30'}`}
-          >
-            🚨 Críticos 3+ ({data?.kpis.totalCriticos || 0})
-          </Button>
-        </div>
+            <Button
+              variant={filtro === 'criticos' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFiltro('criticos')}
+              className={`text-xs h-9 ${filtro === 'criticos' ? 'bg-red-700 hover:bg-red-600' : 'text-red-400 border-red-500/30'}`}
+            >
+              🚨 Críticos 3+ ({kpis?.totalCriticos || 0})
+            </Button>
+          </div>
 
-        {/* Selector de Vista: Por Socio vs Cronológico */}
-        <div className="flex items-center border border-border rounded-lg p-0.5 bg-muted/40 shrink-0">
-          <button
-            onClick={() => setVista('socios')}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-all ${
-              vista === 'socios'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Por Socio (Reincidentes)
-          </button>
-          <button
-            onClick={() => setVista('recientes')}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-all ${
-              vista === 'recientes'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Línea de Tiempo
-          </button>
+          {/* Selector de Vista: Por Socio vs Cronológico */}
+          <div className="flex items-center border border-border rounded-lg p-0.5 bg-muted/40 shrink-0">
+            <button
+              onClick={() => setVista('socios')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-all ${
+                vista === 'socios'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Por Socio ({sociosFiltradosPorFecha.length})
+            </button>
+            <button
+              onClick={() => setVista('recientes')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-all ${
+                vista === 'recientes'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Línea de Tiempo ({sancionesRecientesFiltradas.length})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -931,14 +1094,14 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
                       <TableCell className="text-center"><Skeleton className="h-5 w-16 mx-auto" /></TableCell>
                     </TableRow>
                   ))
-                ) : (data?.sancionesRecientes || []).length === 0 ? (
+                ) : sancionesRecientesFiltradas.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                      No hay sanciones recientes registradas.
+                      No hay sanciones registradas para el período o día seleccionado.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  data?.sancionesRecientes.map((item) => (
+                  sancionesRecientesFiltradas.map((item) => (
                     <TableRow key={item.id} className="border-border">
                       <TableCell className="text-xs font-medium">
                         {format(parseISO(item.fechaInicio), 'dd/MM/yyyy')}

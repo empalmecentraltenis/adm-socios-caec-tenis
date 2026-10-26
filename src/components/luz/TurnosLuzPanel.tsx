@@ -176,6 +176,7 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
   const [searchSocio, setSearchSocio] = useState<string>('');
   const [vistaSocios, setVistaSocios] = useState<'acumulado' | 'detalle'>('acumulado');
   const [expandedSocioId, setExpandedSocioId] = useState<string | null>(null);
+  const [diaFiltro, setDiaFiltro] = useState<string>('todos');
 
   // Modal para edición de tarifas
   const [editTarifasOpen, setEditTarifasOpen] = useState<boolean>(false);
@@ -253,19 +254,17 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
 
   // Navegación temporal
   const handlePrev = () => {
+    setDiaFiltro('todos');
     if (periodoTipo === 'dia') setCurrentDate((prev) => subDays(prev, 1));
     else if (periodoTipo === 'semana') setCurrentDate((prev) => subWeeks(prev, 1));
     else setCurrentDate((prev) => subMonths(prev, 1));
   };
 
   const handleNext = () => {
+    setDiaFiltro('todos');
     if (periodoTipo === 'dia') setCurrentDate((prev) => addDays(prev, 1));
     else if (periodoTipo === 'semana') setCurrentDate((prev) => addWeeks(prev, 1));
     else setCurrentDate((prev) => addMonths(prev, 1));
-  };
-
-  const handleHoy = () => {
-    setCurrentDate(new Date());
   };
 
   // Guardar tarifas editadas
@@ -303,17 +302,49 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
     }
   };
 
-  // Socios filtrados por buscador
+  // Días disponibles para filtrar
+  const diasDisponibles = useMemo(() => {
+    if (!data?.turnosSocios) return [];
+    const setDias = new Set<string>();
+    data.turnosSocios.forEach((t) => setDias.add(t.fecha));
+    return Array.from(setDias).sort();
+  }, [data?.turnosSocios]);
+
+  // Turnos de socios filtrados por día seleccionado
+  const turnosSociosFiltrados = useMemo(() => {
+    if (!data?.turnosSocios) return [];
+    if (diaFiltro === 'todos') return data.turnosSocios;
+    return data.turnosSocios.filter((t) => t.fecha === diaFiltro);
+  }, [data?.turnosSocios, diaFiltro]);
+
+  // Socios filtrados por día y por buscador
   const sociosFiltrados = useMemo(() => {
     if (!data?.sociosAcumulado) return [];
-    if (!searchSocio.trim()) return data.sociosAcumulado;
+    let list = data.sociosAcumulado;
+
+    if (diaFiltro !== 'todos') {
+      list = list
+        .map((s) => {
+          const turnosDelDia = s.turnosDetalle.filter((td) => td.fecha === diaFiltro);
+          const totalDia = turnosDelDia.reduce((sum, td) => sum + td.monto, 0);
+          return {
+            ...s,
+            cantidadTurnos: turnosDelDia.length,
+            totalAPagar: totalDia,
+            turnosDetalle: turnosDelDia,
+          };
+        })
+        .filter((s) => s.cantidadTurnos > 0);
+    }
+
+    if (!searchSocio.trim()) return list;
     const q = searchSocio.toLowerCase().trim();
-    return data.sociosAcumulado.filter(
+    return list.filter(
       (s) =>
         s.nombreCompleto.toLowerCase().includes(q) ||
         (s.dni && s.dni.includes(q))
     );
-  }, [data?.sociosAcumulado, searchSocio]);
+  }, [data?.sociosAcumulado, diaFiltro, searchSocio]);
 
   // Handlers de exportación
   const handleExportSociosPDF = () => {
@@ -375,7 +406,7 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
           <div className="flex items-center gap-2">
             <div className="bg-[#242424] p-1 rounded-lg flex items-center border border-[#333333]">
               <button
-                onClick={() => setPeriodoTipo('dia')}
+                onClick={() => { setPeriodoTipo('dia'); setDiaFiltro('todos'); }}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                   periodoTipo === 'dia'
                     ? 'bg-[#FFCC00] text-[#121212] shadow-sm'
@@ -385,7 +416,7 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                 Día
               </button>
               <button
-                onClick={() => setPeriodoTipo('semana')}
+                onClick={() => { setPeriodoTipo('semana'); setDiaFiltro('todos'); }}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                   periodoTipo === 'semana'
                     ? 'bg-[#FFCC00] text-[#121212] shadow-sm'
@@ -395,7 +426,7 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                 Semana
               </button>
               <button
-                onClick={() => setPeriodoTipo('mes')}
+                onClick={() => { setPeriodoTipo('mes'); setDiaFiltro('todos'); }}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                   periodoTipo === 'mes'
                     ? 'bg-[#FFCC00] text-[#121212] shadow-sm'
@@ -430,14 +461,6 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
               className="h-8 w-8 bg-[#242424] border-[#333333] text-white hover:bg-[#2A2A2A]"
             >
               <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleHoy}
-              className="h-8 bg-[#242424] border-[#333333] text-xs font-semibold text-[#CCCCCC] hover:text-white hover:bg-[#2A2A2A]"
-            >
-              Hoy
             </Button>
             <Button
               variant="outline"
@@ -649,7 +672,7 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
           <Card className="bg-[#181818] border-[#2A2A2A]">
             <CardHeader className="pb-3 border-b border-[#2A2A2A]">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="bg-[#242424] p-1 rounded-lg flex items-center border border-[#333333]">
                     <button
                       onClick={() => setVistaSocios('acumulado')}
@@ -669,9 +692,27 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                           : 'text-[#AAAAAA] hover:text-white'
                       }`}
                     >
-                      Detalle Turno por Turno ({data?.turnosSocios.length || 0})
+                      Detalle Turno por Turno ({turnosSociosFiltrados.length})
                     </button>
                   </div>
+
+                  {periodoTipo !== 'dia' && diasDisponibles.length > 0 && (
+                    <div className="flex items-center gap-1.5 bg-[#202020] border border-[#333333] rounded-lg px-2.5 py-1">
+                      <span className="text-[11px] text-[#888888] font-medium">Día:</span>
+                      <select
+                        value={diaFiltro}
+                        onChange={(e) => setDiaFiltro(e.target.value)}
+                        className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                      >
+                        <option value="todos" className="bg-[#242424] text-white">Todos los días ({diasDisponibles.length})</option>
+                        {diasDisponibles.map((dia) => (
+                          <option key={dia} value={dia} className="bg-[#242424] text-white">
+                            {dia}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* Buscador de socios */}
@@ -812,12 +853,12 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                 )
               ) : (
                 /* Sub-vista 2: Detalle Turno por Turno */
-                data?.turnosSocios.length === 0 ? (
+                turnosSociosFiltrados.length === 0 ? (
                   <div className="text-center py-12 px-4">
                     <Moon className="h-12 w-12 text-[#444444] mx-auto mb-3" />
                     <h4 className="text-white font-semibold text-base">Sin turnos con luz de socios</h4>
                     <p className="text-[#888888] text-xs mt-1">
-                      No se registraron turnos nocturnos en este período.
+                      No se registraron turnos nocturnos en este período o día seleccionado.
                     </p>
                   </div>
                 ) : (
@@ -835,7 +876,7 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {data?.turnosSocios.map((t) => (
+                        {turnosSociosFiltrados.map((t) => (
                           <TableRow key={t.id} className="border-[#262626] hover:bg-[#202020]">
                             <TableCell className="text-white font-medium text-xs whitespace-nowrap">
                               {t.fecha}
@@ -859,7 +900,10 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                               </Badge>
                             </TableCell>
                             <TableCell className="font-semibold text-white text-xs">
-                              {t.titular.nombre}
+                              <div>{t.titular.nombre}</div>
+                              {t.titular.dni && (
+                                <div className="text-[10px] text-[#888888] font-mono">DNI {t.titular.dni}</div>
+                              )}
                             </TableCell>
                             <TableCell className="text-xs">
                               <div className="flex flex-wrap gap-1.5 py-1">
@@ -872,7 +916,12 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                                         : 'bg-[#252525] text-white border border-[#3A3A3A]'
                                     }`}
                                   >
-                                    <span className="font-medium">{j.nombre}</span>
+                                    <span className="font-medium">
+                                      {j.nombre}
+                                      {j.dni && !j.nombre.includes(j.dni) && (
+                                        <span className="text-[10px] text-muted-foreground font-mono ml-0.5">({j.dni})</span>
+                                      )}
+                                    </span>
                                     <span className="font-bold text-amber-400">
                                       {j.esInvitado ? '(Invitado)' : formatCurrency(j.monto)}
                                     </span>
