@@ -1,18 +1,24 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const today = new Date();
-    const currentMonthStr = format(today, 'yyyy-MM');
-    const currentYearStr = format(today, 'yyyy');
+
+    // Hora oficial en Argentina (America/Argentina/Buenos_Aires)
+    const nowArg = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
+    const currentMonthStr = format(nowArg, 'yyyy-MM');
+    const currentYearStr = format(nowArg, 'yyyy');
+    const todayArgStr = format(nowArg, 'yyyy-MM-dd');
+    const mananaArgStr = format(addDays(nowArg, 1), 'yyyy-MM-dd');
+    const currentHourArg = format(nowArg, 'HH:mm');
 
     const mesParam = searchParams.get('mes') || currentMonthStr; // 'YYYY-MM'
     const anioParam = searchParams.get('anio') || currentYearStr; // 'YYYY'
+    const fechaParam = searchParams.get('fecha') || todayArgStr; // 'YYYY-MM-DD'
 
     // 1. Obtener canchas, socios y turnos ocupados
     const [canchasDb, sociosDb, turnosOcupados] = await Promise.all([
@@ -221,6 +227,168 @@ export async function GET(request: Request) {
     const noValidadosMes = turnosDelMes.length - validadosMes;
     const tasaValidacion = turnosDelMes.length > 0 ? Math.round((validadosMes / turnosDelMes.length) * 100) : 100;
 
+    // 8. MONITOR EN VIVO Y PRÓXIMOS (Día a Día con estado QR y jugadores)
+    const socioMapByDni = new Map<string, any>();
+    sociosDb.forEach((s) => socioMapByDni.set(s.dni, s));
+
+    const turnosHoy = turnosOcupados.filter((t) => format(t.fecha, 'yyyy-MM-dd') === todayArgStr);
+    const turnosManana = turnosOcupados.filter((t) => format(t.fecha, 'yyyy-MM-dd') === mananaArgStr);
+    const turnosFechaSeleccionada = turnosOcupados
+      .filter((t) => format(t.fecha, 'yyyy-MM-dd') === fechaParam)
+      .sort((a, b) => {
+        const hA = extractHourStr(a.horaInicio);
+        const hB = extractHourStr(b.horaInicio);
+        if (hA !== hB) return hA.localeCompare(hB);
+        return a.canchaId - b.canchaId;
+      });
+
+    // KPIs Monitor de Hoy
+    const totalTurnosHoy = turnosHoy.length;
+    const turnosSociosHoy = turnosHoy.filter((t) => !esTurnoProfeClase(t)).length;
+    const turnosProfeHoy = turnosHoy.filter((t) => esTurnoProfeClase(t)).length;
+    const enCursoHoy = turnosHoy.filter((t) => {
+      const hIni = extractHourStr(t.horaInicio);
+      const hFin = extractHourStr(t.horaFin);
+      return currentHourArg >= hIni && currentHourArg < hFin;
+    }).length;
+    const proximosHoy = turnosHoy.filter((t) => extractHourStr(t.horaInicio) > currentHourArg).length;
+    const completadosHoy = turnosHoy.filter((t) => extractHourStr(t.horaFin) <= currentHourArg).length;
+    const validadosHoy = turnosHoy.filter((t) => !esTurnoProfeClase(t) && Boolean(t.validado)).length;
+    const pendientesQRHoy = turnosHoy.filter((t) => !esTurnoProfeClase(t) && !t.validado).length;
+
+    // KPIs Monitor de Mañana
+    const totalTurnosManana = turnosManana.length;
+    const turnosSociosManana = turnosManana.filter((t) => !esTurnoProfeClase(t)).length;
+    const turnosProfeManana = turnosManana.filter((t) => esTurnoProfeClase(t)).length;
+
+    // Formatear turnos de la fecha seleccionada
+    const monitorTurnos = turnosFechaSeleccionada.map((t) => {
+      const horaIni = extractHourStr(t.horaInicio);
+      const horaFin = extractHourStr(t.horaFin);
+      const esProfe = esTurnoProfeClase(t);
+
+      let estadoTurno: 'en_curso' | 'proximo' | 'finalizado' = 'proximo';
+      if (fechaParam < todayArgStr) {
+        estadoTurno = 'finalizado';
+      } else if (fechaParam > todayArgStr) {
+        estadoTurno = 'proximo';
+      } else {
+        if (currentHourArg >= horaIni && currentHourArg < horaFin) {
+          estadoTurno = 'en_curso';
+        } else if (currentHourArg >= horaFin) {
+          estadoTurno = 'finalizado';
+        } else {
+          estadoTurno = 'proximo';
+        }
+      }
+
+      // Titular
+      const titularDni = t.socioDni || '';
+      const titularSocio = titularDni ? socioMapByDni.get(titularDni) : null;
+      const titularNombre = titularSocio
+        ? `${titularSocio.apellido}, ${titularSocio.nombre}`
+        : (t.socio ? `${t.socio.apellido}, ${t.socio.nombre}` : (esProfe ? (t.motivoBloqueo || 'Clases Profesor') : (titularDni ? `DNI ${titularDni}` : 'Socio Titular')));
+
+      // Participantes
+      const participantesDnis = (t.participantesDnis && t.participantesDnis.length > 0)
+        ? t.participantesDnis
+        : (titularDni ? [titularDni] : []);
+
+      const validadosList: string[] = t.validadosDnis || [];
+
+      const participantes = participantesDnis.map((d: string) => {
+        if (d === '123987456') {
+          return {
+            dni: '123987456',
+            nombre: 'Invitado Especial',
+            categoria: 'invitado',
+            telefono: '',
+            esTitular: false,
+            esInvitado: true,
+            haValidadoQR: validadosList.includes('123987456') || Boolean(t.validado),
+          };
+        }
+        const soc = socioMapByDni.get(d);
+        return {
+          dni: d,
+          nombre: soc ? `${soc.apellido}, ${soc.nombre}` : `DNI ${d}`,
+          categoria: soc?.categoria || 'socio',
+          telefono: soc?.telefono || '',
+          esTitular: d === titularDni,
+          esInvitado: false,
+          haValidadoQR: validadosList.includes(d) || Boolean(t.validado),
+        };
+      });
+
+      // Si no había participantesDnis pero hay texto libre en acompanante
+      if (participantes.length <= 1 && t.acompanante && t.acompanante.trim()) {
+        const rawAcomp = t.acompanante.trim();
+        participantes.push({
+          dni: '',
+          nombre: rawAcomp,
+          categoria: 'acompanante',
+          telefono: '',
+          esTitular: false,
+          esInvitado: false,
+          haValidadoQR: Boolean(t.validado),
+        });
+      }
+
+      // Evaluación visual del QR
+      let qrEstado: 'validado' | 'parcial' | 'pendiente' | 'sin_validar' | 'no_requerido' = 'pendiente';
+      let qrLabel = 'Pendiente QR';
+
+      if (esProfe) {
+        qrEstado = 'no_requerido';
+        qrLabel = 'Clase Profesor';
+      } else if (t.validado) {
+        qrEstado = 'validado';
+        qrLabel = 'Validado con QR';
+      } else {
+        const validadosCount = participantes.filter((p) => p.haValidadoQR).length;
+        if (validadosCount > 0) {
+          qrEstado = 'parcial';
+          qrLabel = `Validado (${validadosCount}/${participantes.length})`;
+        } else if (estadoTurno === 'finalizado') {
+          qrEstado = 'sin_validar';
+          qrLabel = 'Sin Validar (Vencido)';
+        } else if (estadoTurno === 'en_curso') {
+          qrEstado = 'pendiente';
+          qrLabel = 'En Cancha (Esperando QR)';
+        } else {
+          qrEstado = 'pendiente';
+          qrLabel = 'Por Iniciar';
+        }
+      }
+
+      return {
+        id: t.id,
+        canchaId: t.canchaId,
+        canchaNombre: t.cancha?.nombre || `Cancha ${t.canchaId}`,
+        fecha: format(t.fecha, 'yyyy-MM-dd'),
+        horaInicio: horaIni,
+        horaFin: horaFin,
+        horario: `${horaIni} - ${horaFin} hs`,
+        esProfe,
+        motivoBloqueo: t.motivoBloqueo,
+        tipoPartido: esProfe ? 'Clase Profesor' : (participantes.length > 2 ? 'Dobles' : 'Single'),
+        estadoTurno,
+        titular: {
+          dni: titularDni,
+          nombre: titularNombre,
+          telefono: titularSocio?.telefono || t.socio?.telefono || '',
+          categoria: titularSocio?.categoria || t.socio?.categoria || 'socio',
+        },
+        participantes,
+        validadoTotal: Boolean(t.validado),
+        validadoAt: t.validadoAt ? t.validadoAt.toISOString() : null,
+        validadosDnis: validadosList,
+        sancionQrAplicada: Boolean(t.sancionQrAplicada),
+        qrEstado,
+        qrLabel,
+      };
+    });
+
     return NextResponse.json({
       periodo: {
         mes: mesParam,
@@ -243,6 +411,26 @@ export async function GET(request: Request) {
       canchasStats,
       rankingSocios,
       rankingInvitado,
+      monitor: {
+        fechaSeleccionada: fechaParam,
+        fechaHoy: todayArgStr,
+        fechaManana: mananaArgStr,
+        horaActual: currentHourArg,
+        kpis: {
+          totalTurnosHoy,
+          turnosSociosHoy,
+          turnosProfeHoy,
+          enCursoHoy,
+          proximosHoy,
+          completadosHoy,
+          validadosHoy,
+          pendientesQRHoy,
+          totalTurnosManana,
+          turnosSociosManana,
+          turnosProfeManana,
+        },
+        turnos: monitorTurnos,
+      },
     });
   } catch (error: any) {
     console.error('Error al generar métricas de Gestión Turnos:', error);
