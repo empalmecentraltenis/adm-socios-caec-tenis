@@ -25,9 +25,10 @@ import AsistenciaAlumnosPanel from '@/components/asistencias/AsistenciaAlumnosPa
 import TurnosLuzPanel from '@/components/luz/TurnosLuzPanel';
 import InvitadosPanel from '@/components/invitados/InvitadosPanel';
 import SancionesPanel from '@/components/sanciones/SancionesPanel';
+import GestionTurnosPanel from '@/components/turnos/GestionTurnosPanel';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'socios' | 'luz' | 'invitados' | 'sanciones' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'profe' | 'asistencias';
+type TabType = 'dashboard' | 'socios' | 'gestion-turnos' | 'luz' | 'invitados' | 'sanciones' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'profe' | 'asistencias';
 
 interface DashboardData {
   kpis: {
@@ -152,6 +153,7 @@ export default function Home() {
   const pageTitles: Record<TabType, { title: string; subtitle: string }> = {
     dashboard: { title: 'Dashboard', subtitle: 'Vista general del club' },
     socios: { title: 'Socios / Pagos', subtitle: 'Gestión de socios y registro de pagos' },
+    'gestion-turnos': { title: 'Gestión Turnos', subtitle: 'Estadísticas de uso de canchas, rankings y control de invitados' },
     luz: { title: 'Turnos con Luz', subtitle: 'Control y liquidación de uso de luz para Socios y Profesor' },
     invitados: { title: 'Control de Invitados', subtitle: 'Cupos anuales bonificados y facturación de invitados extras' },
     sanciones: { title: 'Control de Sanciones / QR', subtitle: 'Historial de infracciones, socios inhabilitados y reincidentes' },
@@ -222,6 +224,9 @@ export default function Home() {
               readOnly={isReadOnly}
             />
           )}
+
+          {/* Gestión Turnos Tab */}
+          {activeTab === 'gestion-turnos' && <GestionTurnosPanel readOnly={isReadOnly} />}
 
           {/* Turnos con Luz Tab */}
           {activeTab === 'luz' && <TurnosLuzPanel readOnly={isReadOnly} />}

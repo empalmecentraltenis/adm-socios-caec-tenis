@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare, Landmark, Zap, UserPlus, GraduationCap, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare, Landmark, Zap, UserPlus, GraduationCap, ShieldAlert, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 
@@ -13,6 +13,7 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'socios', label: 'Socios / Pagos', icon: Users },
+  { id: 'gestion-turnos', label: 'Gestion Turnos', icon: CalendarDays },
   { id: 'luz', label: 'Turnos con Luz', icon: Zap },
   { id: 'invitados', label: 'Invitados', icon: UserPlus },
   { id: 'sanciones', label: 'Sanciones / QR', icon: ShieldAlert },
