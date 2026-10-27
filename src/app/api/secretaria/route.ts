@@ -223,7 +223,7 @@ export async function POST(request: Request) {
       ? parseFloat(montoUnitario)
       : (montoTotal ? parseFloat(montoTotal) / mesesPagados.length : cuotaDefault);
 
-    const resultados = [];
+    const resultados: Array<{ mes: string; status: string; id?: string; error?: string }> = [];
 
     for (const mes of mesesPagados) {
       // Verificar si ya está pago
