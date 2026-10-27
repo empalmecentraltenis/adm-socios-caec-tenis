@@ -6,8 +6,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Tag, GraduationCap, Crown, Wallet, Zap, UserPlus } from 'lucide-react';
+import {
+  Loader2,
+  Save,
+  Tag,
+  GraduationCap,
+  Crown,
+  Wallet,
+  Zap,
+  UserPlus,
+  Shield,
+  Receipt,
+  ClipboardCheck,
+  Copy,
+  Check,
+  ExternalLink,
+  Link as LinkIcon,
+} from 'lucide-react';
 import { formatCurrency, parseCurrency, formatInputCurrency } from '@/lib/formatters';
 
 interface ConfiguracionPanelProps {
@@ -137,6 +154,73 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
     },
   ];
 
+  const [origin, setOrigin] = useState('');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setOrigin(window.location.origin);
+    }
+  }, []);
+
+  const handleCopy = (path: string, label: string, key: string) => {
+    const fullUrl = origin ? `${origin}${path}` : path;
+    navigator.clipboard.writeText(fullUrl);
+    setCopiedKey(key);
+    toast({
+      title: '¡Enlace copiado!',
+      description: `El link de ${label} está listo para enviar: ${fullUrl}`,
+    });
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
+
+  const accesosRapidos = [
+    {
+      key: 'secretaria',
+      label: 'Secretaría (Puesto de Cobro)',
+      path: '/secretaria',
+      icon: Receipt,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-400/10',
+      borderColor: 'border-amber-400/30',
+      badge: 'Cobro de Cuotas',
+      descripcion: 'Mostrador ágil para cobrar cuotas sociales, buscar socios por DNI y ver arqueo/caja del día. Sin login ni PIN.',
+    },
+    {
+      key: 'porteria',
+      label: 'Portería (Control de Canchas)',
+      path: '/porteria',
+      icon: Shield,
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-400/10',
+      borderColor: 'border-emerald-400/30',
+      badge: 'Turnos en Vivo',
+      descripcion: 'Turnos de hoy y mañana organizados por horario (Cancha 1 y Cancha 2), socios, acompañantes destacados y clases del profesor. Sin login ni PIN.',
+    },
+    {
+      key: 'profesor',
+      label: 'Profesor (Registro de Clases)',
+      path: '/profesor',
+      icon: GraduationCap,
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-400/10',
+      borderColor: 'border-purple-400/30',
+      badge: 'Clases y Escuela',
+      descripcion: 'Acceso para que el profesor asiente sus clases de tenis, cantidad de alumnos y liquidación.',
+    },
+    {
+      key: 'asistencia',
+      label: 'Asistencia Alumnos',
+      path: '/asistencia',
+      icon: ClipboardCheck,
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-400/10',
+      borderColor: 'border-blue-400/30',
+      badge: 'Presentismo',
+      descripcion: 'Planilla directa para registrar presentismo de alumnos a las clases de la escuela de tenis.',
+    },
+  ];
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -149,8 +233,108 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* SECCIÓN: ENLACES RÁPIDOS Y ACCESOS DIRECTOS */}
+      <Card className="bg-[#18181A] border-[#2C2C32] rounded-2xl overflow-hidden shadow-xl">
+        <CardHeader className="bg-[#141416] border-b border-[#26262B] pb-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                <LinkIcon className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-white text-base font-bold flex items-center gap-2">
+                  Enlaces Rápidos y Accesos Directos del Club
+                  <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                    Sin Login / Sin PIN
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-[#888888] text-xs">
+                  Links públicos para compartir con Secretaría, Portería, Profesor o tener siempre a mano cuando te los pidan.
+                </CardDescription>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4 sm:p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {accesosRapidos.map((acc) => {
+              const Icon = acc.icon;
+              const isCopied = copiedKey === acc.key;
+              const fullUrl = origin ? `${origin}${acc.path}` : acc.path;
+
+              return (
+                <div
+                  key={acc.key}
+                  className="rounded-xl border p-4 flex flex-col justify-between transition-all bg-[#121214] border-[#27272D] hover:border-[#383842] shadow-sm"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`p-2 rounded-xl ${acc.bgColor} border ${acc.borderColor} ${acc.color}`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-white">{acc.label}</h4>
+                          <span className="text-[11px] font-mono text-[#777] block">{acc.path}</span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={`text-[10px] font-bold ${acc.bgColor} ${acc.color} ${acc.borderColor}`}>
+                        {acc.badge}
+                      </Badge>
+                    </div>
+
+                    <p className="text-xs text-[#999999] leading-relaxed">
+                      {acc.descripcion}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#222226] mt-3 flex items-center justify-between gap-2">
+                    <div className="truncate max-w-[170px] sm:max-w-[220px]">
+                      <span className="text-[11px] font-mono text-[#666] truncate block" title={fullUrl}>
+                        {fullUrl}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCopy(acc.path, acc.label, acc.key)}
+                        className={`h-8 px-2.5 rounded-lg text-xs font-semibold gap-1.5 transition-all ${
+                          isCopied
+                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
+                            : 'bg-[#1C1C20] border-[#303038] text-white hover:bg-[#282830]'
+                        }`}
+                        title="Copiar enlace completo al portapapeles"
+                      >
+                        {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-blue-400" />}
+                        <span>{isCopied ? '¡Copiado!' : 'Copiar'}</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        asChild
+                        className="h-8 px-2.5 rounded-lg text-xs font-semibold bg-[#1C1C20] border-[#303038] text-white hover:bg-[#282830] gap-1"
+                        title="Abrir página en nueva pestaña"
+                      >
+                        <a href={acc.path} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5 text-[#888]" />
+                          <span>Abrir</span>
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center justify-between pt-2">
         <div>
           <h3 className="text-white text-lg font-semibold">Configuración de Cuotas</h3>
           <p className="text-[#999999] text-sm mt-1">
