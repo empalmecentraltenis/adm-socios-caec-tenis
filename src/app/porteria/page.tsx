@@ -313,25 +313,43 @@ export default function PorteriaPage() {
                 )}
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-white truncate">
+                  <span className="text-[15px] font-black text-white truncate tracking-tight">
                     {turno.titularNombre}
                   </span>
                   {turno.titularDni && (
-                    <span className="text-[11px] font-mono text-[#888] shrink-0 ml-1">
+                    <span className="text-[11px] font-mono font-medium text-[#999] shrink-0 ml-1.5">
                       DNI: {turno.titularDni}
                     </span>
                   )}
                 </div>
 
-                {/* Acompañante */}
-                {turno.acompanante && (
-                  <div className="text-xs text-[#CCCCCC] flex items-center gap-1 truncate bg-[#1D1D24] px-2 py-0.5 rounded-md border border-[#2D2D38]">
-                    <Users className="h-3 w-3 text-blue-400 shrink-0" />
-                    <span className="truncate">+ {turno.acompanante}</span>
+                {/* Acompañante destacado y legible */}
+                {turno.acompanante ? (
+                  <div className="text-sm font-extrabold text-blue-100 flex items-center gap-1.5 truncate bg-[#1E1E26] px-2.5 py-1 rounded-lg border border-[#353545] shadow-xs">
+                    <Users className="h-4 w-4 text-blue-400 shrink-0" />
+                    <span className="truncate">
+                      + <span className="font-black text-white">{turno.acompanante}</span>
+                    </span>
                   </div>
-                )}
+                ) : turno.participantes.filter((p) => !p.esTitular).length > 0 ? (
+                  <div className="space-y-1">
+                    {turno.participantes
+                      .filter((p) => !p.esTitular)
+                      .map((p, pIdx) => (
+                        <div
+                          key={pIdx}
+                          className="text-sm font-extrabold text-blue-100 flex items-center gap-1.5 truncate bg-[#1E1E26] px-2.5 py-1 rounded-lg border border-[#353545] shadow-xs"
+                        >
+                          <Users className="h-4 w-4 text-blue-400 shrink-0" />
+                          <span className="truncate">
+                            + <span className="font-black text-white">{p.nombre}</span>
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
