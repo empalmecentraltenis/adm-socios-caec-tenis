@@ -13,17 +13,27 @@ import {
   RefreshCw,
   Phone,
   Sparkles,
-  ChevronRight,
   UserCheck,
-  Flame,
   X,
   Radio,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+
+export const SHIFTS = [
+  { start: '08:30', end: '10:00', label: '08:30 a 10:00' },
+  { start: '10:00', end: '11:30', label: '10:00 a 11:30' },
+  { start: '11:30', end: '13:00', label: '11:30 a 13:00' },
+  { start: '13:00', end: '14:30', label: '13:00 a 14:30' },
+  { start: '14:30', end: '16:00', label: '14:30 a 16:00' },
+  { start: '16:00', end: '17:30', label: '16:00 a 17:30' },
+  { start: '17:30', end: '19:00', label: '17:30 a 19:00' },
+  { start: '19:00', end: '20:30', label: '19:00 a 20:30' },
+  { start: '20:30', end: '22:00', label: '20:30 a 22:00' },
+  { start: '22:00', end: '23:30', label: '22:00 a 23:30' },
+];
 
 interface Participante {
   dni: string;
@@ -55,11 +65,6 @@ interface TurnoPorteria {
   validadosCount: number;
   participantesCount: number;
   motivoBloqueo: string | null;
-}
-
-interface CanchaInfo {
-  id: number;
-  nombre: string;
 }
 
 interface KpisDia {
@@ -94,11 +99,10 @@ export default function PorteriaPage() {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [horaActual, setHoraActual] = useState<string>('');
   const [relojDigital, setRelojDigital] = useState<string>('');
+  const [horaActualArg, setHoraActualArg] = useState<string>('');
   const [todayStr, setTodayStr] = useState<string>('');
   const [tomorrowStr, setTomorrowStr] = useState<string>('');
-  const [canchas, setCanchas] = useState<CanchaInfo[]>([]);
 
   // Pestaña activa
   const [tabDia, setTabDia] = useState<TabDia>('hoy');
@@ -115,11 +119,14 @@ export default function PorteriaPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('todos');
 
-  // Reloj en vivo de cabecera
+  // Reloj digital en vivo en el encabezado
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
       setRelojDigital(now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      setHoraActualArg(`${hh}:${mm}`);
     };
     updateClock();
     const interval = setInterval(updateClock, 1000);
@@ -138,10 +145,8 @@ export default function PorteriaPage() {
       if (!res.ok) throw new Error('Error al cargar datos');
       const data = await res.json();
 
-      setHoraActual(data.horaServidor);
       setTodayStr(data.todayStr);
       setTomorrowStr(data.tomorrowStr);
-      setCanchas(data.canchas || []);
       setTurnosHoy(data.turnosHoy || []);
       setTurnosManana(data.turnosManana || []);
       setKpisHoy(data.kpisHoy || { total: 0, socios: 0, profe: 0 });
@@ -163,7 +168,6 @@ export default function PorteriaPage() {
     }
   }, [tabDia, fechaPersonalizada, toast]);
 
-  // Primera carga y recarga periódica cada 30 segundos
   useEffect(() => {
     fetchData();
     const interval = setInterval(() => {
@@ -172,62 +176,188 @@ export default function PorteriaPage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Turnos activos según la pestaña seleccionada
+  // Turnos de la pestaña actual
   const turnosActivos = useMemo(() => {
     if (tabDia === 'hoy') return turnosHoy;
     if (tabDia === 'manana') return turnosManana;
     return turnosOtro;
   }, [tabDia, turnosHoy, turnosManana, turnosOtro]);
 
-  const fechaActivaStr = useMemo(() => {
-    if (tabDia === 'hoy') return todayStr;
-    if (tabDia === 'manana') return tomorrowStr;
-    return fechaPersonalizada || todayStr;
-  }, [tabDia, todayStr, tomorrowStr, fechaPersonalizada]);
+  // Determinar si un turno coincide con el buscador
+  const coincideConBusqueda = useCallback((t?: TurnoPorteria) => {
+    if (!t) return false;
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase().trim();
+    const matchTitular = t.titularNombre.toLowerCase().includes(q) || t.titularDni.includes(q);
+    const matchAcomp = t.acompanante ? t.acompanante.toLowerCase().includes(q) : false;
+    const matchMotivo = t.motivoBloqueo ? t.motivoBloqueo.toLowerCase().includes(q) : false;
+    const matchParticipantes = t.participantes.some(
+      (p) => p.nombre.toLowerCase().includes(q) || p.dni.includes(q)
+    );
+    return matchTitular || matchAcomp || matchMotivo || matchParticipantes;
+  }, [searchTerm]);
 
-  // Canchas en juego ahora mismo (solo aplica para hoy)
-  const canchasEnJuegoAhora = useMemo(() => {
-    if (tabDia !== 'hoy') return [];
-    return turnosHoy.filter((t) => t.estadoTiempo === 'en_curso');
-  }, [tabDia, turnosHoy]);
+  // Determinar si un turno coincide con el filtro de tipo
+  const coincideConFiltro = useCallback((t?: TurnoPorteria) => {
+    if (!t) return false;
+    if (filtroTipo === 'todos') return true;
+    if (filtroTipo === 'en_curso') return t.estadoTiempo === 'en_curso';
+    if (filtroTipo === 'proximos') return t.estadoTiempo === 'proximo';
+    if (filtroTipo === 'socios') return !t.esProfe && t.estado !== 'bloqueado';
+    if (filtroTipo === 'profe') return t.esProfe;
+    return true;
+  }, [filtroTipo]);
 
-  // Filtrado de turnos
-  const turnosFiltrados = useMemo(() => {
-    let result = [...turnosActivos];
+  // Componente de celda de cancha individual
+  const renderCanchaCard = (canchaId: number, shift: typeof SHIFTS[0]) => {
+    const turno = turnosActivos.find(
+      (t) => t.canchaId === canchaId && t.horaInicio === shift.start
+    );
 
-    // Filtro por tipo
-    if (filtroTipo === 'en_curso') {
-      result = result.filter((t) => t.estadoTiempo === 'en_curso');
-    } else if (filtroTipo === 'proximos') {
-      result = result.filter((t) => t.estadoTiempo === 'proximo');
-    } else if (filtroTipo === 'socios') {
-      result = result.filter((t) => !t.esProfe && t.estado !== 'bloqueado');
-    } else if (filtroTipo === 'profe') {
-      result = result.filter((t) => t.esProfe);
-    }
+    // Si hay búsqueda activa y este turno no coincide, se atenúa
+    const cumpleBusqueda = searchTerm.trim() ? coincideConBusqueda(turno) : true;
+    const cumpleFiltro = filtroTipo !== 'todos' ? coincideConFiltro(turno) : true;
 
-    // Buscador por texto
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase().trim();
-      result = result.filter((t) => {
-        const matchTitular = t.titularNombre.toLowerCase().includes(q) || t.titularDni.includes(q);
-        const matchAcomp = t.acompanante ? t.acompanante.toLowerCase().includes(q) : false;
-        const matchMotivo = t.motivoBloqueo ? t.motivoBloqueo.toLowerCase().includes(q) : false;
-        const matchCancha = t.canchaNombre.toLowerCase().includes(q);
-        const matchParticipantes = t.participantes.some(
-          (p) => p.nombre.toLowerCase().includes(q) || p.dni.includes(q)
+    if (!turno) {
+      if (filtroTipo !== 'todos' || searchTerm.trim()) {
+        // En búsqueda/filtro, ocultar celdas libres para focalizar
+        return (
+          <div className="bg-[#121214] border border-[#222226] rounded-xl p-3 min-h-[90px] flex items-center justify-center text-[#555] text-xs italic">
+            Sin reservas
+          </div>
         );
-        return matchTitular || matchAcomp || matchMotivo || matchCancha || matchParticipantes;
-      });
+      }
+
+      return (
+        <div className="bg-[#131316] border border-[#24242A] rounded-xl p-3.5 min-h-[92px] flex items-center justify-between transition-colors">
+          <div className="space-y-0.5">
+            <span className="text-[11px] font-black uppercase tracking-wider text-[#666]">
+              Cancha {canchaId}
+            </span>
+            <p className="text-xs text-[#555] italic">Libre (Sin reserva)</p>
+          </div>
+          <Badge variant="outline" className="bg-[#1A1A1E] text-[#666] border-[#2E2E35] text-[10px]">
+            Libre
+          </Badge>
+        </div>
+      );
     }
 
-    return result;
-  }, [turnosActivos, filtroTipo, searchTerm]);
+    const esProfe = turno.esProfe;
+    const enJuego = turno.estadoTiempo === 'en_curso' && tabDia === 'hoy';
+
+    return (
+      <div
+        className={`rounded-xl border p-3.5 flex flex-col justify-between transition-all min-h-[105px] shadow-sm relative ${
+          !cumpleBusqueda || !cumpleFiltro ? 'opacity-35 grayscale-[50%]' : ''
+        } ${
+          enJuego
+            ? 'bg-[#10241A] border-emerald-500/70 ring-1 ring-emerald-500/50 shadow-emerald-950/40'
+            : esProfe
+            ? 'bg-[#1C1912] border-amber-500/40 hover:border-amber-500/60'
+            : 'bg-[#15151A] border-[#2C2C35] hover:border-[#3D3D48]'
+        }`}
+      >
+        <div>
+          {/* Header de la celda de Cancha */}
+          <div className="flex items-center justify-between gap-1 mb-2">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                  enJuego
+                    ? 'bg-emerald-500 text-black'
+                    : esProfe
+                    ? 'bg-amber-400 text-black'
+                    : 'bg-blue-600 text-white'
+                }`}
+              >
+                Cancha {canchaId}
+              </span>
+
+              {enJuego && (
+                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px] font-bold px-1.5 py-0 flex items-center gap-1 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  EN JUEGO
+                </Badge>
+              )}
+            </div>
+
+            {/* Estado QR o Profe */}
+            {esProfe ? (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] font-bold">
+                Clase Profe
+              </Badge>
+            ) : turno.validadoQr ? (
+              <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> QR OK
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] font-bold flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> QR Pendiente
+              </Badge>
+            )}
+          </div>
+
+          {/* Datos del Jugador / Clase */}
+          <div className="space-y-1">
+            {esProfe ? (
+              <div className="space-y-0.5">
+                <div className="text-sm font-black text-white flex items-center gap-1.5">
+                  <GraduationCap className="h-4 w-4 text-amber-400 shrink-0" />
+                  <span className="truncate">{turno.titularNombre}</span>
+                </div>
+                {turno.motivoBloqueo && turno.motivoBloqueo !== turno.titularNombre && (
+                  <p className="text-[11px] text-[#A0A0A0] italic truncate">
+                    {turno.motivoBloqueo}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-white truncate">
+                    {turno.titularNombre}
+                  </span>
+                  {turno.titularDni && (
+                    <span className="text-[11px] font-mono text-[#888] shrink-0 ml-1">
+                      DNI: {turno.titularDni}
+                    </span>
+                  )}
+                </div>
+
+                {/* Acompañante */}
+                {turno.acompanante && (
+                  <div className="text-xs text-[#CCCCCC] flex items-center gap-1 truncate bg-[#1D1D24] px-2 py-0.5 rounded-md border border-[#2D2D38]">
+                    <Users className="h-3 w-3 text-blue-400 shrink-0" />
+                    <span className="truncate">+ {turno.acompanante}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Teléfono de contacto al pie */}
+        {turno.titularTelefono && !esProfe && (
+          <div className="pt-2 mt-2 border-t border-[#25252E] flex justify-end">
+            <a
+              href={`tel:${turno.titularTelefono}`}
+              className="text-[#999] hover:text-white flex items-center gap-1 font-mono text-[10px] bg-[#202026] hover:bg-[#2A2A33] px-1.5 py-0.5 rounded transition-colors"
+              title="Llamar al socio"
+            >
+              <Phone className="h-2.5 w-2.5 text-blue-400" />
+              <span>{turno.titularTelefono}</span>
+            </a>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-[#0F0F10] text-[#ECECEC] p-3 sm:p-5 lg:p-6 space-y-5 max-w-[1500px] mx-auto">
+    <div className="min-h-screen bg-[#0C0C0E] text-[#ECECEC] p-3 sm:p-5 lg:p-6 space-y-5 max-w-[1500px] mx-auto">
       {/* HEADER DE PORTERÍA */}
-      <header className="bg-[#18181A] border border-[#27272A] rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <header className="bg-[#161619] border border-[#26262B] rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-xl shadow-lg shadow-blue-500/20">
             <Shield className="h-6 w-6" />
@@ -237,26 +367,26 @@ export default function PorteriaPage() {
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">CAEC Tenis · Portería</h1>
               <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[11px] font-bold px-2 py-0.5 flex items-center gap-1.5 animate-pulse">
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                Control de Acceso Activo
+                Control de Canchas Activo
               </Badge>
             </div>
             <p className="text-xs text-[#999999] mt-0.5">
-              Visualización en vivo de turnos en juego, ingresos de socios y clases del profesor
+              Puesto de control de guardia: turnos por horario en Cancha 1 y Cancha 2 (Socios y Profesor)
             </p>
           </div>
         </div>
 
         {/* Reloj Digital & Botón Refrescar */}
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <div className="bg-[#121214] border border-[#27272A] rounded-xl px-4 py-2 text-right">
-            <span className="text-[10px] text-[#888888] font-bold uppercase tracking-wider block">Hora Actual</span>
+          <div className="bg-[#111113] border border-[#26262B] rounded-xl px-4 py-2 text-right">
+            <span className="text-[10px] text-[#888888] font-bold uppercase tracking-wider block">Hora Oficial</span>
             <span className="text-lg font-black text-white font-mono">{relojDigital || '--:--:--'}</span>
           </div>
 
           <Button
             onClick={() => fetchData(false)}
             disabled={loading}
-            className="bg-[#242427] hover:bg-[#2F2F33] border border-[#333338] text-white h-11 px-4 rounded-xl gap-2 text-xs font-semibold"
+            className="bg-[#222226] hover:bg-[#2C2C32] border border-[#303038] text-white h-11 px-4 rounded-xl gap-2 text-xs font-semibold"
             title="Refrescar datos en vivo"
           >
             <RefreshCw className={`h-4 w-4 text-blue-400 ${loading ? 'animate-spin' : ''}`} />
@@ -273,7 +403,7 @@ export default function PorteriaPage() {
           className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${
             tabDia === 'hoy'
               ? 'bg-blue-600/15 border-blue-500 text-white shadow-lg shadow-blue-500/10'
-              : 'bg-[#18181A] border-[#27272A] text-[#888888] hover:border-[#3E3E42]'
+              : 'bg-[#161619] border-[#26262B] text-[#888888] hover:border-[#383840]'
           }`}
         >
           <div className="space-y-1">
@@ -306,7 +436,7 @@ export default function PorteriaPage() {
           className={`flex items-center justify-between p-4 rounded-2xl border transition-all text-left ${
             tabDia === 'manana'
               ? 'bg-indigo-600/15 border-indigo-500 text-white shadow-lg shadow-indigo-500/10'
-              : 'bg-[#18181A] border-[#27272A] text-[#888888] hover:border-[#3E3E42]'
+              : 'bg-[#161619] border-[#26262B] text-[#888888] hover:border-[#383840]'
           }`}
         >
           <div className="space-y-1">
@@ -335,7 +465,7 @@ export default function PorteriaPage() {
           className={`flex items-center justify-between p-4 rounded-2xl border transition-all sm:col-span-2 lg:col-span-1 ${
             tabDia === 'otro'
               ? 'bg-purple-600/15 border-purple-500 text-white shadow-lg shadow-purple-500/10'
-              : 'bg-[#18181A] border-[#27272A] text-[#888888]'
+              : 'bg-[#161619] border-[#26262B] text-[#888888]'
           }`}
         >
           <div className="space-y-1 w-full">
@@ -350,7 +480,7 @@ export default function PorteriaPage() {
                   setFechaPersonalizada(e.target.value);
                   setTabDia('otro');
                 }}
-                className="bg-[#121214] border-[#333338] text-white text-xs h-9 rounded-xl w-full max-w-[200px]"
+                className="bg-[#111113] border-[#303038] text-white text-xs h-9 rounded-xl w-full max-w-[200px]"
               />
               <Button
                 size="sm"
@@ -365,105 +495,8 @@ export default function PorteriaPage() {
         </div>
       </div>
 
-      {/* SECCIÓN ESPECIAL: CANCHAS EN JUEGO AHORA (SOLO EN PESTAÑA HOY) */}
-      {tabDia === 'hoy' && (
-        <Card className="bg-[#18181A] border-[#27272A] rounded-2xl overflow-hidden shadow-xl">
-          <div className="px-5 py-3.5 bg-[#141416] border-b border-[#27272A] flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Radio className="h-4 w-4 text-emerald-400 animate-pulse" />
-              <h2 className="text-sm font-bold text-white tracking-wide uppercase">
-                Estado Actual de las Canchas (En Juego Ahora)
-              </h2>
-            </div>
-            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px] font-bold">
-              {canchasEnJuegoAhora.length} cancha{canchasEnJuegoAhora.length === 1 ? '' : 's'} en uso
-            </Badge>
-          </div>
-
-          <CardContent className="p-4 sm:p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {canchas.map((cancha) => {
-                const turnoActual = canchasEnJuegoAhora.find((t) => t.canchaId === cancha.id);
-
-                if (!turnoActual) {
-                  return (
-                    <div
-                      key={cancha.id}
-                      className="bg-[#121214] border border-[#27272A] rounded-xl p-4 flex flex-col justify-between min-h-[110px]"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-black text-sm text-[#888888] uppercase">{cancha.nombre}</span>
-                        <Badge variant="outline" className="bg-[#202022] text-[#777777] border-[#333] text-[10px]">
-                          LIBRE AHORA
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-[#555] italic mt-2">Sin reserva en este horario</p>
-                    </div>
-                  );
-                }
-
-                const esProfe = turnoActual.esProfe;
-
-                return (
-                  <div
-                    key={cancha.id}
-                    className={`rounded-xl p-4 border flex flex-col justify-between min-h-[110px] transition-all shadow-md ${
-                      esProfe
-                        ? 'bg-amber-500/10 border-amber-500/40 text-amber-100'
-                        : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-100'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-black text-sm text-white uppercase">{cancha.nombre}</span>
-                        <Badge
-                          className={`text-[10px] font-bold px-2 py-0.5 flex items-center gap-1 ${
-                            esProfe
-                              ? 'bg-amber-500 text-black border-amber-400'
-                              : 'bg-emerald-500 text-black border-emerald-400'
-                          }`}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping"></span>
-                          EN JUEGO
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="font-black text-base text-white flex items-center gap-1.5">
-                          {esProfe ? <GraduationCap className="h-4 w-4 text-amber-400 shrink-0" /> : <Users className="h-4 w-4 text-emerald-400 shrink-0" />}
-                          <span className="truncate">{turnoActual.titularNombre}</span>
-                        </div>
-                        {turnoActual.acompanante && (
-                          <div className="text-xs text-[#CCCCCC] truncate pl-5">
-                            + {turnoActual.acompanante}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-[#333338] mt-2 text-xs">
-                      <span className="font-mono font-bold text-white flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5 text-blue-400" />
-                        {turnoActual.horaInicio} - {turnoActual.horaFin} hs
-                      </span>
-                      {esProfe ? (
-                        <span className="text-[11px] font-bold text-amber-400">Clase Profesor</span>
-                      ) : (
-                        <span className={`text-[11px] font-bold ${turnoActual.validadoQr ? 'text-emerald-400' : 'text-amber-400'}`}>
-                          {turnoActual.validadoQr ? '✓ QR Validado' : '⚠ QR Pendiente'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* BUSCADOR DE PORTERÍA & FILTROS */}
-      <div className="bg-[#18181A] border border-[#27272A] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
+      <div className="bg-[#161619] border border-[#26262B] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Buscador Rápido */}
           <div className="relative flex-1">
@@ -471,8 +504,8 @@ export default function PorteriaPage() {
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="¿Quién llega al portón? Escribí Apellido, DNI o Cancha..."
-              className="pl-10 pr-9 h-11 bg-[#121214] border-[#2C2C30] text-white placeholder:text-[#666] focus:border-blue-500 rounded-xl text-sm"
+              placeholder="¿Quién llega al portón? Escribí Apellido, DNI o Nombre..."
+              className="pl-10 pr-9 h-11 bg-[#111113] border-[#2B2B32] text-white placeholder:text-[#666] focus:border-blue-500 rounded-xl text-sm"
             />
             {searchTerm && (
               <button
@@ -493,7 +526,7 @@ export default function PorteriaPage() {
               className={`rounded-xl text-xs h-9 px-3 ${
                 filtroTipo === 'todos'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-[#121214] border-[#2C2C30] text-[#888] hover:text-white'
+                  : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
               }`}
             >
               Todos ({turnosActivos.length})
@@ -508,7 +541,7 @@ export default function PorteriaPage() {
                   className={`rounded-xl text-xs h-9 px-3 gap-1.5 ${
                     filtroTipo === 'en_curso'
                       ? 'bg-emerald-600 text-white'
-                      : 'bg-[#121214] border-[#2C2C30] text-[#888] hover:text-white'
+                      : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -522,7 +555,7 @@ export default function PorteriaPage() {
                   className={`rounded-xl text-xs h-9 px-3 gap-1.5 ${
                     filtroTipo === 'proximos'
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-[#121214] border-[#2C2C30] text-[#888] hover:text-white'
+                      : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
                   }`}
                 >
                   <Clock className="h-3.5 w-3.5" />
@@ -538,7 +571,7 @@ export default function PorteriaPage() {
               className={`rounded-xl text-xs h-9 px-3 gap-1.5 ${
                 filtroTipo === 'socios'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-[#121214] border-[#2C2C30] text-[#888] hover:text-white'
+                  : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
               }`}
             >
               <Users className="h-3.5 w-3.5" />
@@ -552,7 +585,7 @@ export default function PorteriaPage() {
               className={`rounded-xl text-xs h-9 px-3 gap-1.5 ${
                 filtroTipo === 'profe'
                   ? 'bg-amber-600 text-white'
-                  : 'bg-[#121214] border-[#2C2C30] text-[#888] hover:text-white'
+                  : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
               }`}
             >
               <GraduationCap className="h-3.5 w-3.5" />
@@ -561,188 +594,117 @@ export default function PorteriaPage() {
           </div>
         </div>
 
-        {/* LISTADO DE TURNOS DE LA FECHA */}
-        <div className="space-y-3 pt-2">
+        {/* TABLA ORGANIZADA EN RENGLONES: HORARIO - CANCHA 1 - CANCHA 2 */}
+        <div className="space-y-3 pt-1">
+          {/* Encabezado de Columnas (visible en desktop/tablets) */}
+          <div className="hidden md:grid md:grid-cols-12 gap-3 px-4 py-2.5 bg-[#111113] border border-[#24242A] rounded-xl text-xs font-black uppercase tracking-wider text-[#888]">
+            <div className="col-span-3 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-blue-400" />
+              <span>Horario del Turno</span>
+            </div>
+            <div className="col-span-4 lg:col-span-4 flex items-center gap-1.5 text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Cancha 1</span>
+            </div>
+            <div className="col-span-5 lg:col-span-5 flex items-center gap-1.5 text-blue-400">
+              <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+              <span>Cancha 2</span>
+            </div>
+          </div>
+
           {loading && (
-            <div className="py-12 text-center space-y-3">
+            <div className="py-16 text-center space-y-3">
               <RefreshCw className="h-8 w-8 text-blue-400 animate-spin mx-auto" />
               <p className="text-sm text-[#888]">Cargando turnos de portería...</p>
             </div>
           )}
 
-          {!loading && turnosFiltrados.length === 0 && (
-            <div className="py-12 text-center space-y-3 bg-[#121214] rounded-2xl border border-[#27272A] p-6">
-              <div className="w-12 h-12 rounded-full bg-[#202024] text-[#666] flex items-center justify-center mx-auto">
-                <Users className="h-6 w-6" />
-              </div>
-              <h3 className="font-bold text-white text-base">No se encontraron turnos</h3>
-              <p className="text-xs text-[#777] max-w-sm mx-auto">
-                {searchTerm
-                  ? `No hay turnos que coincidan con "${searchTerm}". Probá con otro apellido o DNI.`
-                  : 'No hay turnos registrados para esta fecha con el filtro seleccionado.'}
-              </p>
-            </div>
-          )}
+          {!loading && (
+            <div className="space-y-2.5">
+              {SHIFTS.map((shift, idx) => {
+                const turnoC1 = turnosActivos.find((t) => t.canchaId === 1 && t.horaInicio === shift.start);
+                const turnoC2 = turnosActivos.find((t) => t.canchaId === 2 && t.horaInicio === shift.start);
 
-          {!loading && turnosFiltrados.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-              {turnosFiltrados.map((t) => {
-                const esProfe = t.esProfe;
-                const enJuego = t.estadoTiempo === 'en_curso';
-                const finalizado = t.estadoTiempo === 'finalizado';
+                // Determinar si este horario está en curso hoy
+                const esHorarioActual =
+                  tabDia === 'hoy' &&
+                  horaActualArg >= shift.start &&
+                  horaActualArg < shift.end;
+
+                const yaPaso =
+                  tabDia === 'hoy' &&
+                  horaActualArg >= shift.end;
+
+                // Si hay filtro o búsqueda y ninguno de los dos cumple, ocultamos este renglón
+                const c1Coincide = searchTerm.trim() ? coincideConBusqueda(turnoC1) : true;
+                const c2Coincide = searchTerm.trim() ? coincideConBusqueda(turnoC2) : true;
+                const c1Filtro = filtroTipo !== 'todos' ? coincideConFiltro(turnoC1) : true;
+                const c2Filtro = filtroTipo !== 'todos' ? coincideConFiltro(turnoC2) : true;
+
+                const tieneContenidoRelevante =
+                  (turnoC1 && c1Coincide && c1Filtro) ||
+                  (turnoC2 && c2Coincide && c2Filtro);
+
+                if ((searchTerm.trim() || filtroTipo !== 'todos') && !tieneContenidoRelevante) {
+                  return null;
+                }
 
                 return (
                   <div
-                    key={t.id}
-                    className={`rounded-2xl border p-4 sm:p-5 flex flex-col justify-between transition-all shadow-md relative overflow-hidden ${
-                      enJuego
-                        ? 'bg-[#12241C] border-emerald-500/60 ring-1 ring-emerald-500/40'
-                        : finalizado
-                        ? 'bg-[#141416] border-[#222225] opacity-65'
-                        : esProfe
-                        ? 'bg-[#1C1A14] border-amber-500/30 hover:border-amber-500/60'
-                        : 'bg-[#151518] border-[#27272A] hover:border-[#38383E]'
+                    key={idx}
+                    className={`rounded-2xl border transition-all p-3 sm:p-4 shadow-sm ${
+                      esHorarioActual
+                        ? 'bg-[#101F18] border-emerald-500/70 ring-1 ring-emerald-500/40 shadow-emerald-950/40'
+                        : yaPaso
+                        ? 'bg-[#131316] border-[#222227] opacity-75'
+                        : 'bg-[#151518] border-[#26262B] hover:border-[#383842]'
                     }`}
                   >
-                    {/* Indicador de Cancha y Horario */}
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            className={`font-black text-xs px-2.5 py-1 uppercase rounded-lg tracking-wider ${
-                              enJuego
-                                ? 'bg-emerald-500 text-black'
-                                : esProfe
-                                ? 'bg-amber-400 text-black'
-                                : 'bg-blue-600 text-white'
-                            }`}
-                          >
-                            {t.canchaNombre}
-                          </Badge>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                      {/* COLUMNA 1: HORARIO (3 columnas en desktop) */}
+                      <div className="md:col-span-3 flex md:flex-col items-center md:items-start justify-between md:justify-center border-b md:border-b-0 pb-2 md:pb-0 border-[#26262B]">
+                        <div className="space-y-0.5">
+                          <span className="text-base sm:text-lg font-black font-mono text-white tracking-tight">
+                            {shift.label}
+                          </span>
+                          <span className="text-[11px] text-[#777] block">
+                            Duración: 1h 30m
+                          </span>
+                        </div>
 
-                          {enJuego && (
-                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px] font-bold flex items-center gap-1 animate-pulse">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                              JUGANDO AHORA
+                        <div className="pt-1">
+                          {esHorarioActual ? (
+                            <Badge className="bg-emerald-500 text-black border-emerald-400 text-[10px] font-black px-2 py-0.5 flex items-center gap-1 animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
+                              EN JUEGO AHORA
                             </Badge>
-                          )}
-
-                          {t.minutosParaInicio !== null && t.minutosParaInicio > 0 && t.minutosParaInicio <= 60 && (
-                            <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold">
-                              Llega en {t.minutosParaInicio} min
-                            </Badge>
-                          )}
-
-                          {finalizado && (
-                            <Badge variant="outline" className="bg-[#1C1C20] text-[#777] border-[#333] text-[10px]">
+                          ) : yaPaso ? (
+                            <Badge variant="outline" className="bg-[#1C1C20] text-[#777] border-[#2C2C32] text-[10px]">
                               Finalizado
                             </Badge>
-                          )}
-                        </div>
-
-                        <div className="font-mono text-sm font-black text-white flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5 text-[#888]" />
-                          {t.horaInicio} - {t.horaFin}
-                        </div>
-                      </div>
-
-                      {/* Identificación del Jugador o Profe */}
-                      <div className="space-y-2">
-                        {esProfe ? (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
-                              <GraduationCap className="h-4 w-4" />
-                              <span>Clase Profesor / Escuela</span>
-                            </div>
-                            <div className="text-base font-black text-white">
-                              {t.titularNombre}
-                            </div>
-                            {t.motivoBloqueo && t.motivoBloqueo !== t.titularNombre && (
-                              <p className="text-xs text-[#999999] italic">{t.motivoBloqueo}</p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            <div className="text-xs text-[#777777] uppercase font-bold tracking-wider flex items-center justify-between">
-                              <span>Socio Titular</span>
-                              {t.titularDni && (
-                                <span className="font-mono text-[11px] text-[#999]">DNI: {t.titularDni}</span>
-                              )}
-                            </div>
-                            <div className="text-base font-black text-white">
-                              {t.titularNombre}
-                            </div>
-
-                            {/* Acompañante / Jugadores */}
-                            {t.acompanante && (
-                              <div className="bg-[#1A1A1E] rounded-xl p-2.5 border border-[#2B2B30] mt-2">
-                                <span className="text-[10px] text-[#888888] font-bold uppercase tracking-wider block mb-1">
-                                  Acompañante / Participante
-                                </span>
-                                <div className="text-xs font-semibold text-[#E0E0E0] flex items-center gap-1.5">
-                                  <Users className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-                                  <span>{t.acompanante}</span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Lista de participantes completos si existen */}
-                            {t.participantes.length > 1 && (
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                {t.participantes.map((p, idx) => (
-                                  <Badge
-                                    key={idx}
-                                    variant="outline"
-                                    className={`text-[10px] px-2 py-0.5 ${
-                                      p.haValidadoQR
-                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                        : 'bg-[#202024] text-[#AAA] border-[#333]'
-                                    }`}
-                                  >
-                                    {p.nombre} {p.haValidadoQR ? '✓' : ''}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Footer de la tarjeta con estado de QR y teléfono */}
-                    <div className="pt-3.5 border-t border-[#26262B] mt-4 flex items-center justify-between text-xs">
-                      {esProfe ? (
-                        <div className="text-xs text-amber-400/90 font-medium">
-                          No requiere validación QR
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          {t.validadoQr ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-xs bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/30">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              QR Validado
-                            </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-amber-400 font-bold text-xs bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/30">
-                              <AlertCircle className="h-3.5 w-3.5" />
-                              QR Pendiente
-                            </span>
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] font-semibold">
+                              Próximo
+                            </Badge>
                           )}
                         </div>
-                      )}
+                      </div>
 
-                      {t.titularTelefono ? (
-                        <a
-                          href={`tel:${t.titularTelefono}`}
-                          className="text-[#888888] hover:text-white flex items-center gap-1 font-mono text-[11px] bg-[#202024] hover:bg-[#2A2A30] px-2 py-1 rounded-md transition-colors"
-                          title="Llamar al socio"
-                        >
-                          <Phone className="h-3 w-3 text-blue-400" />
-                          <span>{t.titularTelefono}</span>
-                        </a>
-                      ) : (
-                        <span className="text-[11px] text-[#555] font-mono">Sin tel</span>
-                      )}
+                      {/* COLUMNA 2: CANCHA 1 (4 o 5 columnas en desktop) */}
+                      <div className="md:col-span-4 lg:col-span-4">
+                        <div className="md:hidden text-[10px] font-black uppercase text-emerald-400 mb-1">
+                          Cancha 1
+                        </div>
+                        {renderCanchaCard(1, shift)}
+                      </div>
+
+                      {/* COLUMNA 3: CANCHA 2 (5 columnas en desktop) */}
+                      <div className="md:col-span-5 lg:col-span-5">
+                        <div className="md:hidden text-[10px] font-black uppercase text-blue-400 mb-1">
+                          Cancha 2
+                        </div>
+                        {renderCanchaCard(2, shift)}
+                      </div>
                     </div>
                   </div>
                 );

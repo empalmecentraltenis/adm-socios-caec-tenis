@@ -98,7 +98,10 @@ export async function GET(request: Request) {
     const formatearTurno = (t: any) => {
       const fechaStr = format(t.fecha, 'yyyy-MM-dd');
       const horaIni = extractHourStr(t.horaInicio);
-      const horaFin = extractHourStr(t.horaFin);
+      let horaFin = extractHourStr(t.horaFin);
+      if (horaIni === '19:00' && (horaFin === '20:00' || horaFin === '20:30')) {
+        horaFin = '20:30';
+      }
       const profe = esTurnoProfe(t);
 
       // Determinar estado temporal

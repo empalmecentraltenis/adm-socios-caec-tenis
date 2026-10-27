@@ -267,7 +267,10 @@ export async function GET(request: Request) {
     // Formatear turnos de la fecha seleccionada
     const monitorTurnos = turnosFechaSeleccionada.map((t) => {
       const horaIni = extractHourStr(t.horaInicio);
-      const horaFin = extractHourStr(t.horaFin);
+      let horaFin = extractHourStr(t.horaFin);
+      if (horaIni === '19:00' && (horaFin === '20:00' || horaFin === '20:30')) {
+        horaFin = '20:30';
+      }
       const esProfe = esTurnoProfeClase(t);
 
       let estadoTurno: 'en_curso' | 'proximo' | 'finalizado' = 'proximo';
