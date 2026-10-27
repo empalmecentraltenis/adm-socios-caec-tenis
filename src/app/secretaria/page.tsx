@@ -44,6 +44,7 @@ interface SocioItem {
   deudaEstimada: number;
   ultimoMesPagado: string | null;
   mesesPendientes: string[];
+  mesesPagados: string[];
 }
 
 interface PagoItem {
@@ -91,6 +92,17 @@ function formatMes(ym: string): string {
   }
 }
 
+function getSiguienteMes(ym: string): string {
+  try {
+    const [y, m] = ym.split('-').map(Number);
+    const nextM = m === 12 ? 1 : m + 1;
+    const nextY = m === 12 ? y + 1 : y;
+    return `${nextY}-${String(nextM).padStart(2, '0')}`;
+  } catch {
+    return ym;
+  }
+}
+
 export default function SecretariaPage() {
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -121,6 +133,7 @@ export default function SecretariaPage() {
     socio: string;
     monto: number;
     meses: string[];
+    omitidos?: Array<{ mes: string; error?: string }>;
     metodo: string;
   } | null>(null);
 
@@ -182,17 +195,50 @@ export default function SecretariaPage() {
     setUltimoCobroExitoso(null);
 
     // Sugerir meses a cobrar:
-    // Si tiene meses pendientes, sugerir los pendientes (hasta 2) o al menos el mes actual
+    // Solo sugerir meses que NO estén ya pagados
     let mesesSugeridos: string[] = [];
-    if (socio.mesesPendientes && socio.mesesPendientes.length > 0) {
-      mesesSugeridos = [...socio.mesesPendientes];
-    } else if (mesActual) {
+    const pagados = new Set(socio.mesesPagados || []);
+    const pendientesNoPagados = (socio.mesesPendientes || []).filter((m) => !pagados.has(m));
+
+    if (pendientesNoPagados.length > 0) {
+      mesesSugeridos = [...pendientesNoPagados];
+    } else if (mesActual && !pagados.has(mesActual)) {
       mesesSugeridos = [mesActual];
+    } else {
+      // Si ya tiene todo pago hasta mesActual o más, sugerir el próximo mes siguiente disponible
+      const todosPagados = (socio.mesesPagados || []).sort();
+      const ultimoPagado = todosPagados[todosPagados.length - 1] || mesActual;
+      mesesSugeridos = [getSiguienteMes(ultimoPagado)];
     }
 
     setMesesSeleccionados(mesesSugeridos);
     setMontoPersonalizado('');
   };
+
+  // Meses disponibles para cobrar (excluyendo estrictamente los ya pagados)
+  const mesesDisponiblesParaCobrar = useMemo(() => {
+    if (!socioSeleccionado) return [];
+    const pagados = new Set(socioSeleccionado.mesesPagados || []);
+    const pendientes = (socioSeleccionado.mesesPendientes || []).filter((m) => !pagados.has(m));
+
+    const lista = [...pendientes];
+    if (mesActual && !pagados.has(mesActual) && !lista.includes(mesActual)) {
+      lista.push(mesActual);
+    }
+
+    // Agregar hasta 2 meses futuros a continuación del más alto
+    const todos = [...Array.from(pagados), ...lista].sort();
+    const ultimo = todos[todos.length - 1] || mesActual;
+    let siguiente = ultimo;
+    for (let i = 0; i < 2; i++) {
+      siguiente = getSiguienteMes(siguiente);
+      if (!pagados.has(siguiente) && !lista.includes(siguiente)) {
+        lista.push(siguiente);
+      }
+    }
+
+    return lista.sort();
+  }, [socioSeleccionado, mesActual]);
 
   // Alternar selección de un mes
   const handleToggleMes = (mes: string) => {
@@ -246,15 +292,28 @@ export default function SecretariaPage() {
 
       const json = await res.json();
       if (res.ok && json.success) {
-        toast({
-          title: 'Cobro Registrado con Éxito',
-          description: `Se cobraron ${mesesSeleccionados.length} mes(es) a ${socioSeleccionado.nombreCompleto}.`,
-        });
+        const mesesEfectivos: string[] = json.mesesCobrados || mesesSeleccionados;
+        const montoEfectivo: number = json.totalCobrado !== undefined ? json.totalCobrado : montoFinalCobro;
+        const omitidos: Array<{ mes: string; error?: string }> = json.mesesOmitidos || [];
+
+        if (omitidos.length > 0) {
+          toast({
+            title: 'Cobro registrado (con aviso)',
+            description: `Se cobraron $${montoEfectivo.toLocaleString('es-AR')} (${mesesEfectivos.length} mes/es). El mes ${omitidos.map((o) => formatMes(o.mes)).join(', ')} ya estaba registrado como pagado.`,
+            variant: 'default',
+          });
+        } else {
+          toast({
+            title: 'Cobro Registrado con Éxito',
+            description: `Se cobraron ${mesesEfectivos.length} mes(es) a ${socioSeleccionado.nombreCompleto} por un total de $${montoEfectivo.toLocaleString('es-AR')}.`,
+          });
+        }
 
         setUltimoCobroExitoso({
           socio: socioSeleccionado.nombreCompleto,
-          monto: montoFinalCobro,
-          meses: mesesSeleccionados,
+          monto: montoEfectivo,
+          meses: mesesEfectivos,
+          omitidos,
           metodo: metodoPago,
         });
 
@@ -370,26 +429,34 @@ export default function SecretariaPage() {
 
       {/* MENSAJE DE ÚLTIMO COBRO EXITOSO */}
       {ultimoCobroExitoso && (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center justify-between gap-3 text-emerald-300 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-emerald-300 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
               <CheckCircle2 className="h-5 w-5" />
             </div>
-            <div>
+            <div className="space-y-1">
               <p className="font-bold text-sm text-white">
-                ¡Pago registrado con éxito para {ultimoCobroExitoso.socio}!
+                ¡Pago asentado en caja para {ultimoCobroExitoso.socio}!
               </p>
-              <p className="text-xs text-emerald-300/90 mt-0.5">
-                Monto cobrado: <strong className="text-white">${ultimoCobroExitoso.monto.toLocaleString('es-AR')}</strong> • Meses:{' '}
-                {ultimoCobroExitoso.meses.map(formatMes).join(', ')} • {ultimoCobroExitoso.metodo.toUpperCase()}
+              <p className="text-xs text-emerald-300/90">
+                Monto ingresado a caja: <strong className="text-white font-black">${ultimoCobroExitoso.monto.toLocaleString('es-AR')}</strong> • Meses cobrados:{' '}
+                <strong className="text-white">{ultimoCobroExitoso.meses.map(formatMes).join(', ') || 'Ninguno'}</strong> • {ultimoCobroExitoso.metodo.toUpperCase()}
               </p>
+              {ultimoCobroExitoso.omitidos && ultimoCobroExitoso.omitidos.length > 0 && (
+                <div className="text-xs text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1.5 rounded-lg mt-1 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                  <span>
+                    <strong>Atención:</strong> El mes <strong className="text-white">{ultimoCobroExitoso.omitidos.map((o) => formatMes(o.mes)).join(', ')}</strong> ya estaba registrado como pagado previamente en el sistema, por lo que <u>no se duplicó el cobro</u> en la caja.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setUltimoCobroExitoso(null)}
-            className="text-emerald-400 hover:text-white hover:bg-emerald-500/20 h-8 w-8 p-0"
+            className="text-emerald-400 hover:text-white hover:bg-emerald-500/20 h-8 w-8 p-0 shrink-0 self-end sm:self-center"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -546,9 +613,11 @@ export default function SecretariaPage() {
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {/* Meses pendientes del socio */}
-                    {socioSeleccionado.mesesPendientes.map((mes) => {
+                    {mesesDisponiblesParaCobrar.map((mes) => {
                       const isSelected = mesesSeleccionados.includes(mes);
+                      const esPendiente = socioSeleccionado.mesesPendientes?.includes(mes);
+                      const esActual = mes === mesActual;
+
                       return (
                         <button
                           key={mes}
@@ -557,41 +626,50 @@ export default function SecretariaPage() {
                           className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-left flex items-center justify-between ${
                             isSelected
                               ? 'bg-amber-400 text-black border-amber-400 shadow-md scale-[1.01]'
-                              : 'bg-[#242424] text-amber-300 border-amber-500/30 hover:border-amber-400/60'
+                              : esPendiente
+                              ? 'bg-[#242424] text-amber-300 border-amber-500/30 hover:border-amber-400/60'
+                              : 'bg-[#1E1E22] text-[#DDD] border-[#33333A] hover:border-amber-400/60'
                           }`}
                         >
                           <div>
                             <span className="block leading-tight">{formatMes(mes)}</span>
-                            <span className={`text-[10px] block ${isSelected ? 'text-black/80 font-medium' : 'text-amber-400/80 font-normal'}`}>
-                              Adeudado
+                            <span
+                              className={`text-[10px] block ${
+                                isSelected
+                                  ? 'text-black/80 font-medium'
+                                  : esPendiente
+                                  ? 'text-amber-400 font-semibold'
+                                  : 'text-[#888888] font-normal'
+                              }`}
+                            >
+                              {esPendiente ? 'Adeudado' : esActual ? 'Mes actual' : 'Adelanto'}
                             </span>
                           </div>
                           {isSelected && <Check className="h-4 w-4 text-black" />}
                         </button>
                       );
                     })}
-
-                    {/* Mes actual si no estaba en pendientes */}
-                    {mesActual && !socioSeleccionado.mesesPendientes.includes(mesActual) && (
-                      <button
-                        type="button"
-                        onClick={() => handleToggleMes(mesActual)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-left flex items-center justify-between ${
-                          mesesSeleccionados.includes(mesActual)
-                            ? 'bg-amber-400 text-black border-amber-400 shadow-md'
-                            : 'bg-[#242424] text-white border-[#383838] hover:border-amber-400/60'
-                        }`}
-                      >
-                        <div>
-                          <span className="block leading-tight">{formatMes(mesActual)}</span>
-                          <span className={`text-[10px] block ${mesesSeleccionados.includes(mesActual) ? 'text-black/80' : 'text-[#888888]'}`}>
-                            Mes actual
-                          </span>
-                        </div>
-                        {mesesSeleccionados.includes(mesActual) && <Check className="h-4 w-4 text-black" />}
-                      </button>
-                    )}
                   </div>
+
+                  {/* Listado informativo de meses ya abonados */}
+                  {socioSeleccionado.mesesPagados && socioSeleccionado.mesesPagados.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-[#2C2C2C]">
+                      <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider block mb-1.5">
+                        ✓ Meses ya registrados como pagados en el sistema:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {socioSeleccionado.mesesPagados.map((m) => (
+                          <span
+                            key={m}
+                            className="text-[11px] font-medium bg-[#1B2920] text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-md flex items-center gap-1"
+                          >
+                            <Check className="h-3 w-3 text-emerald-400" />
+                            {formatMes(m)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 2. MÉTODO DE PAGO */}

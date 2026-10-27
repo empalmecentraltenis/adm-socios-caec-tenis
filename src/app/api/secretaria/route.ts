@@ -109,6 +109,7 @@ export async function GET() {
         deudaEstimada,
         ultimoMesPagado: ultimoPago,
         mesesPendientes,
+        mesesPagados: Array.from(mesesPagadosSet),
       };
     });
 
@@ -275,9 +276,16 @@ export async function POST(request: Request) {
       resultados.push({ mes, status: 'ok', id: nuevoPago.id });
     }
 
+    const cobradosOk = resultados.filter((r) => r.status === 'ok');
+    const omitidos = resultados.filter((r) => r.status === 'ya_pagado');
+    const totalCobrado = cobradosOk.length * montoPorMes;
+
     return NextResponse.json({
       success: true,
-      message: `Cobro de ${resultados.filter((r) => r.status === 'ok').length} mes(es) registrado correctamente.`,
+      totalCobrado,
+      mesesCobrados: cobradosOk.map((r) => r.mes),
+      mesesOmitidos: omitidos.map((r) => ({ mes: r.mes, error: r.error })),
+      message: `Cobro de ${cobradosOk.length} mes(es) registrado correctamente por un total de $${totalCobrado.toLocaleString('es-AR')}.`,
       resultados,
     });
   } catch (error: any) {
