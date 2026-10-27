@@ -166,3 +166,63 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// DELETE /api/asistencias?id=xxx - Eliminar una asistencia
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    let id = searchParams.get('id');
+
+    if (!id) {
+      try {
+        const body = await request.json();
+        id = body?.id;
+      } catch {}
+    }
+
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json(
+        { error: 'ID de asistencia inválido o no proporcionado' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar si existe
+    const asistencia = await db.asistenciaClase.findUnique({
+      where: { id },
+      include: {
+        socio: {
+          select: {
+            nombre: true,
+            apellido: true,
+            dni: true,
+          },
+        },
+      },
+    });
+
+    if (!asistencia) {
+      return NextResponse.json(
+        { error: 'La asistencia no existe o ya fue eliminada' },
+        { status: 404 }
+      );
+    }
+
+    // Eliminar asistencia
+    await db.asistenciaClase.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Asistencia de ${asistencia.socio.nombre} ${asistencia.socio.apellido} eliminada correctamente.`,
+    });
+  } catch (error: any) {
+    console.error('Error al eliminar asistencia:', error);
+    return NextResponse.json(
+      { error: error.message || 'Error interno al eliminar la asistencia' },
+      { status: 500 }
+    );
+  }
+}
+

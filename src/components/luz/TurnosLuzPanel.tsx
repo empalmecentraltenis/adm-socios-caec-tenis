@@ -310,6 +310,25 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
     return Array.from(setDias).sort();
   }, [data?.turnosSocios]);
 
+  // Formato estético y en español para mostrar los días
+  const formatDiaBonito = useCallback((diaStr: string) => {
+    if (diaStr === 'todos') return 'Todos los días';
+    try {
+      const parts = diaStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        const diaSemana = format(d, 'EEEE', { locale: es });
+        const diaCapitalizado = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
+        const diaNum = format(d, 'd');
+        const mesNombre = format(d, 'MMMM', { locale: es });
+        return `${diaCapitalizado} ${diaNum} de ${mesNombre}`;
+      }
+      return diaStr;
+    } catch {
+      return diaStr;
+    }
+  }, []);
+
   // Turnos de socios filtrados por día seleccionado
   const turnosSociosFiltrados = useMemo(() => {
     if (!data?.turnosSocios) return [];
@@ -697,20 +716,36 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                   </div>
 
                   {periodoTipo !== 'dia' && diasDisponibles.length > 0 && (
-                    <div className="flex items-center gap-1.5 bg-[#202020] border border-[#333333] rounded-lg px-2.5 py-1">
-                      <span className="text-[11px] text-[#888888] font-medium">Día:</span>
-                      <select
-                        value={diaFiltro}
-                        onChange={(e) => setDiaFiltro(e.target.value)}
-                        className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
-                      >
-                        <option value="todos" className="bg-[#242424] text-white">Todos los días ({diasDisponibles.length})</option>
-                        {diasDisponibles.map((dia) => (
-                          <option key={dia} value={dia} className="bg-[#242424] text-white">
-                            {dia}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 bg-[#202020] border border-[#333333] hover:border-amber-400/40 transition-colors rounded-lg px-3 py-1.5 shadow-sm">
+                        <CalendarIcon className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        <span className="text-[11px] text-[#AAAAAA] font-semibold">Día:</span>
+                        <select
+                          value={diaFiltro}
+                          onChange={(e) => setDiaFiltro(e.target.value)}
+                          className="bg-transparent text-white text-xs font-bold focus:outline-none cursor-pointer max-w-[220px] truncate"
+                        >
+                          <option value="todos" className="bg-[#242424] text-white">
+                            Todos los días ({diasDisponibles.length})
                           </option>
-                        ))}
-                      </select>
+                          {diasDisponibles.map((dia) => (
+                            <option key={dia} value={dia} className="bg-[#242424] text-white">
+                              {formatDiaBonito(dia)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {diaFiltro !== 'todos' && (
+                        <button
+                          onClick={() => setDiaFiltro('todos')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-400/15 text-amber-400 border border-amber-400/30 hover:bg-amber-400/25 transition-all"
+                          title="Restablecer a todos los días"
+                        >
+                          <span>{formatDiaBonito(diaFiltro)}</span>
+                          <span className="text-xs opacity-70 hover:opacity-100">✕</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

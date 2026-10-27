@@ -547,11 +547,17 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                       <p className="text-3xl font-black text-foreground">
                         {data?.monitor?.kpis.totalTurnosHoy ?? 0}
                       </p>
-                      <span className="text-xs text-muted-foreground font-medium">turnos totales</span>
+                      <span className="text-xs text-muted-foreground font-medium">turnos de hoy</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
-                      <span>🎾 Socios: <strong className="text-foreground">{data?.monitor?.kpis.turnosSociosHoy ?? 0}</strong></span>
-                      <span>🎓 Clases: <strong className="text-amber-400 font-bold">{data?.monitor?.kpis.turnosProfeHoy ?? 0}</strong></span>
+                    <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-border/50">
+                      <div className="bg-primary/10 border border-primary/20 rounded-lg p-1.5 text-center">
+                        <span className="text-[10px] text-primary/80 block font-bold">🎾 SOCIOS</span>
+                        <span className="text-base font-black text-foreground">{data?.monitor?.kpis.turnosSociosHoy ?? 0}</span>
+                      </div>
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-1.5 text-center">
+                        <span className="text-[10px] text-amber-500 block font-bold">🎓 CLASES PROFE</span>
+                        <span className="text-base font-black text-amber-400">{data?.monitor?.kpis.turnosProfeHoy ?? 0}</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -654,11 +660,17 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                       <p className="text-3xl font-black text-purple-400">
                         {data?.monitor?.kpis.totalTurnosManana ?? 0}
                       </p>
-                      <span className="text-xs text-muted-foreground font-medium">turnos agendados</span>
+                      <span className="text-xs text-muted-foreground font-medium">turnos mañana</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
-                      <span>🎾 Socios: <strong className="text-foreground">{data?.monitor?.kpis.turnosSociosManana ?? 0}</strong></span>
-                      <span>🎓 Clases: <strong className="text-amber-400 font-bold">{data?.monitor?.kpis.turnosProfeManana ?? 0}</strong></span>
+                    <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-border/50">
+                      <div className="bg-primary/10 border border-primary/20 rounded-lg p-1.5 text-center">
+                        <span className="text-[10px] text-primary/80 block font-bold">🎾 SOCIOS</span>
+                        <span className="text-base font-black text-foreground">{data?.monitor?.kpis.turnosSociosManana ?? 0}</span>
+                      </div>
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-1.5 text-center">
+                        <span className="text-[10px] text-amber-500 block font-bold">🎓 CLASES PROFE</span>
+                        <span className="text-base font-black text-amber-400">{data?.monitor?.kpis.turnosProfeManana ?? 0}</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -808,8 +820,7 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                         <TableHead className="w-28 text-xs font-bold">Cancha</TableHead>
                         <TableHead className="text-xs font-bold">Titular y Tipo</TableHead>
                         <TableHead className="text-xs font-bold">Jugadores y Escaneo QR</TableHead>
-                        <TableHead className="w-36 text-center text-xs font-bold">Estado QR</TableHead>
-                        <TableHead className="w-24 text-right text-xs font-bold">Contacto</TableHead>
+                        <TableHead className="w-40 text-center text-xs font-bold">Estado QR</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -972,24 +983,6 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                                   <Clock className="h-3 w-3" />
                                   <span>{turno.qrLabel}</span>
                                 </Badge>
-                              )}
-                            </TableCell>
-
-                            {/* Contacto WhatsApp */}
-                            <TableCell className="align-top py-3.5 text-right">
-                              {waLink ? (
-                                <a
-                                  href={waLink}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-500 hover:underline"
-                                  title="Contactar al socio por WhatsApp"
-                                >
-                                  <MessageCircle className="h-3.5 w-3.5" />
-                                  <span>WhatsApp</span>
-                                </a>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">-</span>
                               )}
                             </TableCell>
                           </TableRow>

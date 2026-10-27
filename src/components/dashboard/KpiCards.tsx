@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, CheckCircle, AlertTriangle, DollarSign, TrendingDown } from 'lucide-react';
+import { Users, CheckCircle, AlertTriangle, DollarSign, CalendarDays, GraduationCap } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface KpiData {
@@ -11,6 +11,8 @@ interface KpiData {
   sociosDeudores: number;
   ingresosMes: number;
   deudaTotalEstimada: number;
+  turnosSociosMes?: number;
+  turnosProfeMes?: number;
 }
 
 interface KpiCardsProps {
@@ -64,6 +66,22 @@ const kpiConfig = [
     borderColor: 'border-primary/20',
     format: true,
   },
+  {
+    key: 'turnosSociosMes' as const,
+    label: 'Turnos Socios (Mes)',
+    icon: CalendarDays,
+    accentColor: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/20',
+  },
+  {
+    key: 'turnosProfeMes' as const,
+    label: 'Clases Profe (Mes)',
+    icon: GraduationCap,
+    accentColor: 'text-amber-400',
+    bgColor: 'bg-amber-400/10',
+    borderColor: 'border-amber-400/20',
+  },
 ];
 
 export default function KpiCards({ data, loading }: KpiCardsProps) {
@@ -92,8 +110,8 @@ export default function KpiCards({ data, loading }: KpiCardsProps) {
                 <p className="text-foreground text-xl font-bold mt-0.5 tracking-tight">
                   {data
                     ? kpi.format
-                      ? formatCurrency(data[kpi.key])
-                      : data[kpi.key].toLocaleString('es-AR')
+                      ? formatCurrency(data[kpi.key] ?? 0)
+                      : (data[kpi.key] ?? 0).toLocaleString('es-AR')
                     : '0'}
                 </p>
               )}

@@ -195,6 +195,44 @@ export async function GET(request: Request) {
 
     const deudaTotalEstimada = morosos.reduce((acc, s) => acc + s.deudaEstimada, 0);
 
+    // Turnos del mes divididos entre Socios y Profesor
+    const [yM, mM] = mesActual.split("-").map(Number);
+    const startOfMonth = new Date(Date.UTC(yM, mM - 1, 1));
+    const endOfMonth = new Date(Date.UTC(yM, mM, 0, 23, 59, 59));
+
+    const turnosMes = await db.turno.findMany({
+      where: {
+        fecha: { gte: startOfMonth, lte: endOfMonth },
+        OR: [
+          { estado: 'ocupado' },
+          { estado: 'bloqueado', motivoBloqueo: { contains: 'clase', mode: 'insensitive' } },
+          { estado: 'bloqueado', motivoBloqueo: { contains: 'profe', mode: 'insensitive' } },
+        ],
+      },
+      select: { estado: true, motivoBloqueo: true, socioDni: true, horaInicio: true },
+    });
+
+    const extractHour = (d: any): string => {
+      try {
+        if (d instanceof Date) return d.toISOString().substring(11, 16);
+        const str = String(d);
+        if (str.includes('T')) return str.split('T')[1].substring(0, 5);
+        return str.substring(0, 5);
+      } catch {
+        return '12:00';
+      }
+    };
+
+    const esTurnoProfe = (t: { estado: string | null; motivoBloqueo?: string | null }) => {
+      if (t.estado === 'bloqueado') return true;
+      const m = (t.motivoBloqueo || '').toLowerCase();
+      return m.includes('clase') || m.includes('profe');
+    };
+
+    const turnosValidosMes = turnosMes.filter((t) => extractHour(t.horaInicio) >= '08:30');
+    const turnosProfeMes = turnosValidosMes.filter(esTurnoProfe).length;
+    const turnosSociosMes = turnosValidosMes.length - turnosProfeMes;
+
     return NextResponse.json({
       kpis: {
         totalActivos,
@@ -204,6 +242,8 @@ export async function GET(request: Request) {
         sociosDeudores,
         ingresosMes,
         deudaTotalEstimada,
+        turnosSociosMes,
+        turnosProfeMes,
       },
       distribucionCategorias,
       ingresosPorCategoria,

@@ -23,6 +23,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   RefreshCcw, 
   AlertTriangle, 
@@ -36,7 +44,9 @@ import {
   Check,
   Search,
   UserX,
-  Award
+  Award,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -108,10 +118,49 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
 
+  // Estado para eliminación de asistencias
+  const [asistenciaParaEliminar, setAsistenciaParaEliminar] = useState<Asistencia | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+
   // URL pública de escaneo de QR para alumnos
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const asistenciaUrl = `${origin}/asistencia`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(asistenciaUrl)}&margin=10`;
+
+  // Eliminar asistencia
+  const handleEliminarAsistencia = async () => {
+    if (!asistenciaParaEliminar) return;
+    const id = asistenciaParaEliminar.id;
+    setEliminandoId(id);
+    try {
+      const res = await fetch(`/api/asistencias?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({
+          title: 'Asistencia eliminada',
+          description: data.message || 'La asistencia fue eliminada exitosamente.',
+        });
+        setAsistenciasDiarias((prev) => prev.filter((a) => a.id !== id));
+        setAsistenciasMensuales((prev) => prev.filter((a) => a.id !== id));
+        setAsistenciaParaEliminar(null);
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error || 'No se pudo eliminar la asistencia.',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('Error al eliminar asistencia:', err);
+      toast({
+        title: 'Error',
+        description: 'Ocurrió un error al intentar eliminar la asistencia.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEliminandoId(null);
+    }
+  };
 
   // Fetch asistencias diarias
   const fetchAsistenciasDiarias = useCallback(async (date: Date) => {
@@ -469,12 +518,13 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">DNI</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center">Estado Socio / Cuota</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1">Detalle / Notas</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right w-20">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredDiarias.length === 0 ? (
                       <TableRow className="border-[#333333]">
-                        <TableCell colSpan={5} className="text-center py-10 text-[#666666] text-sm">
+                        <TableCell colSpan={6} className="text-center py-10 text-[#666666] text-sm">
                           {searchTerm 
                             ? 'No se encontraron asistencias que coincidan con la búsqueda.'
                             : 'No hay alumnos registrados con DNI para esta fecha.'}
@@ -570,6 +620,21 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                                 </span>
                               ) : (
                                 '-'
+                              )}
+                            </TableCell>
+
+                            {/* Acciones */}
+                            <TableCell className="text-right py-3">
+                              {!readOnly && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setAsistenciaParaEliminar(asistencia)}
+                                  className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-md transition-colors"
+                                  title="Eliminar asistencia"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               )}
                             </TableCell>
                           </TableRow>
@@ -720,6 +785,47 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Diálogo de Confirmación para Eliminar Asistencia */}
+      <Dialog open={Boolean(asistenciaParaEliminar)} onOpenChange={(open) => { if (!open) setAsistenciaParaEliminar(null); }}>
+        <DialogContent className="bg-[#1E1E1E] border-[#333333] text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-red-400">
+              <Trash2 className="h-5 w-5" />
+              ¿Eliminar registro de asistencia?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#AAAAAA] mt-1.5 leading-relaxed">
+              Esta acción eliminará la asistencia de{' '}
+              <strong className="text-white">
+                {asistenciaParaEliminar?.socio.nombre} {asistenciaParaEliminar?.socio.apellido}
+              </strong>{' '}
+              (DNI {asistenciaParaEliminar?.socio.dni}) registrada el{' '}
+              {asistenciaParaEliminar?.fecha && format(new Date(asistenciaParaEliminar.fecha), "dd/MM/yyyy 'a las' HH:mm 'hs'")}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-2 sm:gap-0 mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAsistenciaParaEliminar(null)}
+              className="bg-[#2A2A2A] border-[#383838] text-white hover:bg-[#333333]"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleEliminarAsistencia}
+              disabled={Boolean(eliminandoId)}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold gap-1.5"
+            >
+              {eliminandoId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              <span>Eliminar</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

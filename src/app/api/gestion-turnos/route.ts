@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const fechaParam = searchParams.get('fecha') || todayArgStr; // 'YYYY-MM-DD'
 
     // 1. Obtener canchas, socios y turnos ocupados
-    const [canchasDb, sociosDb, turnosOcupados] = await Promise.all([
+    const [canchasDb, sociosDb, turnosOcupadosRaw] = await Promise.all([
       db.cancha.findMany({
         orderBy: { id: 'asc' },
       }),
@@ -67,16 +67,6 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const totalReservasHistoricas = turnosOcupados.length;
-
-    // Helper para detectar si el turno corresponde al profesor o alumnos de escuela
-    const esTurnoProfeClase = (t: any): boolean => {
-      if (t.estado === 'bloqueado') return true;
-      if (t.socio?.categoria === 'alumno') return true;
-      const motivo = (t.motivoBloqueo || '').toLowerCase();
-      return motivo.includes('clase') || motivo.includes('profe');
-    };
-
     // Helper para extraer hora limpia
     const extractHourStr = (dateObj: Date | string): string => {
       try {
@@ -88,6 +78,19 @@ export async function GET(request: Request) {
         return '12:00';
       }
     };
+
+    // Helper para detectar si el turno corresponde al profesor o alumnos de escuela
+    const esTurnoProfeClase = (t: any): boolean => {
+      if (t.estado === 'bloqueado') return true;
+      if (t.socio?.categoria === 'alumno') return true;
+      const motivo = (t.motivoBloqueo || '').toLowerCase();
+      return motivo.includes('clase') || motivo.includes('profe');
+    };
+
+    // Excluir turnos con horarios anteriores a las 08:30 (como los turnos aislados de 07:00 que no existen en la app de socios)
+    const turnosOcupados = turnosOcupadosRaw.filter((t) => extractHourStr(t.horaInicio) >= '08:30');
+
+    const totalReservasHistoricas = turnosOcupados.length;
 
     // 2. Filtrar turnos por mes seleccionado y año seleccionado
     const turnosDelMes = turnosOcupados.filter((t) => {

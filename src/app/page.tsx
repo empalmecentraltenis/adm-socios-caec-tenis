@@ -33,10 +33,14 @@ type TabType = 'dashboard' | 'socios' | 'gestion-turnos' | 'luz' | 'invitados' |
 interface DashboardData {
   kpis: {
     totalActivos: number;
+    totalInactivos: number;
+    totalGeneral: number;
     sociosAlDia: number;
     sociosDeudores: number;
     ingresosMes: number;
     deudaTotalEstimada: number;
+    turnosSociosMes?: number;
+    turnosProfeMes?: number;
   };
   recaudacionMensual: { mes: string; total: number }[];
   crecimientoMensual: { mes: string; total: number }[];
