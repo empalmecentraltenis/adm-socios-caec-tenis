@@ -649,7 +649,7 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
         </TabsContent>
 
         {/* =========================================================================
-            TAB 2: REPORTE MENSUAL Y RANKING DE ALUMNOS
+            TAB 2: REPORTE MENSUAL — LISTADO INDIVIDUAL DE ASISTENCIAS
            ========================================================================= */}
         <TabsContent value="mensual" className="m-0 space-y-4 focus-visible:outline-none">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 print:border-none print:p-0">
@@ -657,10 +657,11 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
               <div>
                 <h3 className="text-white text-base font-bold print:text-black flex items-center gap-2">
                   <Award className="w-5 h-5 text-[#FFCC00]" />
-                  Ranking Mensual de Asistencia de Alumnos
+                  Asistencias Mensuales de Alumnos
                 </h3>
                 <p className="text-[#999999] text-xs print:text-gray-600">
-                  Total de asistencias registradas en {format(new Date(selectedMonth + '-01T00:00:00'), 'MMMM yyyy', { locale: es })} ({rankingAlumnos.length} alumnos distintos)
+                  {asistenciasMensuales.length} registro{asistenciasMensuales.length !== 1 ? 's' : ''} en{' '}
+                  {format(new Date(selectedMonth + '-01T00:00:00'), 'MMMM yyyy', { locale: es })} · {rankingAlumnos.length} alumnos distintos
                 </p>
               </div>
               
@@ -701,7 +702,7 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
               </div>
             </div>
 
-            {loading && rankingAlumnos.length === 0 ? (
+            {loading && asistenciasMensuales.length === 0 ? (
               <div className="space-y-3 mt-4 print:hidden">
                 {[...Array(3)].map((_, i) => (
                   <Skeleton key={i} className="h-12 w-full bg-[#2A2A2A]" />
@@ -712,71 +713,128 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                 <Table className="print:text-black">
                   <TableHeader>
                     <TableRow className="border-[#333333] hover:bg-transparent print:border-b-2 print:border-black">
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 w-12 text-center print:text-black">#</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black">Fecha</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black print:font-bold">Alumno / Socio</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black print:font-bold">DNI</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black print:font-bold text-center">Clases Asistidas</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center print:hidden">Estado</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black print:font-bold">Notas</TableHead>
+                      {!readOnly && (
+                        <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-right w-20 print:hidden">Acciones</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rankingAlumnos.length === 0 ? (
+                    {asistenciasMensuales.length === 0 ? (
                       <TableRow className="border-[#333333] print:border-b">
-                        <TableCell colSpan={5} className="text-center py-10 text-[#666666] text-sm print:text-black">
+                        <TableCell colSpan={!readOnly ? 6 : 5} className="text-center py-10 text-[#666666] text-sm print:text-black">
                           No hay asistencias registradas en este mes.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      rankingAlumnos.map(({ socio, totalClases, esNoRegistrado }, idx) => (
-                        <TableRow
-                          key={socio.id}
-                          className={cn(
-                            "border-[#333333] hover:bg-[#252525] print:border-b print:border-gray-300 print:hover:bg-transparent",
-                            esNoRegistrado && "bg-amber-500/10"
-                          )}
-                        >
-                          <TableCell className="text-center font-mono font-bold text-xs text-[#888888] print:text-black">
-                            {idx + 1}
-                          </TableCell>
+                      asistenciasMensuales.map((asistencia) => {
+                        const noRegistrado = isAlumnoNoRegistrado(asistencia);
+                        const alertas = getAlertasSocio(asistencia.socio);
+                        const tieneAlertas = alertas.length > 0;
 
-                          <TableCell className="text-[#CCCCCC] text-sm py-3 print:text-black">
-                            {esNoRegistrado ? (
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-amber-300">Alumno No Registrado</span>
-                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] font-bold">
-                                  No Empadronado
+                        return (
+                          <TableRow
+                            key={asistencia.id}
+                            className={cn(
+                              'border-[#333333] transition-colors print:border-b print:border-gray-300',
+                              noRegistrado
+                                ? 'bg-amber-500/10 hover:bg-amber-500/15'
+                                : tieneAlertas
+                                ? 'bg-red-500/5 hover:bg-red-500/10'
+                                : 'hover:bg-[#252525]'
+                            )}
+                          >
+                            {/* Fecha */}
+                            <TableCell className="text-[#999999] text-sm py-3 font-mono whitespace-nowrap print:text-black">
+                              {format(new Date(asistencia.fecha), "dd/MM/yyyy")}
+                              <span className="ml-1 text-xs text-[#666666] print:hidden">
+                                {format(new Date(asistencia.fecha), 'HH:mm')}
+                              </span>
+                            </TableCell>
+
+                            {/* Alumno */}
+                            <TableCell className="text-[#CCCCCC] text-sm py-3 print:text-black">
+                              {noRegistrado ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[11px] font-bold px-2 py-0.5">
+                                    <AlertTriangle className="w-3 h-3 mr-1 inline" /> Alumno No Registrado
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <div>
+                                  <span className="font-semibold text-white">{asistencia.socio.apellido}</span>, {asistencia.socio.nombre}
+                                  {asistencia.socio.categoria && (
+                                    <span className="text-[11px] text-[#777777] ml-2 capitalize">
+                                      ({asistencia.socio.categoria})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+
+                            {/* DNI */}
+                            <TableCell className="py-3 font-mono whitespace-nowrap print:text-black">
+                              <span className={cn(
+                                "text-xs font-bold px-2 py-1 rounded border",
+                                noRegistrado
+                                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                  : "bg-[#2A2A2A] text-white border-[#3A3A3A]"
+                              )}>
+                                {asistencia.socio.dni}
+                              </span>
+                            </TableCell>
+
+                            {/* Estado */}
+                            <TableCell className="text-center py-3 print:hidden">
+                              {noRegistrado ? (
+                                <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] font-bold">
+                                  <UserX className="h-3 w-3 mr-1" /> Sin ficha
                                 </Badge>
-                              </div>
-                            ) : (
-                              <div>
-                                <span className="font-semibold text-white">{socio.apellido}</span>, {socio.nombre}
-                              </div>
+                              ) : tieneAlertas ? (
+                                <div className="flex items-center justify-center gap-1 flex-wrap">
+                                  {alertas.map((alerta, i) => (
+                                    <Badge key={i} variant="outline" className="bg-red-500/15 text-red-400 border-red-500/20 text-[10px]">
+                                      {alerta}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1 text-green-500 text-xs font-medium">
+                                  <CheckCircle2 className="h-4 w-4" /> Al día
+                                </div>
+                              )}
+                            </TableCell>
+
+                            {/* Notas */}
+                            <TableCell className="text-[#888888] text-xs py-3 max-w-[160px] truncate print:text-black" title={asistencia.notas || ''}>
+                              {asistencia.notas ? (
+                                <span className={noRegistrado ? 'text-amber-300/80' : ''}>{asistencia.notas}</span>
+                              ) : (
+                                '-'
+                              )}
+                            </TableCell>
+
+                            {/* Acciones */}
+                            {!readOnly && (
+                              <TableCell className="text-right py-3 print:hidden">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setAsistenciaParaEliminar(asistencia)}
+                                  className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded-md transition-colors"
+                                  title="Eliminar asistencia"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
                             )}
-                          </TableCell>
-
-                          <TableCell className="text-[#999999] text-xs font-mono py-3 print:text-black">
-                            {socio.dni}
-                          </TableCell>
-
-                          <TableCell className="text-center py-3">
-                            <Badge variant="outline" className="bg-[#FFCC00]/10 text-[#FFCC00] border-[#FFCC00]/20 font-bold px-3 py-0.5 print:bg-transparent print:border-none print:text-black print:p-0">
-                              {totalClases} {totalClases === 1 ? 'clase' : 'clases'}
-                            </Badge>
-                          </TableCell>
-
-                          <TableCell className="text-center py-3 print:hidden">
-                            {esNoRegistrado ? (
-                              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
-                                Pendiente Registro
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-[#2A2A2A] text-[#AAAAAA] border-[#444444] text-[10px] capitalize">
-                                {socio.categoria || 'Socio'}
-                              </Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
