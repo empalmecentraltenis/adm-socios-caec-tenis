@@ -616,7 +616,6 @@ export default function SecretariaPage() {
       'Invitados Usados Año': s.invitados.totalInvitadosUsados,
       'Invitados Con Cargo': s.invitados.extrasPendientesCount,
       'Deuda Invitados ($)': s.invitados.deudaInvitados,
-      'Deuda Total Consolidada ($)': s.deudaTotal,
       'Estado General': s.alDia ? 'AL DÍA' : 'CON DEUDA',
     }));
 
@@ -1511,8 +1510,8 @@ export default function SecretariaPage() {
       {/* ===================================================================== */}
       {activeTab === 'padron_general' && (
         <div className="space-y-5">
-          {/* TARJETAS KPI DE MOROSIDAD GLOBAL */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* TARJETAS KPI DE MOROSIDAD */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl p-3.5">
               <span className="text-[10px] text-[#888888] font-bold uppercase tracking-wider block">
                 Total Padrón Activo
@@ -1525,33 +1524,23 @@ export default function SecretariaPage() {
 
             <div className="bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl p-3.5">
               <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">
-                100% Al Día
+                Cuotas Al Día
               </span>
               <span className="text-2xl font-black text-emerald-400 mt-1 block">
                 {metricasPadron.alDia}
               </span>
-              <span className="text-[11px] text-[#888888]">Sin ninguna deuda</span>
+              <span className="text-[11px] text-[#888888]">Socios al día</span>
             </div>
 
             <div className="bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl p-3.5">
               <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
-                Con Alguna Deuda
+                Con Deuda de Cuota
               </span>
               <span className="text-2xl font-black text-amber-400 mt-1 block">
                 {metricasPadron.conDeuda}
               </span>
-              <span className="text-[11px] text-[#888888]">Cuotas, luz o invitados</span>
-            </div>
-
-            <div className="bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl p-3.5">
-              <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider block">
-                Deuda Total Consolidada
-              </span>
-              <span className="text-2xl font-black text-red-400 mt-1 block">
-                ${metricasPadron.totalDeudaClub.toLocaleString('es-AR')}
-              </span>
-              <span className="text-[10px] text-[#888888]">
-                Cuotas: ${metricasPadron.totalDeudaCuotas.toLocaleString('es-AR')} • Luz: ${metricasPadron.totalDeudaLuz.toLocaleString('es-AR')}
+              <span className="text-[11px] text-[#888888]">
+                Total: ${metricasPadron.totalDeudaCuotas.toLocaleString('es-AR')}
               </span>
             </div>
           </div>
@@ -1566,7 +1555,7 @@ export default function SecretariaPage() {
                     <span>Padrón de Socios y Estado de Deuda Integral</span>
                   </CardTitle>
                   <CardDescription className="text-xs text-[#999999] mt-0.5">
-                    Visión consolidada por socio: Cuotas sociales + Turnos nocturnos de luz + Cargos por invitados
+                    Padrón de socios con detalle de cuotas sociales, turnos nocturnos con luz y cargos por invitados
                   </CardDescription>
                 </div>
 
@@ -1644,7 +1633,6 @@ export default function SecretariaPage() {
                       <TableHead className="text-white text-xs font-bold text-right">Deuda Luz</TableHead>
                       <TableHead className="text-white text-xs font-bold text-center">Invitados (Año)</TableHead>
                       <TableHead className="text-white text-xs font-bold text-right">Deuda Invitados</TableHead>
-                      <TableHead className="text-white text-xs font-bold text-right">Deuda Total</TableHead>
                       <TableHead className="text-white text-xs font-bold text-center">Estado</TableHead>
                       <TableHead className="text-white text-xs font-bold text-center">Acción</TableHead>
                     </TableRow>
@@ -1683,9 +1671,7 @@ export default function SecretariaPage() {
                             ? `$${s.invitados.deudaInvitados.toLocaleString('es-AR')}`
                             : '-'}
                         </TableCell>
-                        <TableCell className="text-right text-sm font-black text-white">
-                          ${s.deudaTotal.toLocaleString('es-AR')}
-                        </TableCell>
+
                         <TableCell className="text-center">
                           {s.alDia ? (
                             <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
