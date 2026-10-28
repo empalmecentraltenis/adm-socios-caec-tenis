@@ -560,9 +560,9 @@ export default function SecretariaPage() {
     if (filtroPadron === 'al_dia') {
       list = list.filter((s) => s.alDia);
     } else if (filtroPadron === 'con_deuda') {
-      list = list.filter((s) => !s.alDia || s.deudaTotal > 0);
+      list = list.filter((s) => !s.alDia);
     } else if (filtroPadron === 'solo_cuotas') {
-      list = list.filter((s) => s.deudaCuotas > 0);
+      list = list.filter((s) => !s.alDiaCuota);
     } else if (filtroPadron === 'solo_adicionales') {
       list = list.filter((s) => s.luz.deudaLuz > 0 || s.invitados.deudaInvitados > 0);
     }
@@ -582,9 +582,10 @@ export default function SecretariaPage() {
   const metricasPadron = useMemo(() => {
     const totalSocios = socios.length;
     const alDia = socios.filter((s) => s.alDia).length;
-    const conDeuda = socios.filter((s) => !s.alDia || s.deudaTotal > 0).length;
-    const totalDeudaClub = socios.reduce((acc, s) => acc + s.deudaTotal, 0);
-    const totalDeudaCuotas = socios.reduce((acc, s) => acc + s.deudaCuotas, 0);
+    const conDeuda = socios.filter((s) => !s.alDia).length;
+    const totalDeudaCuotas = socios
+      .filter((s) => !s.alDiaCuota)
+      .reduce((acc, s) => acc + s.deudaCuotas, 0);
     const totalDeudaLuz = socios.reduce((acc, s) => acc + s.luz.deudaLuz, 0);
     const totalDeudaInvitados = socios.reduce((acc, s) => acc + s.invitados.deudaInvitados, 0);
 
@@ -592,7 +593,6 @@ export default function SecretariaPage() {
       totalSocios,
       alDia,
       conDeuda,
-      totalDeudaClub,
       totalDeudaCuotas,
       totalDeudaLuz,
       totalDeudaInvitados,
@@ -1524,23 +1524,23 @@ export default function SecretariaPage() {
 
             <div className="bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl p-3.5">
               <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">
-                Cuotas Al Día
+                Socios Al Día
               </span>
               <span className="text-2xl font-black text-emerald-400 mt-1 block">
                 {metricasPadron.alDia}
               </span>
-              <span className="text-[11px] text-[#888888]">Socios al día</span>
+              <span className="text-[11px] text-[#888888]">Cuotas y conceptos al día</span>
             </div>
 
             <div className="bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl p-3.5">
               <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
-                Con Deuda de Cuota
+                Socios Con Deuda
               </span>
               <span className="text-2xl font-black text-amber-400 mt-1 block">
                 {metricasPadron.conDeuda}
               </span>
               <span className="text-[11px] text-[#888888]">
-                Total: ${metricasPadron.totalDeudaCuotas.toLocaleString('es-AR')}
+                Cuotas vencidas: ${metricasPadron.totalDeudaCuotas.toLocaleString('es-AR')}
               </span>
             </div>
           </div>
@@ -1651,8 +1651,10 @@ export default function SecretariaPage() {
                         <TableCell className="text-center text-xs">
                           {s.mesesAdeudados === 0 ? (
                             <span className="text-emerald-400 font-semibold">Al día</span>
+                          ) : s.alDiaCuota ? (
+                            <span className="text-emerald-300 font-medium">1 mes (En término)</span>
                           ) : (
-                            <span className="text-amber-400 font-bold">{s.mesesAdeudados} mes(es)</span>
+                            <span className="text-red-400 font-bold">{s.mesesAdeudados} mes(es)</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right text-xs font-bold text-[#DDD]">
