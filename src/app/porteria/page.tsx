@@ -8,14 +8,13 @@ import {
   Calendar,
   Users,
   GraduationCap,
-  CheckCircle2,
-  AlertCircle,
   RefreshCw,
-  Phone,
   Sparkles,
   UserCheck,
   X,
   Radio,
+  Wrench,
+  Trophy,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -53,7 +52,7 @@ interface TurnoPorteria {
   horaFin: string;
   estado: string;
   esProfe: boolean;
-  tipo: 'socio' | 'profe' | 'bloqueado';
+  tipo: 'socio' | 'profe' | 'mantenimiento' | 'torneo' | 'bloqueado';
   estadoTiempo: 'en_curso' | 'proximo' | 'finalizado';
   minutosParaInicio: number | null;
   titularNombre: string;
@@ -74,10 +73,11 @@ interface KpisDia {
   finalizados?: number;
   socios: number;
   profe: number;
+  bloqueados?: number;
 }
 
 type TabDia = 'hoy' | 'manana' | 'otro';
-type FiltroTipo = 'todos' | 'en_curso' | 'proximos' | 'socios' | 'profe';
+type FiltroTipo = 'todos' | 'en_curso' | 'socios' | 'profe' | 'bloqueados';
 
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MESES = [
@@ -202,9 +202,9 @@ export default function PorteriaPage() {
     if (!t) return false;
     if (filtroTipo === 'todos') return true;
     if (filtroTipo === 'en_curso') return t.estadoTiempo === 'en_curso';
-    if (filtroTipo === 'proximos') return t.estadoTiempo === 'proximo';
-    if (filtroTipo === 'socios') return !t.esProfe && t.estado !== 'bloqueado';
-    if (filtroTipo === 'profe') return t.esProfe;
+    if (filtroTipo === 'socios') return t.tipo === 'socio';
+    if (filtroTipo === 'profe') return t.tipo === 'profe';
+    if (filtroTipo === 'bloqueados') return t.tipo !== 'socio' && t.tipo !== 'profe';
     return true;
   }, [filtroTipo]);
 
@@ -222,14 +222,14 @@ export default function PorteriaPage() {
       if (filtroTipo !== 'todos' || searchTerm.trim()) {
         // En búsqueda/filtro, ocultar celdas libres para focalizar
         return (
-          <div className="bg-[#121214] border border-[#222226] rounded-xl p-3 min-h-[90px] flex items-center justify-center text-[#555] text-xs italic">
+          <div className="bg-[#121214] border border-[#222226] rounded-xl p-3 min-h-[85px] flex items-center justify-center text-[#555] text-xs italic">
             Sin reservas
           </div>
         );
       }
 
       return (
-        <div className="bg-[#131316] border border-[#24242A] rounded-xl p-3.5 min-h-[92px] flex items-center justify-between transition-colors">
+        <div className="bg-[#131316] border border-[#24242A] rounded-xl p-3.5 min-h-[85px] flex items-center justify-between transition-colors">
           <div className="space-y-0.5">
             <span className="text-[11px] font-black uppercase tracking-wider text-[#666]">
               Cancha {canchaId}
@@ -243,33 +243,45 @@ export default function PorteriaPage() {
       );
     }
 
-    const esProfe = turno.esProfe;
+    const tipo = turno.tipo || (turno.esProfe ? 'profe' : turno.estado === 'bloqueado' ? 'bloqueado' : 'socio');
+    const esProfe = tipo === 'profe';
+    const esMantenimiento = tipo === 'mantenimiento';
+    const esTorneo = tipo === 'torneo';
+    const esBloqueado = tipo === 'bloqueado';
     const enJuego = turno.estadoTiempo === 'en_curso' && tabDia === 'hoy';
+
+    let cardBgClass = 'bg-[#15151A] border-[#2C2C35] hover:border-[#3D3D48]';
+    let canchaBadgeClass = 'bg-blue-600 text-white';
+
+    if (enJuego) {
+      cardBgClass = 'bg-[#10241A] border-emerald-500/70 ring-1 ring-emerald-500/50 shadow-emerald-950/40';
+      canchaBadgeClass = 'bg-emerald-500 text-black';
+    } else if (esProfe) {
+      cardBgClass = 'bg-[#1C1912] border-amber-500/40 hover:border-amber-500/60';
+      canchaBadgeClass = 'bg-amber-400 text-black';
+    } else if (esMantenimiento) {
+      cardBgClass = 'bg-[#1C1610] border-orange-500/40 hover:border-orange-500/60';
+      canchaBadgeClass = 'bg-orange-500 text-black';
+    } else if (esTorneo) {
+      cardBgClass = 'bg-[#171421] border-purple-500/40 hover:border-purple-500/60';
+      canchaBadgeClass = 'bg-purple-500 text-white';
+    } else if (esBloqueado) {
+      cardBgClass = 'bg-[#17171C] border-[#383845] hover:border-[#4B4B5C]';
+      canchaBadgeClass = 'bg-[#40404E] text-white';
+    }
 
     return (
       <div
-        className={`rounded-xl border p-3.5 flex flex-col justify-between transition-all min-h-[105px] shadow-sm relative ${
+        className={`rounded-xl border p-3.5 flex flex-col justify-between transition-all min-h-[92px] shadow-sm relative ${
           !cumpleBusqueda || !cumpleFiltro ? 'opacity-35 grayscale-[50%]' : ''
-        } ${
-          enJuego
-            ? 'bg-[#10241A] border-emerald-500/70 ring-1 ring-emerald-500/50 shadow-emerald-950/40'
-            : esProfe
-            ? 'bg-[#1C1912] border-amber-500/40 hover:border-amber-500/60'
-            : 'bg-[#15151A] border-[#2C2C35] hover:border-[#3D3D48]'
-        }`}
+        } ${cardBgClass}`}
       >
         <div>
           {/* Header de la celda de Cancha */}
           <div className="flex items-center justify-between gap-1 mb-2">
             <div className="flex items-center gap-1.5">
               <span
-                className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                  enJuego
-                    ? 'bg-emerald-500 text-black'
-                    : esProfe
-                    ? 'bg-amber-400 text-black'
-                    : 'bg-blue-600 text-white'
-                }`}
+                className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${canchaBadgeClass}`}
               >
                 Cancha {canchaId}
               </span>
@@ -282,50 +294,67 @@ export default function PorteriaPage() {
               )}
             </div>
 
-            {/* Estado QR o Profe */}
+            {/* Badges para Profe, Mantenimiento, Torneo o Bloqueado (Sin QR) */}
             {esProfe ? (
               <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30 text-[10px] font-bold">
                 Clase Profe
               </Badge>
-            ) : turno.validadoQr ? (
-              <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> QR OK
+            ) : esMantenimiento ? (
+              <Badge variant="outline" className="bg-orange-500/15 text-orange-400 border-orange-500/30 text-[10px] font-bold flex items-center gap-1">
+                <Wrench className="h-3 w-3" /> Mantenimiento
               </Badge>
-            ) : (
-              <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] font-bold flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" /> QR Pendiente
+            ) : esTorneo ? (
+              <Badge variant="outline" className="bg-purple-500/15 text-purple-300 border-purple-500/30 text-[10px] font-bold flex items-center gap-1">
+                <Trophy className="h-3 w-3" /> Torneo / Evento
               </Badge>
-            )}
+            ) : esBloqueado ? (
+              <Badge variant="outline" className="bg-[#24242C] text-[#AAA] border-[#383845] text-[10px] font-bold">
+                Bloqueado
+              </Badge>
+            ) : null}
           </div>
 
-          {/* Datos del Jugador / Clase */}
+          {/* Datos del Jugador / Clase / Evento */}
           <div className="space-y-1">
             {esProfe ? (
               <div className="space-y-0.5">
-                <div className="text-sm font-black text-white flex items-center gap-1.5">
+                <div className="text-[15px] font-black text-white flex items-center gap-1.5">
                   <GraduationCap className="h-4 w-4 text-amber-400 shrink-0" />
                   <span className="truncate">{turno.titularNombre}</span>
                 </div>
-                {turno.motivoBloqueo && turno.motivoBloqueo !== turno.titularNombre && (
-                  <p className="text-[11px] text-[#A0A0A0] italic truncate">
-                    {turno.motivoBloqueo}
-                  </p>
-                )}
+              </div>
+            ) : esMantenimiento ? (
+              <div className="space-y-0.5">
+                <div className="text-[15px] font-black text-orange-200 flex items-center gap-1.5">
+                  <Wrench className="h-4 w-4 text-orange-400 shrink-0" />
+                  <span className="truncate">{turno.titularNombre}</span>
+                </div>
+                <p className="text-[11px] text-orange-400/80 italic">Cancha en mantenimiento</p>
+              </div>
+            ) : esTorneo ? (
+              <div className="space-y-0.5">
+                <div className="text-[15px] font-black text-purple-100 flex items-center gap-1.5">
+                  <Trophy className="h-4 w-4 text-purple-400 shrink-0" />
+                  <span className="truncate">{turno.titularNombre}</span>
+                </div>
+                <p className="text-[11px] text-purple-300/80 italic">Evento especial del club</p>
+              </div>
+            ) : esBloqueado ? (
+              <div className="space-y-0.5">
+                <div className="text-[15px] font-black text-white flex items-center gap-1.5">
+                  <Shield className="h-4 w-4 text-[#888] shrink-0" />
+                  <span className="truncate">{turno.titularNombre}</span>
+                </div>
               </div>
             ) : (
+              /* Turno normal de Socios: SOLO NOMBRES DE JUGADORES (Sin DNI, Sin Teléfono) */
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[15px] font-black text-white truncate tracking-tight">
                     {turno.titularNombre}
                   </span>
-                  {turno.titularDni && (
-                    <span className="text-[11px] font-mono font-medium text-[#999] shrink-0 ml-1.5">
-                      DNI: {turno.titularDni}
-                    </span>
-                  )}
                 </div>
 
-                {/* Acompañante destacado y legible */}
                 {turno.acompanante ? (
                   <div className="text-sm font-extrabold text-blue-100 flex items-center gap-1.5 truncate bg-[#1E1E26] px-2.5 py-1 rounded-lg border border-[#353545] shadow-xs">
                     <Users className="h-4 w-4 text-blue-400 shrink-0" />
@@ -354,20 +383,6 @@ export default function PorteriaPage() {
             )}
           </div>
         </div>
-
-        {/* Teléfono de contacto al pie */}
-        {turno.titularTelefono && !esProfe && (
-          <div className="pt-2 mt-2 border-t border-[#25252E] flex justify-end">
-            <a
-              href={`tel:${turno.titularTelefono}`}
-              className="text-[#999] hover:text-white flex items-center gap-1 font-mono text-[10px] bg-[#202026] hover:bg-[#2A2A33] px-1.5 py-0.5 rounded transition-colors"
-              title="Llamar al socio"
-            >
-              <Phone className="h-2.5 w-2.5 text-blue-400" />
-              <span>{turno.titularTelefono}</span>
-            </a>
-          </div>
-        )}
       </div>
     );
   };
@@ -436,10 +451,16 @@ export default function PorteriaPage() {
             <div className="text-base font-black text-white">
               {todayStr ? formatFechaLarga(todayStr) : 'Hoy'}
             </div>
-            <div className="text-[11px] text-[#999999] flex items-center gap-2 pt-0.5">
+            <div className="text-[11px] text-[#999999] flex items-center gap-2 pt-0.5 flex-wrap">
               <span>👥 {kpisHoy.socios} socios</span>
               <span>•</span>
               <span className="text-amber-400 font-semibold">🎓 {kpisHoy.profe} profe</span>
+              {(kpisHoy.bloqueados ?? 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="text-purple-400 font-semibold">🏆 {kpisHoy.bloqueados} eventos</span>
+                </>
+              )}
             </div>
           </div>
           <div className="text-right">
@@ -466,10 +487,16 @@ export default function PorteriaPage() {
             <div className="text-base font-black text-white">
               {tomorrowStr ? formatFechaLarga(tomorrowStr) : 'Mañana'}
             </div>
-            <div className="text-[11px] text-[#999999] flex items-center gap-2 pt-0.5">
+            <div className="text-[11px] text-[#999999] flex items-center gap-2 pt-0.5 flex-wrap">
               <span>👥 {kpisManana.socios} socios</span>
               <span>•</span>
               <span className="text-amber-400 font-semibold">🎓 {kpisManana.profe} profe</span>
+              {(kpisManana.bloqueados ?? 0) > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="text-purple-400 font-semibold">🏆 {kpisManana.bloqueados} eventos</span>
+                </>
+              )}
             </div>
           </div>
           <div className="text-right">
@@ -551,35 +578,19 @@ export default function PorteriaPage() {
             </Button>
 
             {tabDia === 'hoy' && (
-              <>
-                <Button
-                  size="sm"
-                  variant={filtroTipo === 'en_curso' ? 'default' : 'outline'}
-                  onClick={() => setFiltroTipo('en_curso')}
-                  className={`rounded-xl text-xs h-9 px-3 gap-1.5 ${
-                    filtroTipo === 'en_curso'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  En Juego ({turnosActivos.filter((t) => t.estadoTiempo === 'en_curso').length})
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant={filtroTipo === 'proximos' ? 'default' : 'outline'}
-                  onClick={() => setFiltroTipo('proximos')}
-                  className={`rounded-xl text-xs h-9 px-3 gap-1.5 ${
-                    filtroTipo === 'proximos'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
-                  }`}
-                >
-                  <Clock className="h-3.5 w-3.5" />
-                  Próximos ({turnosActivos.filter((t) => t.estadoTiempo === 'proximo').length})
-                </Button>
-              </>
+              <Button
+                size="sm"
+                variant={filtroTipo === 'en_curso' ? 'default' : 'outline'}
+                onClick={() => setFiltroTipo('en_curso')}
+                className={`rounded-xl text-xs h-9 px-3 gap-1.5 ${
+                  filtroTipo === 'en_curso'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                En Juego ({turnosActivos.filter((t) => t.estadoTiempo === 'en_curso').length})
+              </Button>
             )}
 
             <Button
@@ -593,7 +604,7 @@ export default function PorteriaPage() {
               }`}
             >
               <Users className="h-3.5 w-3.5" />
-              Socios ({turnosActivos.filter((t) => !t.esProfe && t.estado !== 'bloqueado').length})
+              Socios ({turnosActivos.filter((t) => t.tipo === 'socio').length})
             </Button>
 
             <Button
@@ -607,8 +618,24 @@ export default function PorteriaPage() {
               }`}
             >
               <GraduationCap className="h-3.5 w-3.5" />
-              Profe ({turnosActivos.filter((t) => t.esProfe).length})
+              Profe ({turnosActivos.filter((t) => t.tipo === 'profe').length})
             </Button>
+
+            {turnosActivos.some((t) => t.tipo !== 'socio' && t.tipo !== 'profe') && (
+              <Button
+                size="sm"
+                variant={filtroTipo === 'bloqueados' ? 'default' : 'outline'}
+                onClick={() => setFiltroTipo('bloqueados')}
+                className={`rounded-xl text-xs h-9 px-3 gap-1.5 ${
+                  filtroTipo === 'bloqueados'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-[#111113] border-[#2B2B32] text-[#888] hover:text-white'
+                }`}
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                Eventos / Bloqueos ({turnosActivos.filter((t) => t.tipo !== 'socio' && t.tipo !== 'profe').length})
+              </Button>
+            )}
           </div>
         </div>
 
@@ -681,31 +708,20 @@ export default function PorteriaPage() {
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
                       {/* COLUMNA 1: HORARIO (3 columnas en desktop) */}
                       <div className="md:col-span-3 flex md:flex-col items-center md:items-start justify-between md:justify-center border-b md:border-b-0 pb-2 md:pb-0 border-[#26262B]">
-                        <div className="space-y-0.5">
+                        <div>
                           <span className="text-base sm:text-lg font-black font-mono text-white tracking-tight">
                             {shift.label}
                           </span>
-                          <span className="text-[11px] text-[#777] block">
-                            Duración: 1h 30m
-                          </span>
                         </div>
 
-                        <div className="pt-1">
-                          {esHorarioActual ? (
+                        {esHorarioActual && (
+                          <div className="pt-1.5">
                             <Badge className="bg-emerald-500 text-black border-emerald-400 text-[10px] font-black px-2 py-0.5 flex items-center gap-1 animate-pulse">
                               <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
                               EN JUEGO AHORA
                             </Badge>
-                          ) : yaPaso ? (
-                            <Badge variant="outline" className="bg-[#1C1C20] text-[#777] border-[#2C2C32] text-[10px]">
-                              Finalizado
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] font-semibold">
-                              Próximo
-                            </Badge>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* COLUMNA 2: CANCHA 1 (4 o 5 columnas en desktop) */}

@@ -127,21 +127,48 @@ export async function GET(request: Request) {
         }
       }
 
-      // Titular
+      // Titular y Tipo de Turno
       const titularDni = t.socioDni || '';
       const titularObj = titularDni ? socioMap.get(titularDni) : null;
+      const motivoRaw = (t.motivoBloqueo || '').trim();
+      const motivoLower = motivoRaw.toLowerCase();
+      const esAdmin = titularDni === 'admin' || titularObj?.rol === 'admin';
+      const esBloqueado = t.estado === 'bloqueado';
+
+      let tipo: 'socio' | 'profe' | 'mantenimiento' | 'torneo' | 'bloqueado' = 'socio';
       let titularNombre = 'Socio';
 
-      if (titularObj) {
+      if (esBloqueado || esAdmin || motivoRaw) {
+        if (profe || motivoLower.includes('clase') || motivoLower.includes('profe') || motivoLower.includes('escuela')) {
+          tipo = 'profe';
+          titularNombre = motivoRaw || 'Clases Profesor';
+        } else if (motivoLower.includes('mantenimiento')) {
+          tipo = 'mantenimiento';
+          titularNombre = motivoRaw || 'Mantenimiento';
+        } else if (
+          motivoLower.includes('torneo') ||
+          motivoLower.includes('doble') ||
+          motivoLower.includes('mixto') ||
+          motivoLower.includes('evento')
+        ) {
+          tipo = 'torneo';
+          titularNombre = motivoRaw || 'Torneo / Dobles Mixtos';
+        } else if (motivoRaw) {
+          tipo = 'bloqueado';
+          titularNombre = motivoRaw;
+        } else if (esBloqueado) {
+          tipo = 'bloqueado';
+          titularNombre = 'Cancha Bloqueada';
+        } else if (esAdmin) {
+          tipo = 'profe';
+          titularNombre = 'Clases Profesor';
+        }
+      } else if (titularObj) {
         titularNombre = `${titularObj.apellido}, ${titularObj.nombre}`;
       } else if (t.socio) {
         titularNombre = `${t.socio.apellido}, ${t.socio.nombre}`;
-      } else if (profe) {
-        titularNombre = t.motivoBloqueo || 'Clases Profesor';
       } else if (titularDni) {
         titularNombre = `DNI ${titularDni}`;
-      } else if (t.motivoBloqueo) {
-        titularNombre = t.motivoBloqueo;
       }
 
       // Participantes
@@ -181,8 +208,8 @@ export async function GET(request: Request) {
         horaInicio: horaIni,
         horaFin: horaFin,
         estado: t.estado,
-        esProfe: profe,
-        tipo: profe ? 'profe' : (t.estado === 'bloqueado' ? 'bloqueado' : 'socio'),
+        esProfe: tipo === 'profe',
+        tipo,
         estadoTiempo,
         minutosParaInicio,
         titularNombre,
@@ -210,15 +237,17 @@ export async function GET(request: Request) {
       enCurso: turnosHoy.filter((t) => t.estadoTiempo === 'en_curso').length,
       proximos: turnosHoy.filter((t) => t.estadoTiempo === 'proximo').length,
       finalizados: turnosHoy.filter((t) => t.estadoTiempo === 'finalizado').length,
-      socios: turnosHoy.filter((t) => !t.esProfe && t.estado !== 'bloqueado').length,
-      profe: turnosHoy.filter((t) => t.esProfe).length,
+      socios: turnosHoy.filter((t) => t.tipo === 'socio').length,
+      profe: turnosHoy.filter((t) => t.tipo === 'profe').length,
+      bloqueados: turnosHoy.filter((t) => t.tipo !== 'socio' && t.tipo !== 'profe').length,
     };
 
     // Estadísticas para mañana
     const kpisManana = {
       total: turnosManana.length,
-      socios: turnosManana.filter((t) => !t.esProfe && t.estado !== 'bloqueado').length,
-      profe: turnosManana.filter((t) => t.esProfe).length,
+      socios: turnosManana.filter((t) => t.tipo === 'socio').length,
+      profe: turnosManana.filter((t) => t.tipo === 'profe').length,
+      bloqueados: turnosManana.filter((t) => t.tipo !== 'socio' && t.tipo !== 'profe').length,
     };
 
     return NextResponse.json({
