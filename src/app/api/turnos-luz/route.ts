@@ -9,6 +9,8 @@ interface JugadorTurno {
   esInvitado: boolean;
   dni?: string;
   monto: number;
+  pagado?: boolean;
+  pagoId?: string;
 }
 
 export async function GET(request: Request) {
@@ -65,8 +67,8 @@ export async function GET(request: Request) {
       endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999));
     }
 
-    // 3. Consultar turnos y socios en la base de datos
-    const [turnosDb, allSocios] = await Promise.all([
+    // 3. Consultar turnos, socios y pagos en la base de datos
+    const [turnosDb, allSocios, pagosLuzDb] = await Promise.all([
       db.turno.findMany({
         where: {
           fecha: {
@@ -108,7 +110,19 @@ export async function GET(request: Request) {
           telefono: true,
         },
       }),
+      db.pagoConcepto.findMany({
+        where: {
+          tipo: 'luz',
+        },
+      }),
     ]);
+
+    const pagosLuzMap = new Map<string, typeof pagosLuzDb[0]>();
+    for (const p of pagosLuzDb) {
+      if (p.turnoId) {
+        pagosLuzMap.set(`${p.socioDni}_${p.turnoId}`, p);
+      }
+    }
 
     const socioMapByDni = new Map<string, typeof allSocios[0]>();
     for (const s of allSocios) {
@@ -304,10 +318,24 @@ export async function GET(request: Request) {
         for (const j of jugadores) {
           if (!j.esInvitado) {
             j.monto = montoPorSocio;
+            if (j.dni) {
+              const pago = pagosLuzMap.get(`${j.dni}_${t.id}`);
+              j.pagado = !!pago;
+              j.pagoId = pago?.id;
+            } else {
+              j.pagado = false;
+            }
           } else {
             j.monto = 0; // El invitado no paga individualmente en el club
+            j.pagado = true;
           }
         }
+
+        const sociosNoInv = jugadores.filter(j => !j.esInvitado);
+        const pagadosCount = sociosNoInv.filter(j => j.pagado).length;
+        const turnoPagadoCompleto = sociosNoInv.length > 0 && pagadosCount === sociosNoInv.length;
+        const montoPagadoTurno = pagadosCount * montoPorSocio;
+        const montoPendienteTurno = (sociosNoInv.length - pagadosCount) * montoPorSocio;
 
         turnosSocios.push({
           id: t.id,
@@ -327,6 +355,9 @@ export async function GET(request: Request) {
           totalJugadores: jugadores.length,
           montoUnitarioSocio: montoPorSocio,
           montoTotalTurno: precioLuzTurno,
+          montoPagado: montoPagadoTurno,
+          montoPendiente: montoPendienteTurno,
+          pagado: turnoPagadoCompleto,
         });
 
         // Cargar en el acumulador de socios
@@ -344,14 +375,27 @@ export async function GET(request: Request) {
               dni: j.dni || '',
               telefono: j.esTitular ? (t.socio?.telefono || '') : undefined,
               cantidadTurnos: 0,
+              totalFacturado: 0,
+              totalPagado: 0,
+              totalPendiente: 0,
               totalAPagar: 0,
+              alDia: true,
               turnosDetalle: [],
-            };
+            } as any;
             acumuladoSociosMap.set(key, entry);
           }
 
-          entry.cantidadTurnos += 1;
-          entry.totalAPagar += j.monto;
+          const entryAny = entry as any;
+          entryAny.cantidadTurnos += 1;
+          entryAny.totalFacturado = (entryAny.totalFacturado || 0) + j.monto;
+          if (j.pagado) {
+            entryAny.totalPagado = (entryAny.totalPagado || 0) + j.monto;
+          } else {
+            entryAny.totalPendiente = (entryAny.totalPendiente || 0) + j.monto;
+          }
+          entryAny.totalAPagar = entryAny.totalPendiente;
+          entryAny.alDia = entryAny.totalPendiente === 0;
+
           entry.turnosDetalle.push({
             turnoId: t.id,
             fecha: fechaStr,
@@ -360,18 +404,21 @@ export async function GET(request: Request) {
             tipoPartido,
             rol: j.esTitular ? 'Titular' : 'Acompañante',
             monto: j.monto,
-          });
+            pagado: !!j.pagado,
+          } as any);
         }
       }
     }
 
-    // Convertir acumulado a array ordenado por monto descendente
+    // Convertir acumulado a array ordenado por monto pendiente descendente
     const sociosAcumulado = Array.from(acumuladoSociosMap.values()).sort(
-      (a, b) => b.totalAPagar - a.totalAPagar || a.nombreCompleto.localeCompare(b.nombreCompleto)
+      (a: any, b: any) => (b.totalPendiente ?? b.totalAPagar) - (a.totalPendiente ?? a.totalAPagar) || a.nombreCompleto.localeCompare(b.nombreCompleto)
     );
 
     // Totales y KPIs
     const totalSociosMonto = turnosSocios.length * precioLuzTurno;
+    const totalSociosPagado = turnosSocios.reduce((acc, t) => acc + (t.montoPagado || 0), 0);
+    const totalSociosPendiente = turnosSocios.reduce((acc, t) => acc + (t.montoPendiente || 0), 0);
     const totalProfeMonto = turnosProfesor.length * precioLuzProfe;
     const totalGeneralMonto = totalSociosMonto + totalProfeMonto;
 
@@ -389,10 +436,13 @@ export async function GET(request: Request) {
         totalGeneralMonto,
         totalGeneralTurnos: turnosSocios.length + turnosProfesor.length,
         totalSociosMonto,
+        totalSociosPagado,
+        totalSociosPendiente,
         totalSociosTurnos: turnosSocios.length,
         totalProfeMonto,
         totalProfeTurnos: turnosProfesor.length,
         totalSociosCobranza: sociosAcumulado.length,
+        sociosConDeuda: sociosAcumulado.filter((s: any) => (s.totalPendiente ?? s.totalAPagar) > 0).length,
       },
       turnosSocios,
       sociosAcumulado,

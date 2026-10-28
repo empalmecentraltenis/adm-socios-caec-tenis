@@ -78,12 +78,16 @@ interface SocioInvitadoAcumulado {
   invitadosGratisUsadosAnio?: number;
   invitadosGratisRestantes: number;
   totalExtrasAnio?: number;
+  extrasPagadosTotal?: number;
+  extrasPendientesTotal?: number;
   turnosEnPeriodo: number;
   invitadosEnPeriodo: number;
   invitadosGratisPeriodo: number;
   invitadosCobradosPeriodo: number;
   precioUnitarioExtra: number;
   totalACobrar: number;
+  totalPagado?: number;
+  estadoPago?: string;
   turnosDetalle: Array<{
     id: string;
     fecha: string;
@@ -93,7 +97,12 @@ interface SocioInvitadoAcumulado {
     cantidadInvitados: number;
     invitadosGratis: number;
     invitadosCobrados: number;
+    invitadosPagados?: number;
+    invitadosPendientes?: number;
     cargoTurno: number;
+    cargoTotal?: number;
+    montoPagado?: number;
+    pagado?: boolean;
     ordenInvitacionesAnual: string;
     textoCupo?: string;
   }>;
@@ -120,7 +129,12 @@ interface TurnoInvitadoItem {
   cantidadInvitados: number;
   invitadosGratis: number;
   invitadosCobrados: number;
+  invitadosPagados?: number;
+  invitadosPendientes?: number;
   cargoTurno: number;
+  cargoTotal?: number;
+  montoPagado?: number;
+  pagado?: boolean;
   ordenInvitacionesAnual: string;
   textoCupo?: string;
 }
@@ -733,9 +747,15 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                             </TableCell>
                             <TableCell className="text-center">
                               {s.invitadosCobradosPeriodo > 0 ? (
-                                <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold">
-                                  {s.invitadosCobradosPeriodo} extra{s.invitadosCobradosPeriodo > 1 ? 's' : ''}
-                                </Badge>
+                                s.totalACobrar === 0 ? (
+                                  <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold">
+                                    ✓ {s.invitadosCobradosPeriodo} pagado{s.invitadosCobradosPeriodo > 1 ? 's' : ''}
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold">
+                                    {s.invitadosCobradosPeriodo} extra{s.invitadosCobradosPeriodo > 1 ? 's' : ''}
+                                  </Badge>
+                                )
                               ) : (
                                 <span className="text-xs text-[#777777]">0 extras</span>
                               )}
@@ -743,6 +763,8 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                             <TableCell className="text-right font-black text-sm">
                               {s.totalACobrar > 0 ? (
                                 <span className="text-amber-400">{formatCurrency(s.totalACobrar)}</span>
+                              ) : s.totalPagado && s.totalPagado > 0 ? (
+                                <span className="text-emerald-400 text-xs font-bold">✓ Al Día ({formatCurrency(s.totalPagado)})</span>
                               ) : (
                                 <span className="text-[#666666]">$ 0</span>
                               )}
@@ -797,9 +819,15 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                                               {td.invitadosGratis} bonif.
                                             </span>
                                           )}
-                                          <span className={`font-bold ${td.cargoTurno > 0 ? 'text-amber-400' : 'text-[#777777]'}`}>
-                                            {formatCurrency(td.cargoTurno)}
-                                          </span>
+                                          {td.pagado ? (
+                                            <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                                              ✓ Pagado ({formatCurrency(td.montoPagado || td.cargoTotal || td.cargoTurno)})
+                                            </Badge>
+                                          ) : (
+                                            <span className={`font-bold ${td.cargoTurno > 0 ? 'text-amber-400' : 'text-[#777777]'}`}>
+                                              {formatCurrency(td.cargoTurno)}
+                                            </span>
+                                          )}
                                         </div>
                                       </div>
                                     ))}
@@ -901,6 +929,10 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                         <TableCell className="text-right font-black text-xs">
                           {t.cargoTurno > 0 ? (
                             <span className="text-amber-400 font-bold text-sm">{formatCurrency(t.cargoTurno)}</span>
+                          ) : t.pagado ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold">
+                              ✓ Pagado ({formatCurrency(t.montoPagado || t.cargoTotal || 0)})
+                            </Badge>
                           ) : (
                             <span className="text-emerald-400 font-medium">Bonificado</span>
                           )}

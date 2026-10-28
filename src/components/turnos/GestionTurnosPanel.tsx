@@ -79,6 +79,9 @@ interface InvitadoRanking {
   reservasInvitado: number;
   superaCupo: boolean;
   invitadosExtras: number;
+  extrasPagados?: number;
+  extrasPendientes?: number;
+  alDia?: boolean;
 }
 
 interface ParticipanteMonitor {
@@ -1377,9 +1380,15 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                               </TableCell>
                               <TableCell className="text-center">
                                 {s.superaCupo ? (
-                                  <Badge className="bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[10px] font-bold">
-                                    Superó cupo bonificado
-                                  </Badge>
+                                  s.extrasPendientes === 0 ? (
+                                    <Badge className="bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 text-[10px] font-bold">
+                                      ✓ Extras al día
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[10px] font-bold">
+                                      Superó cupo bonificado
+                                    </Badge>
+                                  )
                                 ) : (
                                   <Badge className="bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 text-[10px] font-bold">
                                     Dentro de los 4 anuales
@@ -1388,9 +1397,15 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                               </TableCell>
                               <TableCell className="text-center">
                                 {s.invitadosExtras > 0 ? (
-                                  <span className="font-black text-amber-500 text-sm">
-                                    {s.invitadosExtras} ($ extra)
-                                  </span>
+                                  s.extrasPendientes === 0 ? (
+                                    <span className="font-bold text-emerald-500 text-xs">
+                                      ✓ {s.invitadosExtras} pagado{s.invitadosExtras > 1 ? 's' : ''}
+                                    </span>
+                                  ) : (
+                                    <span className="font-black text-amber-500 text-sm">
+                                      {s.extrasPendientes ?? s.invitadosExtras} ($ extra)
+                                    </span>
+                                  )
                                 ) : (
                                   <span className="text-xs text-muted-foreground font-medium">0</span>
                                 )}

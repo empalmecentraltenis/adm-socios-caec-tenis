@@ -17,6 +17,8 @@ interface Pago {
   monto: number;
   metodoPago: string;
   fechaRegistro: string;
+  concepto?: string;
+  tipo?: string;
 }
 
 interface HistorialPagosModalProps {
@@ -129,22 +131,39 @@ export default function HistorialPagosModal({ open, onOpenChange, socio }: Histo
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                      pago.metodoPago === 'pendiente' ? 'bg-red-400/10' : 'bg-[#FFCC00]/10'
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                      pago.metodoPago === 'pendiente'
+                        ? 'bg-red-400/10'
+                        : pago.tipo === 'luz'
+                        ? 'bg-amber-400/10 text-amber-400'
+                        : pago.tipo === 'invitado_extra'
+                        ? 'bg-red-500/10 text-red-400'
+                        : 'bg-[#FFCC00]/10'
                     }`}>
                       {pago.metodoPago === 'pendiente' ? (
                         <AlertCircle className="h-4 w-4 text-red-400" />
+                      ) : pago.tipo === 'luz' ? (
+                        <span className="text-base">💡</span>
+                      ) : pago.tipo === 'invitado_extra' ? (
+                        <span className="text-base">🎾</span>
                       ) : (
                         <CreditCard className="h-4 w-4 text-[#FFCC00]" />
                       )}
                     </div>
                     <div>
                       <p className={`text-sm font-medium ${pago.metodoPago === 'pendiente' ? 'text-red-400' : 'text-white'}`}>
-                        {formatMes(pago.mesPagado)}
+                        {pago.concepto || `Cuota ${formatMes(pago.mesPagado)}`}
                       </p>
-                      <p className={`text-[11px] ${getMetodoColor(pago.metodoPago)}`}>
-                        {formatMetodo(pago.metodoPago)}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-[11px] ${getMetodoColor(pago.metodoPago)}`}>
+                          {formatMetodo(pago.metodoPago)}
+                        </span>
+                        {pago.fechaRegistro && (
+                          <span className="text-[10px] text-[#666666] font-mono">
+                            · {new Date(pago.fechaRegistro).toLocaleDateString('es-AR')}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">

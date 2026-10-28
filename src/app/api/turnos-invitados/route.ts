@@ -76,44 +76,56 @@ export async function GET(request: Request) {
       endDate = new Date(Date.UTC(targetYear, now.getMonth() + 1, 0, 23, 59, 59, 999));
     }
 
-    // 3. Consultar TODOS los turnos del año donde hubo algún invitado
+    // 3. Consultar TODOS los turnos del año donde hubo algún invitado y los pagos de conceptos
     // Consultamos todo el año para poder calcular cronológicamente el orden de cada invitación por socio
-    const turnosYearDb = await db.turno.findMany({
-      where: {
-        fecha: {
-          gte: startOfYear,
-          lte: endOfYear,
+    const [turnosYearDb, pagosConceptosYearDb] = await Promise.all([
+      db.turno.findMany({
+        where: {
+          fecha: {
+            gte: startOfYear,
+            lte: endOfYear,
+          },
+          estado: 'ocupado',
+          OR: [
+            { acompanante: { contains: 'Especial, I.' } },
+            { acompanante: { contains: 'invitado', mode: 'insensitive' } },
+            { acompanante: { contains: 'especial', mode: 'insensitive' } },
+            { participantesDnis: { has: '123987456' } },
+          ],
         },
-        estado: 'ocupado',
-        OR: [
-          { acompanante: { contains: 'Especial, I.' } },
-          { acompanante: { contains: 'invitado', mode: 'insensitive' } },
-          { acompanante: { contains: 'especial', mode: 'insensitive' } },
+        include: {
+          socio: {
+            select: {
+              id: true,
+              dni: true,
+              nombre: true,
+              apellido: true,
+              telefono: true,
+              categoria: true,
+            },
+          },
+          cancha: {
+            select: {
+              id: true,
+              nombre: true,
+            },
+          },
+        },
+        orderBy: [
+          { fecha: 'asc' },
+          { horaInicio: 'asc' },
         ],
-      },
-      include: {
-        socio: {
-          select: {
-            id: true,
-            dni: true,
-            nombre: true,
-            apellido: true,
-            telefono: true,
-            categoria: true,
+      }),
+      db.pagoConcepto.findMany({
+        where: {
+          tipo: 'invitado_extra',
+          fechaRegistro: {
+            gte: startOfYear,
+            lte: endOfYear,
           },
         },
-        cancha: {
-          select: {
-            id: true,
-            nombre: true,
-          },
-        },
-      },
-      orderBy: [
-        { fecha: 'asc' },
-        { horaInicio: 'asc' },
-      ],
-    });
+      }),
+    ]);
 
     const extractTime = (dateObj: Date | string): string => {
       try {
@@ -138,6 +150,14 @@ export async function GET(request: Request) {
         return '';
       }
     };
+
+    // Indexar pagos de invitados por socio
+    const pagosInvitadosPorSocio = new Map<string, typeof pagosConceptosYearDb>();
+    for (const p of pagosConceptosYearDb) {
+      const list = pagosInvitadosPorSocio.get(p.socioDni) || [];
+      list.push(p);
+      pagosInvitadosPorSocio.set(p.socioDni, list);
+    }
 
     // 4. Agrupar cronológicamente por socio titular
     // Map: socioDni -> lista de turnos del año
@@ -167,7 +187,19 @@ export async function GET(request: Request) {
       let invitadosGratisPeriodo = 0;
       let invitadosCobradosPeriodo = 0;
       let totalACobrarPeriodo = 0;
+      let totalPagadoPeriodo = 0;
       const turnosDetalleSocio: any[] = [];
+
+      const pagosDelSocio = pagosInvitadosPorSocio.get(dni) || [];
+      const pagosPorTurnoId = new Map<string, number>();
+      let pagosSinTurnoId = 0;
+      for (const p of pagosDelSocio) {
+        if (p.turnoId) {
+          pagosPorTurnoId.set(p.turnoId, (pagosPorTurnoId.get(p.turnoId) || 0) + 1);
+        } else {
+          pagosSinTurnoId++;
+        }
+      }
 
       for (const t of turnosSocio) {
         if (!socioNombre && t.socio) {
@@ -199,17 +231,31 @@ export async function GET(request: Request) {
           },
         ];
 
-        for (const item of acompsList) {
-          const itemLower = item.toLowerCase();
-          const esInv = itemLower.includes('especial') || itemLower.includes('invitado');
-          if (esInv) {
-            invitadosEnTurno++;
+        // Revisar participantesDnis oficial primero
+        if (t.participantesDnis && t.participantesDnis.length > 0) {
+          for (const d of t.participantesDnis) {
+            if (d === dni) continue;
+            const esInv = d === '123987456';
+            if (esInv) invitadosEnTurno++;
+            jugadoresDetalle.push({
+              nombre: esInv ? 'Invitado Especial' : `DNI ${d}`,
+              esInvitado: esInv,
+              esTitular: false,
+            });
           }
-          jugadoresDetalle.push({
-            nombre: esInv ? 'Invitado Especial' : item,
-            esInvitado: esInv,
-            esTitular: false,
-          });
+        } else {
+          for (const item of acompsList) {
+            const itemLower = item.toLowerCase();
+            const esInv = itemLower.includes('especial') || itemLower.includes('invitado');
+            if (esInv) {
+              invitadosEnTurno++;
+            }
+            jugadoresDetalle.push({
+              nombre: esInv ? 'Invitado Especial' : item,
+              esInvitado: esInv,
+              esTitular: false,
+            });
+          }
         }
 
         if (invitadosEnTurno === 0) continue;
@@ -235,7 +281,20 @@ export async function GET(request: Request) {
         }
 
         acumuladorInvitadosAnio += invitadosEnTurno;
-        const cargoTurno = cobradosEnTurno * precioInvitadoExtra;
+
+        // Determinar pagos de este turno
+        let pagadosEnTurno = pagosPorTurnoId.get(t.id) || 0;
+        if (pagadosEnTurno === 0 && pagosSinTurnoId > 0 && cobradosEnTurno > 0) {
+          const aCubrir = Math.min(cobradosEnTurno, pagosSinTurnoId);
+          pagadosEnTurno += aCubrir;
+          pagosSinTurnoId -= aCubrir;
+        }
+
+        const pendientesEnTurno = Math.max(0, cobradosEnTurno - pagadosEnTurno);
+        const pagado = cobradosEnTurno > 0 && pendientesEnTurno === 0;
+        const montoPagado = pagadosEnTurno * precioInvitadoExtra;
+        const cargoTurno = pendientesEnTurno * precioInvitadoExtra;
+        const cargoTotal = cobradosEnTurno * precioInvitadoExtra;
 
         // Comprobar si este turno pertenece al período consultado
         const turnoDate = new Date(t.fecha);
@@ -247,6 +306,7 @@ export async function GET(request: Request) {
           invitadosGratisPeriodo += gratisEnTurno;
           invitadosCobradosPeriodo += cobradosEnTurno;
           totalACobrarPeriodo += cargoTurno;
+          totalPagadoPeriodo += montoPagado;
 
           const turnoItem = {
             id: t.id,
@@ -265,16 +325,23 @@ export async function GET(request: Request) {
             cantidadInvitados: invitadosEnTurno,
             invitadosGratis: gratisEnTurno,
             invitadosCobrados: cobradosEnTurno,
-            cargoTurno,
+            invitadosPagados: pagadosEnTurno,
+            invitadosPendientes: pendientesEnTurno,
+            cargoTurno, // saldo pendiente
+            cargoTotal,
+            montoPagado,
+            pagado,
             ordenInvitacionesAnual: `${ordenInicio} a ${acumuladorInvitadosAnio}`,
             textoCupo:
               invitadosEnTurno === 1
                 ? acumuladorInvitadosAnio <= cupoInvitadosAnual
                   ? `Invitado #${acumuladorInvitadosAnio} de ${cupoInvitadosAnual} (Gratis)`
+                  : pagado
+                  ? `Invitado #${acumuladorInvitadosAnio} (Pagado)`
                   : `Invitado #${acumuladorInvitadosAnio} del año (Paga extra)`
                 : ordenInicio <= cupoInvitadosAnual && acumuladorInvitadosAnio <= cupoInvitadosAnual
                   ? `Invitados #${ordenInicio} a #${acumuladorInvitadosAnio} de ${cupoInvitadosAnual} (Gratis)`
-                  : `Invitados #${ordenInicio} al #${acumuladorInvitadosAnio} (${gratisEnTurno} gratis, ${cobradosEnTurno} a pagar)`,
+                  : `Invitados #${ordenInicio} al #${acumuladorInvitadosAnio} (${gratisEnTurno} gratis, ${cobradosEnTurno} extras${pagado ? ' - Pagados' : ''})`,
           };
 
           turnosDetallePeriodo.push(turnoItem);
@@ -287,6 +354,8 @@ export async function GET(request: Request) {
         const totalExtrasAnio = Math.max(0, acumuladorInvitadosAnio - cupoInvitadosAnual);
         const invitadosGratisUsadosAnio = Math.min(acumuladorInvitadosAnio, cupoInvitadosAnual);
         const invitadosGratisRestantes = Math.max(0, cupoInvitadosAnual - acumuladorInvitadosAnio);
+        const extrasPagadosTotal = pagosDelSocio.length;
+        const extrasPendientesTotal = Math.max(0, totalExtrasAnio - extrasPagadosTotal);
 
         sociosAcumuladoPeriodo.push({
           dni,
@@ -297,12 +366,16 @@ export async function GET(request: Request) {
           invitadosGratisUsadosAnio,
           invitadosGratisRestantes,
           totalExtrasAnio,
+          extrasPagadosTotal,
+          extrasPendientesTotal,
           turnosEnPeriodo: turnosEnPeriodoDelSocio,
           invitadosEnPeriodo,
           invitadosGratisPeriodo,
           invitadosCobradosPeriodo,
           precioUnitarioExtra: precioInvitadoExtra,
           totalACobrar: totalACobrarPeriodo,
+          totalPagado: totalPagadoPeriodo,
+          estadoPago: extrasPendientesTotal === 0 ? (totalExtrasAnio > 0 ? 'al_dia' : 'gratis') : 'pendiente',
           turnosDetalle: turnosDetalleSocio,
         });
       }
@@ -324,7 +397,8 @@ export async function GET(request: Request) {
     });
 
     // KPIs globales del período
-    const totalRecaudacion = sociosAcumuladoPeriodo.reduce((acc, s) => acc + s.totalACobrar, 0);
+    const totalRecaudado = sociosAcumuladoPeriodo.reduce((acc, s) => acc + (s.totalPagado || 0), 0);
+    const totalPendienteCobro = sociosAcumuladoPeriodo.reduce((acc, s) => acc + s.totalACobrar, 0);
     const totalInvitadosPeriodo = turnosDetallePeriodo.reduce((acc, t) => acc + t.cantidadInvitados, 0);
     const totalInvitadosGratis = turnosDetallePeriodo.reduce((acc, t) => acc + t.invitadosGratis, 0);
     const totalInvitadosCobrados = turnosDetallePeriodo.reduce((acc, t) => acc + t.invitadosCobrados, 0);
@@ -342,7 +416,9 @@ export async function GET(request: Request) {
         cupoInvitadosAnual,
       },
       kpis: {
-        totalRecaudacion,
+        totalRecaudacion: totalPendienteCobro,
+        totalRecaudado,
+        totalPendienteCobro,
         totalTurnosConInvitados: turnosDetallePeriodo.length,
         totalInvitadosPeriodo,
         totalInvitadosGratis,

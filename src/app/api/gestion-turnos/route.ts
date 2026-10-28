@@ -20,8 +20,8 @@ export async function GET(request: Request) {
     const anioParam = searchParams.get('anio') || currentYearStr; // 'YYYY'
     const fechaParam = searchParams.get('fecha') || todayArgStr; // 'YYYY-MM-DD'
 
-    // 1. Obtener canchas, socios y turnos ocupados
-    const [canchasDb, sociosDb, turnosOcupadosRaw] = await Promise.all([
+    // 1. Obtener canchas, socios, turnos ocupados y pagos de invitados
+    const [canchasDb, sociosDb, turnosOcupadosRaw, pagosInvitadosDb] = await Promise.all([
       db.cancha.findMany({
         orderBy: { id: 'asc' },
       }),
@@ -64,6 +64,9 @@ export async function GET(request: Request) {
         orderBy: {
           fecha: 'desc',
         },
+      }),
+      db.pagoConcepto.findMany({
+        where: { tipo: 'invitado_extra' },
       }),
     ]);
 
@@ -198,8 +201,20 @@ export async function GET(request: Request) {
         (t.participantesDnis && t.participantesDnis.includes('123987456'));
 
       if (esConInvitado && t.socioDni) {
-        conteoInvitadoPorSocio[t.socioDni] = (conteoInvitadoPorSocio[t.socioDni] || 0) + 1;
+        let count = 1;
+        if (t.participantesDnis && t.participantesDnis.length > 0) {
+          count = t.participantesDnis.filter((d: string) => d === '123987456').length || 1;
+        } else if (t.acompanante) {
+          const matches = t.acompanante.match(/Especial,\s*I\.|Invitado/gi);
+          count = matches ? matches.length : 1;
+        }
+        conteoInvitadoPorSocio[t.socioDni] = (conteoInvitadoPorSocio[t.socioDni] || 0) + count;
       }
+    }
+
+    const pagosInvitadosPorSocio: Record<string, number> = {};
+    for (const p of pagosInvitadosDb) {
+      pagosInvitadosPorSocio[p.socioDni] = (pagosInvitadosPorSocio[p.socioDni] || 0) + 1;
     }
 
     const CUPO_BONIFICADO = 4;
@@ -209,6 +224,9 @@ export async function GET(request: Request) {
         const reservasInvitado = conteoInvitadoPorSocio[s.dni] || 0;
         const superaCupo = reservasInvitado > CUPO_BONIFICADO;
         const invitadosExtras = Math.max(0, reservasInvitado - CUPO_BONIFICADO);
+        const pagosRegistrados = pagosInvitadosPorSocio[s.dni] || 0;
+        const extrasPendientes = Math.max(0, invitadosExtras - pagosRegistrados);
+        const extrasPagados = Math.min(invitadosExtras, pagosRegistrados);
         return {
           id: s.id,
           dni: s.dni,
@@ -220,6 +238,9 @@ export async function GET(request: Request) {
           reservasInvitado,
           superaCupo,
           invitadosExtras,
+          extrasPagados,
+          extrasPendientes,
+          alDia: extrasPendientes === 0,
         };
       })
       .filter((s) => s.reservasInvitado > 0)

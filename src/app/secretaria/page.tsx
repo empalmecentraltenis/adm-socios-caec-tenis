@@ -336,6 +336,8 @@ export default function SecretariaPage() {
 
   // Alternar invitado extra
   const handleToggleTurnoInvitado = (turnoId: string) => {
+    const item = socioSeleccionado?.invitados?.desglose?.find((d) => d.turnoId === turnoId);
+    if (item?.pagado) return; // Ya está completamente pagado
     setTurnosInvitadosSeleccionados((prev) =>
       prev.includes(turnoId) ? prev.filter((id) => id !== turnoId) : [...prev, turnoId]
     );
@@ -358,7 +360,7 @@ export default function SecretariaPage() {
     if (!socioSeleccionado?.invitados?.desglose) return 0;
     return socioSeleccionado.invitados.desglose
       .filter((d) => turnosInvitadosSeleccionados.includes(d.turnoId))
-      .reduce((acc, d) => acc + d.montoCargo, 0);
+      .reduce((acc, d) => acc + (d.montoPendiente !== undefined ? d.montoPendiente : d.montoCargo), 0);
   }, [socioSeleccionado, turnosInvitadosSeleccionados]);
 
   const montoSugeridoTotal = subtotalCuotas + subtotalLuz + subtotalInvitados;
@@ -400,15 +402,19 @@ export default function SecretariaPage() {
         }));
 
       const invitadosPayload = (socioSeleccionado.invitados?.desglose || [])
-        .filter((d) => d.conCargo > 0 && turnosInvitadosSeleccionados.includes(d.turnoId))
-        .map((d) => ({
-          turnoId: d.turnoId,
-          cantidad: d.conCargo,
-          monto: d.montoCargo,
-          montoUnitario: 10000,
-          fecha: d.fecha,
-          concepto: `Invitado con cargo (${d.conCargo} pases) - Turno ${d.fecha} ${d.hora}hs`,
-        }));
+        .filter((d) => (d.pendientes !== undefined ? d.pendientes > 0 : d.conCargo > 0) && turnosInvitadosSeleccionados.includes(d.turnoId))
+        .map((d) => {
+          const cantidad = d.pendientes !== undefined ? d.pendientes : d.conCargo;
+          const monto = d.montoPendiente !== undefined ? d.montoPendiente : d.montoCargo;
+          return {
+            turnoId: d.turnoId,
+            cantidad,
+            monto,
+            montoUnitario: 10000,
+            fecha: d.fecha,
+            concepto: `Invitado con cargo (${cantidad} pases) - Turno ${d.fecha} ${d.hora}hs`,
+          };
+        });
 
       const res = await fetch('/api/secretaria', {
         method: 'POST',
@@ -1094,55 +1100,98 @@ export default function SecretariaPage() {
 
                     {/* Alerta de invitados con cargo si superó las 4 */}
                     {socioSeleccionado.invitados.extrasTotal > 0 ? (
-                      <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-red-300">
-                          <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
-                          <span>
-                            Superó las 4 invitaciones bonificadas: llevó {socioSeleccionado.invitados.extrasTotal} invitado(s) adicional(es) ($10.000 c/u).
-                          </span>
-                        </div>
+                      socioSeleccionado.invitados.extrasPendientesCount > 0 ? (
+                        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-red-300">
+                            <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+                            <span>
+                              Superó las 4 invitaciones bonificadas: adeuda {socioSeleccionado.invitados.extrasPendientesCount} invitado(s) adicional(es) (${socioSeleccionado.invitados.deudaInvitados.toLocaleString('es-AR')}).
+                            </span>
+                          </div>
 
-                        {socioSeleccionado.invitados.desglose
-                          .filter((d) => d.conCargo > 0)
-                          .map((d) => {
-                            const isSelected = turnosInvitadosSeleccionados.includes(d.turnoId);
-                            return (
-                              <button
+                          {socioSeleccionado.invitados.desglose
+                            .filter((d) => d.conCargo > 0)
+                            .map((d) => {
+                              const isSelected = turnosInvitadosSeleccionados.includes(d.turnoId);
+                              const estaPagado = d.pagado;
+                              return (
+                                <button
+                                  key={d.turnoId}
+                                  type="button"
+                                  disabled={estaPagado}
+                                  onClick={() => handleToggleTurnoInvitado(d.turnoId)}
+                                  className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all ${
+                                    estaPagado
+                                      ? 'bg-emerald-500/10 border-emerald-500/30 text-[#888] cursor-default'
+                                      : isSelected
+                                      ? 'bg-red-500/20 border-red-400 text-white'
+                                      : 'bg-[#1C1C1C] border-[#383838] text-[#BBB] hover:border-red-400/50'
+                                  }`}
+                                >
+                                  <div>
+                                    <span className="font-bold text-xs text-white block">
+                                      {d.fecha} · {d.hora} hs ({d.cancha})
+                                    </span>
+                                    <span className="text-[10px] text-[#999] block">
+                                      {d.conCargo} invitado(s) con cargo adicional {estaPagado && '· ✓ Pagado en Secretaría'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2.5">
+                                    {estaPagado ? (
+                                      <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                                        ✓ Pagado (${d.montoCargo.toLocaleString('es-AR')})
+                                      </Badge>
+                                    ) : (
+                                      <>
+                                        <span className="font-black text-sm text-red-400">
+                                          ${(d.montoPendiente ?? d.montoCargo).toLocaleString('es-AR')}
+                                        </span>
+                                        <div
+                                          className={`w-5 h-5 rounded-md flex items-center justify-center border ${
+                                            isSelected
+                                              ? 'bg-red-500 border-red-500 text-white'
+                                              : 'border-[#555] bg-[#222]'
+                                          }`}
+                                        >
+                                          {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                            <span>
+                              Superó el cupo anual ({socioSeleccionado.invitados.extrasTotal} extras), pero ya están todos pagados. No adeuda cargos por invitados.
+                            </span>
+                          </div>
+                          {socioSeleccionado.invitados.desglose
+                            .filter((d) => d.conCargo > 0)
+                            .map((d) => (
+                              <div
                                 key={d.turnoId}
-                                type="button"
-                                onClick={() => handleToggleTurnoInvitado(d.turnoId)}
-                                className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all ${
-                                  isSelected
-                                    ? 'bg-red-500/20 border-red-400 text-white'
-                                    : 'bg-[#1C1C1C] border-[#383838] text-[#BBB]'
-                                }`}
+                                className="w-full p-2.5 rounded-lg bg-[#181818] border border-[#2E2E2E] flex items-center justify-between text-xs"
                               >
                                 <div>
-                                  <span className="font-bold text-xs text-white block">
+                                  <span className="font-bold text-white block">
                                     {d.fecha} · {d.hora} hs ({d.cancha})
                                   </span>
-                                  <span className="text-[10px] text-[#999] block">
-                                    {d.conCargo} invitado(s) con cargo adicional
+                                  <span className="text-[10px] text-[#888] block">
+                                    {d.conCargo} invitado(s) adicional(es)
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2.5">
-                                  <span className="font-black text-sm text-red-400">
-                                    ${d.montoCargo.toLocaleString('es-AR')}
-                                  </span>
-                                  <div
-                                    className={`w-5 h-5 rounded-md flex items-center justify-center border ${
-                                      isSelected
-                                        ? 'bg-red-500 border-red-500 text-white'
-                                        : 'border-[#555] bg-[#222]'
-                                    }`}
-                                  >
-                                    {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                      </div>
+                                <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                                  ✓ Pagado (${d.montoCargo.toLocaleString('es-AR')})
+                                </Badge>
+                              </div>
+                            ))}
+                        </div>
+                      )
                     ) : (
                       <div className="p-3 bg-[#1C1C1C] rounded-lg text-xs text-[#888888] flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />

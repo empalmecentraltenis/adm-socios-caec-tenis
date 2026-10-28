@@ -261,9 +261,40 @@ export async function GET(request: Request) {
       }
     }
 
-    // Combinar pagos realizados y cuotas pendientes, y ordenar cronológicamente
-    const historialUnificado = [...pagos, ...pendientesAdaptadas].sort((a, b) => {
-      return b.mesPagado.localeCompare(a.mesPagado);
+    // Obtener también pagos de conceptos (luz, invitados extras) de secretaría
+    let pagosConceptosAdaptados: any[] = [];
+    if (socioId) {
+      const socioObj = await db.socio.findUnique({
+        where: { id: socioId },
+        select: { id: true, dni: true }
+      });
+      if (socioObj) {
+        const pagosConceptosDb = await db.pagoConcepto.findMany({
+          where: {
+            OR: [
+              { socioId: socioObj.id },
+              { socioDni: socioObj.dni }
+            ]
+          },
+          orderBy: { fechaRegistro: 'desc' }
+        });
+
+        pagosConceptosAdaptados = pagosConceptosDb.map(p => ({
+          id: p.id,
+          socioId: p.socioId,
+          mesPagado: p.fechaRegistro.toISOString().substring(0, 7),
+          monto: p.monto,
+          metodoPago: p.metodoPago,
+          concepto: p.concepto,
+          tipo: p.tipo,
+          fechaRegistro: p.fechaRegistro.toISOString(),
+        }));
+      }
+    }
+
+    // Combinar pagos realizados, conceptos y cuotas pendientes, y ordenar cronológicamente
+    const historialUnificado = [...pagos, ...pagosConceptosAdaptados, ...pendientesAdaptadas].sort((a, b) => {
+      return (b.fechaRegistro || b.mesPagado).localeCompare(a.fechaRegistro || a.mesPagado);
     });
 
     return NextResponse.json(historialUnificado);

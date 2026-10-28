@@ -75,6 +75,7 @@ interface JugadorTurno {
   esInvitado: boolean;
   dni?: string;
   monto: number;
+  pagado?: boolean;
 }
 
 interface TurnoSocio {
@@ -95,6 +96,9 @@ interface TurnoSocio {
   totalJugadores: number;
   montoUnitarioSocio: number;
   montoTotalTurno: number;
+  montoPagado?: number;
+  montoPendiente?: number;
+  pagado?: boolean;
 }
 
 interface SocioAcumulado {
@@ -104,6 +108,10 @@ interface SocioAcumulado {
   telefono?: string;
   cantidadTurnos: number;
   totalAPagar: number;
+  totalFacturado?: number;
+  totalPagado?: number;
+  totalPendiente?: number;
+  alDia?: boolean;
   turnosDetalle: Array<{
     turnoId: string;
     fecha: string;
@@ -112,6 +120,7 @@ interface SocioAcumulado {
     tipoPartido: string;
     rol: string;
     monto: number;
+    pagado?: boolean;
   }>;
 }
 
@@ -828,8 +837,14 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                                     {s.cantidadTurnos} {s.cantidadTurnos === 1 ? 'turno' : 'turnos'}
                                   </Badge>
                                 </TableCell>
-                                <TableCell className="text-right font-black text-amber-400 text-sm">
-                                  {formatCurrency(s.totalAPagar)}
+                                <TableCell className="text-right font-black text-sm">
+                                  {s.totalAPagar > 0 ? (
+                                    <span className="text-amber-400">{formatCurrency(s.totalAPagar)}</span>
+                                  ) : (s.totalPagado || 0) > 0 ? (
+                                    <span className="text-emerald-400 font-bold text-xs">✓ Al día ({formatCurrency(s.totalPagado || 0)})</span>
+                                  ) : (
+                                    <span className="text-[#666666]">$ 0</span>
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-center">
                                   <Button
@@ -869,9 +884,17 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                                               </Badge>
                                               <span className="text-[#888888] text-[11px]">({td.tipoPartido} - {td.rol})</span>
                                             </div>
-                                            <span className="font-bold text-amber-400">
-                                              {formatCurrency(td.monto)}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                              {td.pagado ? (
+                                                <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                                                  ✓ Pagado ({formatCurrency(td.monto)})
+                                                </Badge>
+                                              ) : (
+                                                <span className="font-bold text-amber-400">
+                                                  {formatCurrency(td.monto)}
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
                                         ))}
                                       </div>
@@ -957,15 +980,26 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
                                         <span className="text-[10px] text-muted-foreground font-mono ml-0.5">({j.dni})</span>
                                       )}
                                     </span>
-                                    <span className="font-bold text-amber-400">
-                                      {j.esInvitado ? '(Invitado)' : formatCurrency(j.monto)}
-                                    </span>
+                                    {j.pagado && !j.esInvitado ? (
+                                      <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[9px] font-bold">
+                                        ✓ Pagado
+                                      </Badge>
+                                    ) : (
+                                      <span className="font-bold text-amber-400">
+                                        {j.esInvitado ? '(Invitado)' : formatCurrency(j.monto)}
+                                      </span>
+                                    )}
                                   </span>
                                 ))}
                               </div>
                             </TableCell>
                             <TableCell className="text-right font-black text-white text-xs">
-                              {formatCurrency(t.montoTotalTurno)}
+                              <div>{formatCurrency(t.montoTotalTurno)}</div>
+                              {t.pagado && (
+                                <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[9px] font-bold mt-0.5">
+                                  ✓ Turno saldado
+                                </Badge>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}

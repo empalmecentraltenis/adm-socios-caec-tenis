@@ -297,6 +297,17 @@ export async function GET() {
 
       // Desglose cronológico de invitados para la interfaz
       let acumulado = 0;
+      // Contabilizar pagos por turno o generales del socio
+      const pagosPorTurnoId = new Map<string, number>();
+      let pagosSinTurnoId = 0;
+      for (const p of pagosInvitados) {
+        if (p.turnoId) {
+          pagosPorTurnoId.set(p.turnoId, (pagosPorTurnoId.get(p.turnoId) || 0) + 1);
+        } else {
+          pagosSinTurnoId++;
+        }
+      }
+
       const desgloseInvitados = turnosConInvitados.map((t) => {
         const desde = acumulado + 1;
         acumulado += t.cantidadInvitados;
@@ -310,6 +321,17 @@ export async function GET() {
           else conCargoEnTurno++;
         }
 
+        // Calcular cuántos cargos de este turno ya fueron pagados
+        let pagadosEnTurno = pagosPorTurnoId.get(t.turnoId) || 0;
+        if (pagadosEnTurno === 0 && pagosSinTurnoId > 0 && conCargoEnTurno > 0) {
+          const aCubrir = Math.min(conCargoEnTurno, pagosSinTurnoId);
+          pagadosEnTurno += aCubrir;
+          pagosSinTurnoId -= aCubrir;
+        }
+
+        const pendientesEnTurno = Math.max(0, conCargoEnTurno - pagadosEnTurno);
+        const pagado = conCargoEnTurno > 0 && pendientesEnTurno === 0;
+
         return {
           turnoId: t.turnoId,
           fecha: t.fecha,
@@ -318,7 +340,11 @@ export async function GET() {
           cantidad: t.cantidadInvitados,
           bonificados: bonificadosEnTurno,
           conCargo: conCargoEnTurno,
+          pagados: pagadosEnTurno,
+          pendientes: pendientesEnTurno,
           montoCargo: conCargoEnTurno * precioInvitadoExtra,
+          montoPendiente: pendientesEnTurno * precioInvitadoExtra,
+          pagado,
         };
       });
 
@@ -660,16 +686,40 @@ export async function POST(request: Request) {
       for (const item of invitadosCobrados) {
         const cantidad = parseInt(item.cantidad) || 1;
         const montoUnitario = parseFloat(item.montoUnitario) || precioInvitadoDefault;
-        const monto = parseFloat(item.monto) || cantidad * montoUnitario;
         const conceptoDesc = item.concepto || `Invitado adicional (${cantidad}) - ${item.fecha || ''}`;
 
-        for (let i = 0; i < cantidad; i++) {
+        // Verificar si ya se registraron pagos para este turno
+        let yaPagadosEnTurno = 0;
+        if (item.turnoId) {
+          yaPagadosEnTurno = await db.pagoConcepto.count({
+            where: {
+              socioDni: socio.dni,
+              tipo: 'invitado_extra',
+              turnoId: item.turnoId,
+            },
+          });
+        }
+
+        const aCobrar = Math.max(0, cantidad - yaPagadosEnTurno);
+
+        if (aCobrar === 0) {
+          resultadosCobro.push({
+            tipo: 'invitado_extra',
+            concepto: conceptoDesc,
+            monto: cantidad * montoUnitario,
+            status: 'ya_pagado',
+            error: `El pase de invitado ya estaba registrado como pagado.`,
+          });
+          continue;
+        }
+
+        for (let i = 0; i < aCobrar; i++) {
           const nuevoPago = await db.pagoConcepto.create({
             data: {
               socioId: socio.id,
               socioDni: socio.dni,
               tipo: 'invitado_extra',
-              concepto: `${conceptoDesc} (Pase ${i + 1}/${cantidad})`,
+              concepto: `${conceptoDesc} (Pase ${i + 1}/${aCobrar})`,
               turnoId: item.turnoId || null,
               monto: montoUnitario,
               metodoPago,
@@ -678,7 +728,7 @@ export async function POST(request: Request) {
 
           resultadosCobro.push({
             tipo: 'invitado_extra',
-            concepto: `${conceptoDesc} (Pase ${i + 1}/${cantidad})`,
+            concepto: `${conceptoDesc} (Pase ${i + 1}/${aCobrar})`,
             monto: montoUnitario,
             id: nuevoPago.id,
             status: 'ok',
