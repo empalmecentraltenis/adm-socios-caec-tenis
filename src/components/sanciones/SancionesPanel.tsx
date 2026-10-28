@@ -155,11 +155,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      if (filtro !== 'todos') params.set('filtro', filtro);
-
-      const res = await fetch(`/api/sanciones?${params.toString()}`);
+      const res = await fetch('/api/sanciones');
       if (!res.ok) throw new Error('Error al consultar sanciones');
 
       const json = await res.json();
@@ -174,7 +170,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
     } finally {
       setLoading(false);
     }
-  }, [search, filtro, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
@@ -351,57 +347,106 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
     return { mesesDisponibles: mesesArray, diasDisponibles: diasArray };
   }, [data, mesFiltro]);
 
-  // Filtrar socios según mes y día
-  const sociosFiltradosPorFecha = useMemo(() => {
+  // Filtrar socios combinando: categoría (filtro), búsqueda (search), mes (mesFiltro) y día (diaFiltro)
+  const sociosFiltrados = useMemo(() => {
     if (!data?.socios) return [];
-    if (mesFiltro === 'todos' && diaFiltro === 'todos') return data.socios;
+    let list = data.socios;
 
-    return data.socios
-      .map((socio) => {
-        const sancionesEnPeriodo = socio.sanciones.filter((s) => {
-          const f = s.fechaInicio || (s.createdAt ? s.createdAt.substring(0, 10) : '');
-          if (diaFiltro !== 'todos') {
-            return f === diaFiltro;
-          }
-          if (mesFiltro !== 'todos') {
-            return f.startsWith(mesFiltro);
-          }
-          return true;
-        });
+    // 1. Filtro por categoría (todos / activos / reincidentes / criticos)
+    if (filtro === 'activos') {
+      list = list.filter((s) => s.estaInhabilitado);
+    } else if (filtro === 'reincidentes') {
+      list = list.filter((s) => s.esReincidente);
+    } else if (filtro === 'criticos') {
+      list = list.filter((s) => s.esCritico);
+    }
 
-        if (sancionesEnPeriodo.length === 0) return null;
+    // 2. Filtro de búsqueda por texto (nombre, DNI, teléfono)
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          s.nombreCompleto.toLowerCase().includes(q) ||
+          s.socioDni.includes(q) ||
+          (s.telefono && s.telefono.includes(q))
+      );
+    }
 
-        return {
-          ...socio,
-          sanciones: sancionesEnPeriodo,
-          totalSanciones: sancionesEnPeriodo.length,
-        };
-      })
-      .filter((s): s is SocioSancionado => s !== null);
-  }, [data?.socios, mesFiltro, diaFiltro]);
+    // 3. Filtro temporal (mes y día)
+    if (mesFiltro !== 'todos' || diaFiltro !== 'todos') {
+      list = list
+        .map((socio) => {
+          const sancionesEnPeriodo = socio.sanciones.filter((s) => {
+            const f = s.fechaInicio || (s.createdAt ? s.createdAt.substring(0, 10) : '');
+            if (diaFiltro !== 'todos') {
+              return f === diaFiltro;
+            }
+            if (mesFiltro !== 'todos') {
+              return f.startsWith(mesFiltro);
+            }
+            return true;
+          });
 
-  // Filtrar sanciones recientes según mes y día
+          if (sancionesEnPeriodo.length === 0) return null;
+
+          return {
+            ...socio,
+            sanciones: sancionesEnPeriodo,
+            totalSanciones: sancionesEnPeriodo.length,
+            ultimaSancionFecha: sancionesEnPeriodo[0]?.fechaInicio || socio.ultimaSancionFecha,
+            ultimaSancionMotivo: sancionesEnPeriodo[0]?.motivo || socio.ultimaSancionMotivo,
+          };
+        })
+        .filter((s): s is SocioSancionado => s !== null);
+    }
+
+    return list;
+  }, [data?.socios, filtro, search, mesFiltro, diaFiltro]);
+
+  // Filtrar sanciones recientes según mes, día, búsqueda y estado
   const sancionesRecientesFiltradas = useMemo(() => {
     if (!data?.sancionesRecientes) return [];
-    if (mesFiltro === 'todos' && diaFiltro === 'todos') return data.sancionesRecientes;
+    let list = data.sancionesRecientes;
 
-    return data.sancionesRecientes.filter((s) => {
-      const f = s.fechaInicio || (s.createdAt ? s.createdAt.substring(0, 10) : '');
-      if (diaFiltro !== 'todos') {
-        return f === diaFiltro;
-      }
-      if (mesFiltro !== 'todos') {
-        return f.startsWith(mesFiltro);
-      }
-      return true;
-    });
-  }, [data?.sancionesRecientes, mesFiltro, diaFiltro]);
+    // 1. Filtro temporal (mes y día)
+    if (mesFiltro !== 'todos' || diaFiltro !== 'todos') {
+      list = list.filter((s) => {
+        const f = s.fechaInicio || (s.createdAt ? s.createdAt.substring(0, 10) : '');
+        if (diaFiltro !== 'todos') {
+          return f === diaFiltro;
+        }
+        if (mesFiltro !== 'todos') {
+          return f.startsWith(mesFiltro);
+        }
+        return true;
+      });
+    }
+
+    // 2. Filtro de búsqueda textual
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          s.socioNombre.toLowerCase().includes(q) ||
+          s.socioDni.includes(q) ||
+          s.motivo.toLowerCase().includes(q) ||
+          s.canchaNombre.toLowerCase().includes(q)
+      );
+    }
+
+    // 3. Filtro de inhabilitados activos
+    if (filtro === 'activos') {
+      list = list.filter((s) => s.esVigente);
+    }
+
+    return list;
+  }, [data?.sancionesRecientes, mesFiltro, diaFiltro, search, filtro]);
 
   // Exportar a Excel
   const handleExportExcel = () => {
-    if (!sociosFiltradosPorFecha.length) return;
+    if (!sociosList.length) return;
 
-    const exportRows = sociosFiltradosPorFecha.map((s, index) => ({
+    const exportRows = sociosList.map((s, index) => ({
       '#': index + 1,
       'Apellido y Nombre': s.nombreCompleto,
       'DNI': s.socioDni,
@@ -453,7 +498,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
   };
 
   const kpis = data?.kpis;
-  const sociosList = sociosFiltradosPorFecha;
+  const sociosList = sociosFiltrados;
 
   return (
     <div className="space-y-6">
@@ -526,118 +571,11 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
         </div>
       </div>
 
-      {/* 2. Tarjetas de KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Inhabilitados Hoy */}
-        <Card className="border-rose-500/30 bg-rose-950/10">
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-rose-400">
-              Inhabilitados Hoy
-            </CardTitle>
-            <div className="p-1.5 bg-rose-500/20 text-rose-400 rounded-lg">
-              <ShieldAlert size={16} />
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div>
-                <p className="text-2xl lg:text-3xl font-extrabold text-foreground">
-                  {kpis?.totalInhabilitadosHoy || 0}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Socios con sanción activa ahora
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Reincidentes (2+ faltas) */}
-        <Card className="border-amber-500/30 bg-amber-950/10">
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-amber-400">
-              Reincidentes (2+)
-            </CardTitle>
-            <div className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg">
-              <AlertTriangle size={16} />
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div>
-                <p className="text-2xl lg:text-3xl font-extrabold text-amber-400">
-                  {kpis?.totalReincidentes || 0}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Con 2 o más sanciones históricas
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Casos Críticos (3+ faltas) */}
-        <Card className="border-red-600/40 bg-red-950/20">
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-red-400">
-              Casos Críticos (3+)
-            </CardTitle>
-            <div className="p-1.5 bg-red-500/20 text-red-400 rounded-lg animate-pulse">
-              <Gavel size={16} />
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div>
-                <p className="text-2xl lg:text-3xl font-extrabold text-red-500">
-                  {kpis?.totalCriticos || 0}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Recurrentes para elevar a Comisión
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Total Histórico */}
-        <Card className="border-border">
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Total Histórico
-            </CardTitle>
-            <div className="p-1.5 bg-secondary text-foreground rounded-lg">
-              <Users size={16} />
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div>
-                <p className="text-2xl lg:text-3xl font-extrabold text-foreground">
-                  {kpis?.totalSancionesHistoricas || 0}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  {kpis?.sancionesMesActual || 0} aplicadas este mes
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 3. Barra de Búsqueda, Filtros Temporales (Mes/Día), Categoría y Selector de Vista */}
+      {/* 2. Barra de Búsqueda, Filtros Temporales (Mes/Día), Categoría y Selector de Vista */}
       <div className="space-y-3">
-        {/* Fila 1: Filtros de Fecha (Mes y Día) + Buscador */}
+        {/* Fila 1: Filtros de Fecha (Mes, Día y Calendario) + Buscador */}
         <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 bg-card border border-border p-3 rounded-xl">
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Selector de Mes */}
             <div className="flex items-center gap-1.5 bg-muted/40 border border-border rounded-lg px-2.5 py-1.5">
               <CalendarIcon size={14} className="text-rose-400" />
@@ -645,8 +583,11 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
               <select
                 value={mesFiltro}
                 onChange={(e) => {
-                  setMesFiltro(e.target.value);
-                  setDiaFiltro('todos');
+                  const val = e.target.value;
+                  setMesFiltro(val);
+                  if (val === 'todos' || (diaFiltro !== 'todos' && !diaFiltro.startsWith(val))) {
+                    setDiaFiltro('todos');
+                  }
                 }}
                 className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
               >
@@ -659,13 +600,19 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
               </select>
             </div>
 
-            {/* Selector de Día */}
+            {/* Selector de Día (Días con sanciones) */}
             <div className="flex items-center gap-1.5 bg-muted/40 border border-border rounded-lg px-2.5 py-1.5">
               <Clock size={14} className="text-rose-400" />
               <span className="text-xs font-semibold text-muted-foreground">Día:</span>
               <select
                 value={diaFiltro}
-                onChange={(e) => setDiaFiltro(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDiaFiltro(val);
+                  if (val !== 'todos') {
+                    setMesFiltro(val.substring(0, 7));
+                  }
+                }}
                 className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
               >
                 <option value="todos" className="bg-card text-foreground">Todos los días</option>
@@ -677,6 +624,25 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
               </select>
             </div>
 
+            {/* Selector de fecha puntual tipo calendario */}
+            <div className="flex items-center gap-1 bg-muted/40 border border-border rounded-lg px-2 py-1" title="Elegir una fecha puntual en el calendario">
+              <span className="text-[11px] text-muted-foreground">Fecha:</span>
+              <input
+                type="date"
+                value={diaFiltro !== 'todos' ? diaFiltro : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) {
+                    setDiaFiltro(val);
+                    setMesFiltro(val.substring(0, 7));
+                  } else {
+                    setDiaFiltro('todos');
+                  }
+                }}
+                className="bg-transparent text-xs font-medium text-foreground focus:outline-none cursor-pointer"
+              />
+            </div>
+
             {/* Resetear filtros temporales */}
             {(mesFiltro !== 'todos' || diaFiltro !== 'todos') && (
               <Button
@@ -686,7 +652,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
                   setMesFiltro('todos');
                   setDiaFiltro('todos');
                 }}
-                className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
+                className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/20 h-8 px-2"
               >
                 Limpiar fecha
               </Button>
@@ -715,7 +681,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
               onClick={() => setFiltro('todos')}
               className="text-xs h-9"
             >
-              Todos ({sociosFiltradosPorFecha.length})
+              Todos ({sociosList.length})
             </Button>
 
             <Button
@@ -756,7 +722,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Por Socio ({sociosFiltradosPorFecha.length})
+              Por Socio ({sociosList.length})
             </button>
             <button
               onClick={() => setVista('recientes')}
@@ -1142,6 +1108,38 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
           </div>
         </Card>
       )}
+
+      {/* 5. KPI compacto al pie */}
+      <div className="border border-border rounded-xl bg-card px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground uppercase tracking-wider text-[10px] mr-1">Métricas globales:</span>
+
+        <span className="flex items-center gap-1">
+          <ShieldAlert size={12} className="text-rose-400" />
+          <span className="font-bold text-foreground">{kpis?.totalInhabilitadosHoy ?? 0}</span>
+          <span>inhabilitados hoy</span>
+        </span>
+
+        <span className="flex items-center gap-1">
+          <AlertTriangle size={12} className="text-amber-400" />
+          <span className="font-bold text-amber-400">{kpis?.totalReincidentes ?? 0}</span>
+          <span>reincidentes (2+)</span>
+        </span>
+
+        <span className="flex items-center gap-1">
+          <Gavel size={12} className="text-red-400" />
+          <span className="font-bold text-red-400">{kpis?.totalCriticos ?? 0}</span>
+          <span>críticos (3+)</span>
+        </span>
+
+        <span className="flex items-center gap-1">
+          <Users size={12} className="text-foreground" />
+          <span className="font-bold text-foreground">{kpis?.totalSancionesHistoricas ?? 0}</span>
+          <span>históricas</span>
+          {(kpis?.sancionesMesActual ?? 0) > 0 && (
+            <span className="text-muted-foreground">({kpis?.sancionesMesActual} este mes)</span>
+          )}
+        </span>
+      </div>
 
       {/* 6. Modal para Levantar Sanción */}
       <Dialog open={!!sancionToLevantar} onOpenChange={(open) => { if (!open) setSancionToLevantar(null); }}>

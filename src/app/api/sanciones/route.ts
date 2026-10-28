@@ -25,9 +25,19 @@ export async function GET(request: Request) {
     const search = (searchParams.get('search') || '').toLowerCase().trim();
     const filtro = searchParams.get('filtro') || 'todos'; // 'todos' | 'activos' | 'reincidentes' | 'criticos'
 
+    const toDateStr = (date: Date | string | null | undefined): string => {
+      if (!date) return '';
+      const d = typeof date === 'string' ? new Date(date) : date;
+      if (isNaN(d.getTime())) return '';
+      if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) {
+        return d.toISOString().split('T')[0];
+      }
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(d);
+    };
+
     const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd');
-    const mesActualStr = format(today, 'yyyy-MM');
+    const todayStr = toDateStr(today);
+    const mesActualStr = todayStr.substring(0, 7);
 
     // 1. Obtener todas las penalizaciones con socios y turnos asociados
     const penalizacionesDb = await db.penalizacion.findMany({
@@ -118,10 +128,10 @@ export async function GET(request: Request) {
     for (const p of penalizacionesDb) {
       totalSancionesHistoricas++;
 
-      const pFechaInicio = format(p.fechaInicio, 'yyyy-MM-dd');
-      const pFechaFin = format(p.fechaFin, 'yyyy-MM-dd');
+      const pFechaInicio = toDateStr(p.fechaInicio);
+      const pFechaFin = toDateStr(p.fechaFin);
       const pCreatedIso = p.createdAt.toISOString();
-      const pMes = pCreatedIso.substring(0, 7);
+      const pMes = (pFechaInicio || toDateStr(p.createdAt)).substring(0, 7);
       if (pMes === mesActualStr) {
         sancionesMesActual++;
       }
@@ -140,7 +150,7 @@ export async function GET(request: Request) {
         const horaInicioStr = extractTime(p.turno.horaInicio);
         const horaFinStr = extractTime(p.turno.horaFin);
         formattedTurno = {
-          fecha: format(p.turno.fecha, 'yyyy-MM-dd'),
+          fecha: toDateStr(p.turno.fecha),
           horario: `${horaInicioStr} - ${horaFinStr} hs`,
           canchaNombre: p.turno.cancha?.nombre || `Cancha ${p.turno.canchaId}`,
         };
@@ -253,20 +263,24 @@ export async function GET(request: Request) {
       return b.totalSanciones - a.totalSanciones;
     });
 
-    // 6. Lista plana de las últimas 20 sanciones
-    const sancionesRecientes = penalizacionesDb.slice(0, 20).map((p) => ({
-      id: p.id,
-      socioDni: p.socioDni,
-      socioNombre: p.socio ? `${p.socio.apellido}, ${p.socio.nombre}` : `DNI ${p.socioDni}`,
-      fechaInicio: format(p.fechaInicio, 'yyyy-MM-dd'),
-      fechaFin: format(p.fechaFin, 'yyyy-MM-dd'),
-      motivo: p.motivo,
-      activa: p.activa,
-      esVigente: Boolean(p.activa) && format(p.fechaFin, 'yyyy-MM-dd') >= todayStr,
-      createdAt: p.createdAt.toISOString(),
-      canchaNombre: p.turno?.cancha?.nombre || (p.turno ? `Cancha ${p.turno.canchaId}` : 'Cancha'),
-      horario: p.turno ? `${extractTime(p.turno.horaInicio)} hs` : null,
-    }));
+    // 6. Lista plana de sanciones históricas y recientes
+    const sancionesRecientes = penalizacionesDb.map((p) => {
+      const pFechaInicio = toDateStr(p.fechaInicio);
+      const pFechaFin = toDateStr(p.fechaFin);
+      return {
+        id: p.id,
+        socioDni: p.socioDni,
+        socioNombre: p.socio ? `${p.socio.apellido}, ${p.socio.nombre}` : `DNI ${p.socioDni}`,
+        fechaInicio: pFechaInicio,
+        fechaFin: pFechaFin,
+        motivo: p.motivo,
+        activa: p.activa,
+        esVigente: Boolean(p.activa) && pFechaFin >= todayStr,
+        createdAt: p.createdAt.toISOString(),
+        canchaNombre: p.turno?.cancha?.nombre || (p.turno ? `Cancha ${p.turno.canchaId}` : 'Cancha'),
+        horario: p.turno ? `${extractTime(p.turno.horaInicio)} hs` : null,
+      };
+    });
 
     return NextResponse.json({
       kpis: {
