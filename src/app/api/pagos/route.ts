@@ -292,9 +292,21 @@ export async function GET(request: Request) {
       }
     }
 
+    // Normalizar pagos de cuota asegurando fechas en formato ISO string
+    const pagosAdaptados = pagos.map(p => ({
+      ...p,
+      tipo: 'cuota',
+      concepto: `Cuota ${p.mesPagado}`,
+      fechaRegistro: p.fechaRegistro instanceof Date ? p.fechaRegistro.toISOString() : (p.fechaRegistro ? String(p.fechaRegistro) : new Date().toISOString()),
+    }));
+
     // Combinar pagos realizados, conceptos y cuotas pendientes, y ordenar cronológicamente
-    const historialUnificado = [...pagos, ...pagosConceptosAdaptados, ...pendientesAdaptadas].sort((a, b) => {
-      return (b.fechaRegistro || b.mesPagado).localeCompare(a.fechaRegistro || a.mesPagado);
+    const historialUnificado = [...pagosAdaptados, ...pagosConceptosAdaptados, ...pendientesAdaptadas].sort((a, b) => {
+      const mesDiff = (b.mesPagado || '').localeCompare(a.mesPagado || '');
+      if (mesDiff !== 0) return mesDiff;
+      const bDate = b.fechaRegistro || '';
+      const aDate = a.fechaRegistro || '';
+      return bDate.localeCompare(aDate);
     });
 
     return NextResponse.json(historialUnificado);

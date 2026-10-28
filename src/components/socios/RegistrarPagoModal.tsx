@@ -71,8 +71,8 @@ export default function RegistrarPagoModal({
         // Filtrar solo los que vienen de la tabla cuotas (metodoPago === 'pendiente')
         const itemsPendientes = data.filter((item: any) => item.metodoPago === 'pendiente');
         setPendientes(itemsPendientes);
-        // Encontrar el último mes pagado para sugerir el siguiente
-        const itemsPagados = data.filter((item: any) => item.metodoPago !== 'pendiente');
+        // Encontrar el último mes pagado de cuotas para sugerir el siguiente
+        const itemsPagados = data.filter((item: any) => item.metodoPago !== 'pendiente' && (!item.tipo || item.tipo === 'cuota'));
         if (itemsPagados.length > 0) {
           // data viene ordenado desc por mesPagado
           const lastPaidMes = itemsPagados[0].mesPagado;

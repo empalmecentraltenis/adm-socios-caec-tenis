@@ -152,7 +152,9 @@ export default function HistorialPagosModal({ open, onOpenChange, socio }: Histo
                     </div>
                     <div>
                       <p className={`text-sm font-medium ${pago.metodoPago === 'pendiente' ? 'text-red-400' : 'text-white'}`}>
-                        {pago.concepto || `Cuota ${formatMes(pago.mesPagado)}`}
+                        {pago.tipo === 'luz' || pago.tipo === 'invitado_extra'
+                          ? pago.concepto
+                          : `Cuota ${formatMes(pago.mesPagado)}`}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className={`text-[11px] ${getMetodoColor(pago.metodoPago)}`}>
