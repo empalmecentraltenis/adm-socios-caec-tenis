@@ -183,8 +183,8 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
       color: 'text-amber-400',
       bgColor: 'bg-amber-400/10',
       borderColor: 'border-amber-400/30',
-      badge: 'Cobro de Cuotas',
-      descripcion: 'Mostrador ágil para cobrar cuotas sociales, buscar socios por DNI y ver arqueo/caja del día. Sin login ni PIN.',
+      badge: 'Cuotas, Luz e Invitados',
+      descripcion: 'Mostrador ágil para cobrar cuotas sociales, turnos nocturnos con luz y cargos de invitados extras en el año. Incluye arqueo de caja y reportes de deudores. Sin login ni PIN.',
     },
     {
       key: 'porteria',

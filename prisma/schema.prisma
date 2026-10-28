@@ -60,6 +60,7 @@ model Socio {
   cuotas       Cuota[]
   asistencias  AsistenciaClase[]
   penalizaciones Penalizacion[]
+  pagosConcepto  PagoConcepto[]
   datos_confirmados Boolean? @default(false)
 
   @@map("socios")
@@ -88,6 +89,7 @@ model Turno {
   
   listaEspera   ListaEspera[]
   penalizaciones Penalizacion[]
+  pagosConcepto  PagoConcepto[]
   cancha        Cancha        @relation(fields: [canchaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   socio         Socio?        @relation(fields: [socioDni], references: [dni], onDelete: NoAction, onUpdate: NoAction)
 
@@ -224,3 +226,25 @@ model Penalizacion {
   @@map("penalizaciones")
 }
 
+model PagoConcepto {
+  id            String   @id @default(cuid())
+  socioId       String   @db.Uuid @map("socio_id")
+  socioDni      String   @map("socio_dni")
+  tipo          String   // 'luz' | 'invitado_extra' | 'cuota'
+  concepto      String
+  turnoId       String?  @db.Uuid @map("turno_id")
+  monto         Float
+  metodoPago    String   @default("efectivo") @map("metodo_pago")
+  fechaRegistro DateTime @default(now()) @map("fecha_registro") @db.Timestamptz(6)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  socio Socio  @relation(fields: [socioId], references: [id], onDelete: Cascade)
+  turno Turno? @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+
+  @@index([socioId])
+  @@index([socioDni])
+  @@index([tipo])
+  @@index([turnoId])
+  @@map("pago_conceptos")
+}
