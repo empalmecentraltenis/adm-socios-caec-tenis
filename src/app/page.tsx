@@ -3,20 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Sidebar from '@/components/layout/Sidebar';
-import KpiCards from '@/components/dashboard/KpiCards';
-import RecaudacionChart from '@/components/dashboard/RecaudacionChart';
-import CrecimientoChart from '@/components/dashboard/CrecimientoChart';
-import MorososCriticos from '@/components/dashboard/MorososCriticos';
-import DistribucionCategorias from '@/components/dashboard/DistribucionCategorias';
-import IngresosPorCategoria from '@/components/dashboard/IngresosPorCategoria';
-import PagosPorMes from '@/components/dashboard/PagosPorMes';
-import ActividadLog from '@/components/actividad/ActividadLog';
 import SociosTable from '@/components/socios/SociosTable';
 import RegistrarPagoModal from '@/components/socios/RegistrarPagoModal';
 import HistorialPagosModal from '@/components/socios/HistorialPagosModal';
 import PagoMasivoModal from '@/components/socios/PagoMasivoModal';
 import AbmSocioModal from '@/components/socios/AbmSocioModal';
-import ReportesTable from '@/components/reportes/ReportesTable';
 import ConfiguracionPanel from '@/components/configuracion/ConfiguracionPanel';
 import BalanceMensual from '@/components/balance/BalanceMensual';
 import InversionesPanel from '@/components/inversiones/InversionesPanel';
@@ -28,27 +19,7 @@ import SancionesPanel from '@/components/sanciones/SancionesPanel';
 import GestionTurnosPanel from '@/components/turnos/GestionTurnosPanel';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'dashboard' | 'socios' | 'gestion-turnos' | 'luz' | 'invitados' | 'sanciones' | 'reportes' | 'configuracion' | 'balance' | 'inversiones' | 'profe' | 'asistencias';
-
-interface DashboardData {
-  kpis: {
-    totalActivos: number;
-    totalInactivos: number;
-    totalGeneral: number;
-    sociosAlDia: number;
-    sociosDeudores: number;
-    ingresosMes: number;
-    deudaTotalEstimada: number;
-    turnosSociosMes?: number;
-    turnosProfeMes?: number;
-  };
-  recaudacionMensual: { mes: string; total: number }[];
-  crecimientoMensual: { mes: string; total: number }[];
-  morosos: { id: string; nombre: string; apellido: string; mesesAdeudados: number }[];
-  distribucionCategorias: { categoria: string; cantidad: number; cuota: number; color: string }[];
-  ingresosPorCategoria: { categoria: string; total: number }[];
-  ultimasActividades: { id: string; accion: string; detalle: string; createdAt: string }[];
-}
+type TabType = 'socios' | 'gestion-turnos' | 'luz' | 'invitados' | 'sanciones' | 'configuracion' | 'balance' | 'inversiones' | 'profe' | 'asistencias';
 
 interface SocioFull {
   id: string;
@@ -72,8 +43,6 @@ export default function Home() {
   const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<TabType>('socios');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [dashLoading, setDashLoading] = useState(true);
   const [sociosData, setSociosData] = useState<SocioFull[]>([]);
   const [sociosRefreshKey, setSociosRefreshKey] = useState(0);
 
@@ -88,22 +57,6 @@ export default function Home() {
 
   const isReadOnly = session?.user && (session.user as any).role === 'viewer';
 
-  // Fetch dashboard data
-  const fetchDashboard = useCallback(async () => {
-    setDashLoading(true);
-    try {
-      const res = await fetch('/api/dashboard');
-      if (res.ok) {
-        const data = await res.json();
-        setDashboardData(data);
-      }
-    } catch (error) {
-      console.error('Error al cargar dashboard:', error);
-    } finally {
-      setDashLoading(false);
-    }
-  }, []);
-
   // Fetch socios for table
   const fetchSocios = useCallback(async () => {
     try {
@@ -116,12 +69,6 @@ export default function Home() {
       console.error('Error al cargar socios:', error);
     }
   }, []);
-
-  useEffect(() => {
-    if (activeTab === 'dashboard' && status === 'authenticated') {
-      fetchDashboard();
-    }
-  }, [activeTab, fetchDashboard, status]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -151,17 +98,14 @@ export default function Home() {
 
   function handleSocioRefresh() {
     setSociosRefreshKey((prev) => prev + 1);
-    if (activeTab === 'dashboard') fetchDashboard();
   }
 
   const pageTitles: Record<TabType, { title: string; subtitle: string }> = {
-    dashboard: { title: 'Dashboard', subtitle: 'Vista general del club' },
-    socios: { title: 'Socios / Pagos', subtitle: 'Gestión de socios y registro de pagos' },
+    socios: { title: 'Socios', subtitle: 'Padrón de socios, estado de cuenta y registro de pagos' },
     'gestion-turnos': { title: 'Gestión Turnos', subtitle: 'Estadísticas de uso de canchas, rankings y control de invitados' },
     luz: { title: 'Turnos con Luz', subtitle: 'Control y liquidación de uso de luz para Socios y Profesor' },
     invitados: { title: 'Control de Invitados', subtitle: 'Cupos anuales bonificados y facturación de invitados extras' },
     sanciones: { title: 'Control de Sanciones / QR', subtitle: 'Historial de infracciones, socios inhabilitados y reincidentes' },
-    reportes: { title: 'Reportes', subtitle: 'Reporte de morosidad y financieros' },
     configuracion: { title: 'Configuración', subtitle: 'Valores de cuota y categorías' },
     balance: { title: 'Balance Mensual', subtitle: 'Caja de la sub-comisión de tenis' },
     inversiones: { title: 'Inversiones y Ahorros', subtitle: 'Resumen de capital en plazos fijos y dólares' },
@@ -199,21 +143,6 @@ export default function Home() {
             )}
           </div>
 
-          {/* Dashboard Tab */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-5">
-              <KpiCards data={dashboardData?.kpis ?? null} loading={dashLoading} />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <MorososCriticos data={dashboardData?.morosos ?? null} loading={dashLoading} />
-                <PagosPorMes />
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <CrecimientoChart data={dashboardData?.crecimientoMensual ?? null} loading={dashLoading} />
-                <RecaudacionChart data={dashboardData?.recaudacionMensual ?? null} loading={dashLoading} />
-              </div>
-            </div>
-          )}
-
           {/* Socios Tab */}
           {activeTab === 'socios' && (
             <SociosTable
@@ -240,9 +169,6 @@ export default function Home() {
 
           {/* Sanciones Tab */}
           {activeTab === 'sanciones' && <SancionesPanel readOnly={isReadOnly} />}
-
-          {/* Reportes Tab */}
-          {activeTab === 'reportes' && <ReportesTable />}
 
           {/* Clases Profesor Tab */}
           {activeTab === 'profe' && <ClasesProfesorPanel readOnly={isReadOnly} />}

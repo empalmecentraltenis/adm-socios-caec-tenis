@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Pencil, Trash2, ChevronUp, ChevronDown, DollarSign, History, Users, Phone, Mail, UserCheck, Loader2, MessageCircle, AlertTriangle, FileDown } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, ChevronUp, ChevronDown, DollarSign, History, Users, Phone, Mail, UserCheck, Loader2, MessageCircle, AlertTriangle, FileDown, CheckCircle, UserX } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -352,6 +352,50 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
 
   return (
     <>
+      {/* TARJETAS DE TOTALES Y ESTADÍSTICAS DE SOCIOS */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3.5 flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Activos</p>
+            <p className="text-xl font-black text-foreground mt-0.5">{activosCount.toLocaleString('es-AR')}</p>
+          </div>
+        </div>
+
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3.5 flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <CheckCircle className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Al Día</p>
+            <p className="text-xl font-black text-emerald-400 mt-0.5">{alDiaCount.toLocaleString('es-AR')}</p>
+          </div>
+        </div>
+
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3.5 flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Deudores</p>
+            <p className="text-xl font-black text-destructive mt-0.5">{deudoresCount.toLocaleString('es-AR')}</p>
+          </div>
+        </div>
+
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-3.5 flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-[#2A2A2A] text-zinc-400">
+            <UserX className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total General</p>
+            <p className="text-xl font-black text-foreground mt-0.5">{socios.length.toLocaleString('es-AR')}</p>
+            <span className="text-[10px] text-zinc-500">({inactivosCount} inactivos)</span>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-[#1E1E1E] border border-[#333333] rounded-lg p-4">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">

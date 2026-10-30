@@ -12,15 +12,13 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { id: 'socios', label: 'Socios / Pagos', icon: Users },
+  { id: 'socios', label: 'Socios', icon: Users },
   { id: 'gestion-turnos', label: 'Gestion Turnos', icon: CalendarDays },
   { id: 'luz', label: 'Turnos con Luz', icon: Zap },
   { id: 'invitados', label: 'Invitados', icon: UserPlus },
   { id: 'sanciones', label: 'Sanciones / QR', icon: ShieldAlert },
   { id: 'balance', label: 'Balance Mensual', icon: Wallet },
   { id: 'inversiones', label: 'Inversiones y Ahorros', icon: Landmark },
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'reportes', label: 'Deudores', icon: FileText },
   { id: 'profe', label: 'Clases Profesor', icon: GraduationCap },
   { id: 'asistencias', label: 'Asistencia Alumnos', icon: CheckSquare },
   { id: 'configuracion', label: 'Configuración', icon: Settings },
