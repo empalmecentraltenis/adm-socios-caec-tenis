@@ -70,6 +70,16 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    // Helper para verificar turnos finalizados
+    const extractDateStr = (dateObj: Date | string): string => {
+      try {
+        if (dateObj instanceof Date) return dateObj.toISOString().split('T')[0];
+        return String(dateObj).split('T')[0];
+      } catch {
+        return '';
+      }
+    };
+
     // Helper para extraer hora limpia
     const extractHourStr = (dateObj: Date | string): string => {
       try {
@@ -80,6 +90,14 @@ export async function GET(request: Request) {
       } catch {
         return '12:00';
       }
+    };
+
+    const esTurnoFinalizado = (fechaVal: Date | string, horaFinVal: Date | string): boolean => {
+      const fStr = extractDateStr(fechaVal);
+      const hFinStr = extractHourStr(horaFinVal);
+      if (fStr < todayArgStr) return true;
+      if (fStr > todayArgStr) return false;
+      return hFinStr <= currentHourArg;
     };
 
     // Helper para detectar si el turno corresponde al profesor o alumnos de escuela
@@ -196,6 +214,9 @@ export async function GET(request: Request) {
     const conteoInvitadoPorSocio: Record<string, number> = {};
 
     for (const t of turnosDelAnio) {
+      // El gasto/consumo de invitados se contabiliza cuando el turno ya terminó
+      if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
+
       const esConInvitado =
         (t.acompanante && t.acompanante.toLowerCase().includes('especial')) ||
         (t.participantesDnis && t.participantesDnis.includes('123987456'));

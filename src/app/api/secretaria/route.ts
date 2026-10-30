@@ -43,15 +43,29 @@ const extractDate = (dateObj: Date | string): string => {
 };
 
 // GET /api/secretaria - Obtener socios para mostrador con cuotas, turnos con luz e invitados
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const fechaDesdeParam = searchParams.get('desde');
+    const fechaHastaParam = searchParams.get('hasta');
+
     // Hora local en Argentina
     const nowArg = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
     const hoyStr = format(nowArg, 'yyyy-MM-dd');
+    const horaActualStr = format(nowArg, 'HH:mm');
     const mesActual = format(nowArg, 'yyyy-MM');
     const anioActual = nowArg.getFullYear();
     const startOfYear = new Date(`${anioActual}-01-01T00:00:00.000Z`);
     const endOfYear = new Date(`${anioActual}-12-31T23:59:59.999Z`);
+
+    // Helper para determinar si un turno ya terminó (la deuda se devenga recién al finalizar el turno)
+    const esTurnoFinalizado = (fechaVal: Date | string, horaFinVal: Date | string): boolean => {
+      const fStr = extractDate(fechaVal);
+      const hFinStr = extractTime(horaFinVal);
+      if (fStr < hoyStr) return true;
+      if (fStr > hoyStr) return false;
+      return hFinStr <= horaActualStr;
+    };
 
     // 1. Configuraciones
     const configuraciones = await db.configuracion.findMany();
@@ -147,6 +161,8 @@ export async function GET() {
 
     for (const t of turnosAnioDb) {
       if (t.estado !== 'ocupado') continue;
+      // La deuda por luz solo se genera cuando el turno ya terminó
+      if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
       const horaStr = extractTime(t.horaInicio);
       if (horaStr < '19:00') continue;
 
@@ -219,6 +235,9 @@ export async function GET() {
     }>>();
 
     for (const t of turnosAnioDb) {
+      if (t.estado !== 'ocupado') continue;
+      // El cargo/consumo de invitados se genera cuando el turno ya terminó
+      if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
       const titularDni = t.socioDni;
       if (!titularDni) continue;
 
@@ -393,16 +412,19 @@ export async function GET() {
       };
     });
 
-    // 6. Pagos cobrados en el día de hoy (Caja de mostrador)
-    const inicioDeHoy = new Date(`${hoyStr}T00:00:00.000-03:00`);
-    const finDeHoy = new Date(`${hoyStr}T23:59:59.999-03:00`);
+    // 6. Pagos cobrados en el rango seleccionado (Caja y rendición de mostrador)
+    const fechaDesdeFiltro = fechaDesdeParam || hoyStr;
+    const fechaHastaFiltro = fechaHastaParam || fechaDesdeFiltro;
+
+    const inicioRango = new Date(`${fechaDesdeFiltro}T00:00:00.000-03:00`);
+    const finRango = new Date(`${fechaHastaFiltro}T23:59:59.999-03:00`);
 
     const [pagosHoyCuotasDb, pagosHoyConceptosDb] = await Promise.all([
       db.pagoCuota.findMany({
         where: {
           fechaRegistro: {
-            gte: inicioDeHoy,
-            lte: finDeHoy,
+            gte: inicioRango,
+            lte: finRango,
           },
         },
         include: {
@@ -415,8 +437,8 @@ export async function GET() {
       db.pagoConcepto.findMany({
         where: {
           fechaRegistro: {
-            gte: inicioDeHoy,
-            lte: finDeHoy,
+            gte: inicioRango,
+            lte: finRango,
           },
         },
         include: {
@@ -498,6 +520,8 @@ export async function GET() {
     return NextResponse.json({
       mesActual,
       fechaHoy: hoyStr,
+      filtroDesde: fechaDesdeFiltro,
+      filtroHasta: fechaHastaFiltro,
       anioActual,
       tarifas: {
         cuotas: {

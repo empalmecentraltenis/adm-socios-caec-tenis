@@ -153,6 +153,19 @@ export async function GET(request: Request) {
       }
     };
 
+    // Hora local en Argentina para verificar si el turno ya terminó
+    const nowArg = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
+    const hoyStr = `${nowArg.getFullYear()}-${String(nowArg.getMonth() + 1).padStart(2, '0')}-${String(nowArg.getDate()).padStart(2, '0')}`;
+    const horaActualStr = `${String(nowArg.getHours()).padStart(2, '0')}:${String(nowArg.getMinutes()).padStart(2, '0')}`;
+
+    const esTurnoFinalizado = (fechaVal: Date | string, horaFinVal: Date | string): boolean => {
+      const fStr = extractDate(fechaVal);
+      const hFinStr = extractTime(horaFinVal);
+      if (fStr < hoyStr) return true;
+      if (fStr > hoyStr) return false;
+      return hFinStr <= horaActualStr;
+    };
+
     // 4. Filtrar y procesar turnos nocturnos (>= 19:00 hs)
     const turnosSocios: any[] = [];
     const turnosProfesor: any[] = [];
@@ -177,6 +190,9 @@ export async function GET(request: Request) {
     }>();
 
     for (const t of turnosDb) {
+      // El cargo por luz solo se genera cuando el turno ya terminó
+      if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
+
       const horaStr = extractTime(t.horaInicio);
       const horaFinStr = extractTime(t.horaFin);
 

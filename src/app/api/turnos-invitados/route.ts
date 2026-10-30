@@ -127,6 +127,11 @@ export async function GET(request: Request) {
       }),
     ]);
 
+    // Hora local en Argentina para verificar si el turno ya terminó
+    const nowArg = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
+    const hoyStr = `${nowArg.getFullYear()}-${String(nowArg.getMonth() + 1).padStart(2, '0')}-${String(nowArg.getDate()).padStart(2, '0')}`;
+    const horaActualStr = `${String(nowArg.getHours()).padStart(2, '0')}:${String(nowArg.getMinutes()).padStart(2, '0')}`;
+
     const extractTime = (dateObj: Date | string): string => {
       try {
         if (dateObj instanceof Date) {
@@ -149,6 +154,14 @@ export async function GET(request: Request) {
       } catch {
         return '';
       }
+    };
+
+    const esTurnoFinalizado = (fechaVal: Date | string, horaFinVal: Date | string): boolean => {
+      const fStr = extractDate(fechaVal);
+      const hFinStr = extractTime(horaFinVal);
+      if (fStr < hoyStr) return true;
+      if (fStr > hoyStr) return false;
+      return hFinStr <= horaActualStr;
     };
 
     // Indexar pagos de invitados por socio
@@ -259,6 +272,9 @@ export async function GET(request: Request) {
         }
 
         if (invitadosEnTurno === 0) continue;
+
+        // La deuda y cómputo de invitados se genera recién cuando el turno finaliza
+        if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
 
         // Determinar modalidad
         let modalidad = 'Single';

@@ -183,6 +183,12 @@ export default function SecretariaPage() {
   const [fechaHoy, setFechaHoy] = useState<string>('');
   const [anioActual, setAnioActual] = useState<number>(2026);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingCaja, setLoadingCaja] = useState<boolean>(false);
+
+  // Filtros de fecha de Caja / Rendición
+  const [modoPeriodoCaja, setModoPeriodoCaja] = useState<'hoy' | 'ayer' | 'mes' | 'personalizado'>('hoy');
+  const [cajaFechaDesde, setCajaFechaDesde] = useState<string>('');
+  const [cajaFechaHasta, setCajaFechaHasta] = useState<string>('');
 
   // Buscador y Selección de Socio en Mostrador
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -209,11 +215,18 @@ export default function SecretariaPage() {
   const [searchPadron, setSearchPadron] = useState<string>('');
   const [searchDeudoresLuz, setSearchDeudoresLuz] = useState<string>('');
 
-  // Cargar datos de secretaría
-  const fetchData = useCallback(async () => {
+  // Cargar datos de secretaría (padrón + caja según rango)
+  const fetchData = useCallback(async (customDesde?: string, customHasta?: string) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/secretaria');
+      let url = '/api/secretaria';
+      const params = new URLSearchParams();
+      if (customDesde) params.append('desde', customDesde);
+      if (customHasta) params.append('hasta', customHasta);
+      const q = params.toString();
+      if (q) url += `?${q}`;
+
+      const res = await fetch(url);
       if (res.ok) {
         const json = await res.json();
         setSocios(json.socios || []);
@@ -229,6 +242,10 @@ export default function SecretariaPage() {
         });
         setMesActual(json.mesActual || '');
         setFechaHoy(json.fechaHoy || '');
+        if (!cajaFechaDesde && json.fechaHoy) {
+          setCajaFechaDesde(json.fechaHoy);
+          setCajaFechaHasta(json.fechaHoy);
+        }
         setAnioActual(json.anioActual || 2026);
       } else {
         toast({
@@ -242,7 +259,69 @@ export default function SecretariaPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [cajaFechaDesde, toast]);
+
+  // Cambiar período de caja específicamente
+  const cambiarPeriodoCaja = async (modo: 'hoy' | 'ayer' | 'mes' | 'personalizado', dDesde?: string, dHasta?: string) => {
+    setModoPeriodoCaja(modo);
+    setLoadingCaja(true);
+
+    try {
+      let desde = '';
+      let hasta = '';
+
+      const baseHoy = fechaHoy ? new Date(`${fechaHoy}T12:00:00`) : new Date();
+
+      if (modo === 'hoy') {
+        const str = fechaHoy || new Date().toISOString().split('T')[0];
+        desde = str;
+        hasta = str;
+      } else if (modo === 'ayer') {
+        const ayer = new Date(baseHoy);
+        ayer.setDate(ayer.getDate() - 1);
+        const y = ayer.getFullYear();
+        const m = String(ayer.getMonth() + 1).padStart(2, '0');
+        const d = String(ayer.getDate()).padStart(2, '0');
+        const ayerStr = `${y}-${m}-${d}`;
+        desde = ayerStr;
+        hasta = ayerStr;
+      } else if (modo === 'mes') {
+        const y = baseHoy.getFullYear();
+        const m = String(baseHoy.getMonth() + 1).padStart(2, '0');
+        desde = `${y}-${m}-01`;
+        hasta = fechaHoy || `${y}-${m}-${new Date(y, baseHoy.getMonth() + 1, 0).getDate()}`;
+      } else if (modo === 'personalizado') {
+        desde = dDesde || cajaFechaDesde;
+        hasta = dHasta || cajaFechaHasta || desde;
+      }
+
+      setCajaFechaDesde(desde);
+      setCajaFechaHasta(hasta);
+
+      const params = new URLSearchParams();
+      if (desde) params.append('desde', desde);
+      if (hasta) params.append('hasta', hasta);
+
+      const res = await fetch(`/api/secretaria?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setPagosHoy(json.pagosHoy || []);
+        setResumenHoy(json.resumenHoy || {
+          totalRecaudado: 0,
+          totalEfectivo: 0,
+          totalTransferencia: 0,
+          totalCuotas: 0,
+          totalLuz: 0,
+          totalInvitados: 0,
+          cantidadCobros: 0,
+        });
+      }
+    } catch (e) {
+      console.error('Error al actualizar caja por período:', e);
+    } finally {
+      setLoadingCaja(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -503,7 +582,7 @@ export default function SecretariaPage() {
       Fecha: '',
       Tipo: 'TOTALES',
       Concepto: `${pagosHoy.length} cobros realizados`,
-      Socio: 'TOTAL DEL DÍA',
+      Socio: `PERÍODO: ${cajaFechaDesde || fechaHoy}${cajaFechaHasta && cajaFechaHasta !== cajaFechaDesde ? ` al ${cajaFechaHasta}` : ''}`,
       DNI: '',
       Categoría: '',
       Detalle: `Cuotas: $${resumenHoy.totalCuotas} | Luz: $${resumenHoy.totalLuz} | Invitados: $${resumenHoy.totalInvitados}`,
@@ -511,10 +590,17 @@ export default function SecretariaPage() {
       'Método de Pago': `Efectivo: $${resumenHoy.totalEfectivo} | Transferencia: $${resumenHoy.totalTransferencia}`,
     });
 
+    const nombreArchivo =
+      modoPeriodoCaja === 'ayer'
+        ? `Cierre_Secretaria_CAEC_Ayer_${cajaFechaDesde}.xlsx`
+        : modoPeriodoCaja === 'mes'
+        ? `Rendicion_Secretaria_CAEC_Mes_${mesActual}.xlsx`
+        : `Cierre_Secretaria_CAEC_${cajaFechaDesde || fechaHoy || 'Hoy'}.xlsx`;
+
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Cierre Secretaría');
-    XLSX.writeFile(wb, `Cierre_Secretaria_CAEC_${fechaHoy || 'Hoy'}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, 'Rendición Secretaría');
+    XLSX.writeFile(wb, nombreArchivo);
   };
 
   // Socios con deuda de Luz o Adicionales (Pestaña 2)
@@ -1294,13 +1380,114 @@ export default function SecretariaPage() {
             )}
           </div>
 
-          {/* COLUMNA DERECHA (5 cols): CIERRE DE CAJA DEL DÍA */}
-          <div className="lg:col-span-5 space-y-5">
+          {/* COLUMNA DERECHA (5 cols): CIERRE DE CAJA Y RENDICIÓN */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* SELECTOR DE PERÍODO / RENDICIÓN */}
+            <div className="bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Rendición de Caja</span>
+                </span>
+                {loadingCaja && (
+                  <span className="flex items-center gap-1 text-[11px] text-amber-400">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Actualizando...
+                  </span>
+                )}
+              </div>
+
+              {/* BOTONES RÁPIDOS */}
+              <div className="grid grid-cols-4 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => cambiarPeriodoCaja('hoy')}
+                  className={`py-1 px-2 rounded-lg text-xs font-bold transition-colors ${
+                    modoPeriodoCaja === 'hoy'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                  }`}
+                >
+                  Hoy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cambiarPeriodoCaja('ayer')}
+                  className={`py-1 px-2 rounded-lg text-xs font-bold transition-colors ${
+                    modoPeriodoCaja === 'ayer'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                  }`}
+                >
+                  Ayer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cambiarPeriodoCaja('mes')}
+                  className={`py-1 px-2 rounded-lg text-xs font-bold transition-colors ${
+                    modoPeriodoCaja === 'mes'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                  }`}
+                >
+                  Este Mes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoPeriodoCaja('personalizado')}
+                  className={`py-1 px-2 rounded-lg text-xs font-bold transition-colors ${
+                    modoPeriodoCaja === 'personalizado'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                  }`}
+                >
+                  Fechas
+                </button>
+              </div>
+
+              {/* SELECTOR DE FECHAS PERSONALIZADO */}
+              {modoPeriodoCaja === 'personalizado' && (
+                <div className="pt-2 border-t border-[#2A2A2A] flex items-center gap-2">
+                  <div className="flex-1">
+                    <span className="text-[10px] text-[#888] block mb-0.5">Desde</span>
+                    <Input
+                      type="date"
+                      value={cajaFechaDesde}
+                      onChange={(e) => setCajaFechaDesde(e.target.value)}
+                      className="h-7 text-xs bg-[#242424] border-[#383838] text-white p-1"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[10px] text-[#888] block mb-0.5">Hasta</span>
+                    <Input
+                      type="date"
+                      value={cajaFechaHasta}
+                      onChange={(e) => setCajaFechaHasta(e.target.value)}
+                      className="h-7 text-xs bg-[#242424] border-[#383838] text-white p-1"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => cambiarPeriodoCaja('personalizado', cajaFechaDesde, cajaFechaHasta)}
+                    className="h-7 px-2.5 mt-3.5 bg-amber-400 text-black hover:bg-amber-500 font-bold text-xs"
+                  >
+                    Filtrar
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* TARJETAS DE TOTALES DE CAJA */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl p-3.5">
                 <span className="text-[10px] text-[#888888] font-bold uppercase tracking-wider block">
-                  Total Cobrado Hoy
+                  {modoPeriodoCaja === 'hoy'
+                    ? 'Total Cobrado Hoy'
+                    : modoPeriodoCaja === 'ayer'
+                    ? 'Total Cobrado Ayer'
+                    : modoPeriodoCaja === 'mes'
+                    ? 'Total Cobrado Este Mes'
+                    : 'Total Recaudado'}
                 </span>
                 <span className="text-xl font-black text-white mt-1 block">
                   ${resumenHoy.totalRecaudado.toLocaleString('es-AR')}
@@ -1328,14 +1515,19 @@ export default function SecretariaPage() {
                   <span className="text-lg font-black text-blue-400 mt-0.5 block">
                     ${resumenHoy.totalTransferencia.toLocaleString('es-AR')}
                   </span>
+                  <div className="text-[10px] text-[#777] mt-1 space-x-2">
+                    <span>Cuotas: ${resumenHoy.totalCuotas.toLocaleString('es-AR')}</span>
+                    <span>• Luz: ${resumenHoy.totalLuz.toLocaleString('es-AR')}</span>
+                    <span>• Invitados: ${resumenHoy.totalInvitados.toLocaleString('es-AR')}</span>
+                  </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleExportExcelCierre}
                   disabled={pagosHoy.length === 0}
-                  className="bg-[#242424] border-[#383838] text-white hover:bg-emerald-600 hover:text-white hover:border-emerald-500 text-xs h-8 gap-1.5 transition-colors"
-                  title="Exportar planilla de cobros de hoy"
+                  className="bg-[#242424] border-[#383838] text-white hover:bg-emerald-600 hover:text-white hover:border-emerald-500 text-xs h-8 gap-1.5 transition-colors shrink-0"
+                  title="Exportar planilla de rendición del período seleccionado"
                 >
                   <FileDown className="h-3.5 w-3.5" />
                   <span>Planilla Cierre</span>
@@ -1343,21 +1535,32 @@ export default function SecretariaPage() {
               </div>
             </div>
 
-            {/* LISTADO DE COBROS REALIZADOS HOY */}
+            {/* LISTADO DE COBROS REALIZADOS EN EL PERÍODO */}
             <Card className="bg-[#1C1C1C] border-[#2E2E2E]">
               <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                 <div>
                   <CardTitle className="text-sm font-bold text-white flex items-center gap-1.5">
                     <Clock className="h-4 w-4 text-amber-400" />
-                    <span>Cobros Realizados Hoy ({pagosHoy.length})</span>
+                    <span>
+                      {modoPeriodoCaja === 'hoy'
+                        ? 'Cobros de Hoy'
+                        : modoPeriodoCaja === 'ayer'
+                        ? 'Cobros de Ayer'
+                        : modoPeriodoCaja === 'mes'
+                        ? 'Cobros del Mes'
+                        : 'Cobros del Período'}{' '}
+                      ({pagosHoy.length})
+                    </span>
                   </CardTitle>
                   <CardDescription className="text-xs text-[#888888]">
-                    Historial de cobros asentados en esta jornada
+                    {cajaFechaDesde === cajaFechaHasta || !cajaFechaHasta
+                      ? `Fecha: ${cajaFechaDesde || fechaHoy || 'Hoy'}`
+                      : `Desde ${cajaFechaDesde} hasta ${cajaFechaHasta}`}
                   </CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                {loading ? (
+                {loading || loadingCaja ? (
                   <div className="p-4 space-y-2">
                     <div className="h-10 bg-[#242424] rounded-lg animate-pulse" />
                     <div className="h-10 bg-[#242424] rounded-lg animate-pulse" />
@@ -1365,7 +1568,7 @@ export default function SecretariaPage() {
                 ) : pagosHoy.length === 0 ? (
                   <div className="p-8 text-center text-xs text-[#777777] space-y-1">
                     <Clock className="h-6 w-6 mx-auto opacity-40 text-amber-400" />
-                    <p>Aún no se registraron cobros en el día de hoy.</p>
+                    <p>No se registraron cobros en el período seleccionado.</p>
                   </div>
                 ) : (
                   <div className="max-h-96 overflow-y-auto divide-y divide-[#2B2B2B]">
