@@ -248,3 +248,18 @@ model PagoConcepto {
   @@index([turnoId])
   @@map("pago_conceptos")
 }
+
+model ConfiguracionClub {
+  id                         String    @id
+  validacionQrActiva         Boolean   @default(false) @map("validacion_qr_activa")
+  diasAnticipacion           Int       @default(2) @map("dias_anticipacion")
+  toleranciaMinutos          Int       @default(20) @map("tolerancia_minutos")
+  penalizacionDias           Int       @default(7) @map("penalizacion_dias")
+  updatedAt                  DateTime? @map("updated_at") @db.Timestamptz(6)
+  mostrarAvisoQr             Boolean   @default(true) @map("mostrar_aviso_qr")
+  climaInestable             Boolean   @default(false) @map("clima_inestable")
+  sancionesCancelacionActiva Boolean   @default(true) @map("sanciones_cancelacion_activa")
+
+  @@map("configuracion_club")
+}
+

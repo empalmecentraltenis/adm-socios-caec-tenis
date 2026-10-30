@@ -282,7 +282,27 @@ export async function GET(request: Request) {
       };
     });
 
+    // 3. Obtener configuración del club (QR y cancelación tardía)
+    let configClub = {
+      validacionQrActiva: false,
+      sancionesCancelacionActiva: true,
+      climaInestable: false,
+    };
+    try {
+      const cfg = await db.configuracionClub.findUnique({ where: { id: 'general' } });
+      if (cfg) {
+        configClub = {
+          validacionQrActiva: Boolean(cfg.validacionQrActiva),
+          sancionesCancelacionActiva: cfg.sancionesCancelacionActiva !== false,
+          climaInestable: Boolean(cfg.climaInestable),
+        };
+      }
+    } catch (cfgErr) {
+      console.warn('No se pudo leer configuracionClub en GET /api/sanciones:', cfgErr);
+    }
+
     return NextResponse.json({
+      configClub,
       kpis: {
         totalSociosConSanciones,
         totalInhabilitadosHoy,
@@ -343,10 +363,92 @@ export async function PATCH(request: Request) {
   }
 }
 
-// POST /api/sanciones - Crear sanción manual o ejecutar control de QR
+// DELETE /api/sanciones - Eliminar una sanción definitivamente del historial
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Falta ID de penalización' }, { status: 400 });
+    }
+
+    const penalizacion = await db.penalizacion.findUnique({
+      where: { id },
+      include: { socio: true },
+    });
+
+    if (!penalizacion) {
+      return NextResponse.json({ error: 'Penalización no encontrada' }, { status: 404 });
+    }
+
+    await db.penalizacion.delete({
+      where: { id },
+    });
+
+    const socioDesc = penalizacion.socio
+      ? `${penalizacion.socio.apellido}, ${penalizacion.socio.nombre} (DNI ${penalizacion.socioDni})`
+      : `DNI ${penalizacion.socioDni}`;
+
+    await logActividad(
+      'sancion_eliminada',
+      `Sanción eliminada definitivamente del historial de ${socioDesc}. Motivo original: ${penalizacion.motivo}`
+    );
+
+    return NextResponse.json({ success: true, message: 'Sanción eliminada del historial' });
+  } catch (error: any) {
+    console.error('Error al eliminar penalización:', error);
+    return NextResponse.json({ error: error.message || 'Error al eliminar penalización' }, { status: 500 });
+  }
+}
+
+// POST /api/sanciones - Crear sanción manual, ejecutar control o togglear configuración
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // 0. Togglear configuración del club (QR o Cancelación tardía)
+    if (body.action === 'toggle_config') {
+      const { clave, valor } = body;
+      if (!clave || typeof valor !== 'boolean') {
+        return NextResponse.json({ error: 'Parámetros inválidos para toggle_config' }, { status: 400 });
+      }
+
+      const updateData: any = { updatedAt: new Date() };
+      let accionDetalle = '';
+
+      if (clave === 'validacion_qr_activa') {
+        updateData.validacionQrActiva = valor;
+        accionDetalle = valor ? 'Exigencia de QR activada (Obligatorio)' : 'Exigencia de QR desactivada (Opcional/Sin sanción)';
+      } else if (clave === 'sanciones_cancelacion_activa') {
+        updateData.sancionesCancelacionActiva = valor;
+        accionDetalle = valor ? 'Sanciones por cancelación tardía activadas' : 'Sanciones por cancelación tardía desactivadas';
+      } else {
+        return NextResponse.json({ error: 'Clave de configuración no soportada' }, { status: 400 });
+      }
+
+      const updatedCfg = await db.configuracionClub.upsert({
+        where: { id: 'general' },
+        create: {
+          id: 'general',
+          validacionQrActiva: clave === 'validacion_qr_activa' ? valor : false,
+          sancionesCancelacionActiva: clave === 'sanciones_cancelacion_activa' ? valor : true,
+          ...updateData,
+        },
+        update: updateData,
+      });
+
+      await logActividad('configuracion_club_actualizada', accionDetalle);
+
+      return NextResponse.json({
+        success: true,
+        configClub: {
+          validacionQrActiva: Boolean(updatedCfg.validacionQrActiva),
+          sancionesCancelacionActiva: updatedCfg.sancionesCancelacionActiva !== false,
+          climaInestable: Boolean(updatedCfg.climaInestable),
+        },
+      });
+    }
 
     // 1. Ejecutar control de QR manualmente
     if (body.action === 'run_qr_control') {

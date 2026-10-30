@@ -42,13 +42,16 @@ import {
   ChevronDown,
   ChevronUp,
   FileDown,
-  MessageCircle,
   Phone,
   Calendar as CalendarIcon,
   Plus,
   Clock,
   Zap,
+  Trash2,
+  QrCode,
+  CalendarX2,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -106,7 +109,14 @@ interface SancionReciente {
   horario: string | null;
 }
 
+interface ClubConfigState {
+  validacionQrActiva: boolean;
+  sancionesCancelacionActiva: boolean;
+  climaInestable: boolean;
+}
+
 interface ApiResponse {
+  configClub?: ClubConfigState;
   kpis: {
     totalSociosConSanciones: number;
     totalInhabilitadosHoy: number;
@@ -143,6 +153,14 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
   const [socioTarget, setSocioTarget] = useState<SocioSancionado | null>(null);
   const [motivoLevantamiento, setMotivoLevantamiento] = useState<string>('');
   const [submittingLevantar, setSubmittingLevantar] = useState<boolean>(false);
+
+  // Modal para confirmar eliminación definitiva de sanción
+  const [sancionToDelete, setSancionToDelete] = useState<{ id: string; socioNombre: string; socioDni: string; motivo: string; fechaInicio: string } | null>(null);
+  const [submittingDelete, setSubmittingDelete] = useState<boolean>(false);
+
+  // Estados de switches de configuración (QR y Cancelación tardía)
+  const [togglingQr, setTogglingQr] = useState<boolean>(false);
+  const [togglingCancelacion, setTogglingCancelacion] = useState<boolean>(false);
 
   // Modal para nueva sanción manual
   const [nuevaSancionOpen, setNuevaSancionOpen] = useState<boolean>(false);
@@ -248,6 +266,83 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
       });
     } finally {
       setSubmittingLevantar(false);
+    }
+  };
+
+  // Confirmar eliminación definitiva de una sanción
+  const handleConfirmDelete = async () => {
+    if (!sancionToDelete || readOnly) return;
+    setSubmittingDelete(true);
+    try {
+      const res = await fetch(`/api/sanciones?id=${sancionToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Error al eliminar sanción');
+      }
+
+      toast({
+        title: 'Sanción eliminada',
+        description: `La sanción fue eliminada permanentemente del historial del socio.`,
+      });
+
+      setSancionToDelete(null);
+      await fetchData();
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'No se pudo eliminar la sanción.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingDelete(false);
+    }
+  };
+
+  // Togglear configuración del club (QR o Cancelación tardía)
+  const handleToggleConfig = async (clave: 'validacion_qr_activa' | 'sanciones_cancelacion_activa', nuevoValor: boolean) => {
+    if (readOnly) return;
+    if (clave === 'validacion_qr_activa') setTogglingQr(true);
+    if (clave === 'sanciones_cancelacion_activa') setTogglingCancelacion(true);
+
+    try {
+      const res = await fetch('/api/sanciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggle_config',
+          clave,
+          valor: nuevoValor,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || 'Error actualizando configuración');
+      }
+
+      const json = await res.json();
+      if (json.configClub) {
+        setData((prev) => (prev ? { ...prev, configClub: json.configClub } : null));
+      }
+
+      toast({
+        title: 'Configuración actualizada',
+        description: clave === 'validacion_qr_activa'
+          ? (nuevoValor ? 'Validación QR obligatoria activada' : 'Validación QR opcional (sin sanción por no escanear)')
+          : (nuevoValor ? 'Sanciones por cancelación tardía activadas' : 'Sanciones por cancelación tardía desactivadas'),
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'No se pudo actualizar la configuración.',
+        variant: 'destructive',
+      });
+    } finally {
+      if (clave === 'validacion_qr_activa') setTogglingQr(false);
+      if (clave === 'sanciones_cancelacion_activa') setTogglingCancelacion(false);
     }
   };
 
@@ -471,34 +566,9 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
     });
   };
 
-  // Abrir WhatsApp con mensaje institucional pre-armado
-  const handleOpenWhatsApp = (socio: SocioSancionado) => {
-    let rawPhone = (socio.telefono || '').replace(/\D/g, '');
-    if (!rawPhone) {
-      toast({
-        title: 'Sin teléfono',
-        description: 'El socio no tiene número de teléfono registrado en el padrón.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!rawPhone.startsWith('54')) {
-      rawPhone = `54${rawPhone}`;
-    }
-
-    const estadoTexto = socio.estaInhabilitado
-      ? `Actualmente tu cuenta se encuentra INHABILITADA para reservar turnos hasta el ${socio.fechaFinSancionActual ? format(parseISO(socio.fechaFinSancionActual), 'dd/MM/yyyy') : 'próximo vencimiento'}.`
-      : `Actualmente tu cuenta está habilitada, pero registrás ${socio.totalSanciones} falta(s) en tu historial.`;
-
-    const mensaje = `Hola ${socio.nombre}, nos comunicamos desde la Subcomisión de Tenis del Club Atlético Empalme Central (CAEC).\n\nTe informamos que en el sistema de reservas registrás ${socio.totalSanciones} infracción(es) por falta de validación QR en cancha o cancelaciones sobre la hora.\n\n${estadoTexto}\n\nRecordá que para el correcto funcionamiento de las canchas todos los participantes deben validar el turno al ingresar. Ante cualquier duda o excepción justificada (clima, salud), podés responder a este mensaje.\n\nAtentamente,\nSubcomisión de Tenis CAEC.`;
-
-    const url = `https://wa.me/${rawPhone}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, '_blank');
-  };
-
   const kpis = data?.kpis;
   const sociosList = sociosFiltrados;
+  const configClub = data?.configClub;
 
   return (
     <div className="space-y-6">
@@ -570,6 +640,71 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
           </Button>
         </div>
       </div>
+
+      {/* 1.1 Controles Maestros de Políticas de Sanción (QR y Cancelación Tardía) */}
+      {!readOnly && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Card: Sanciones por Validación QR */}
+          <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-start gap-2.5">
+              <div className={`p-2 rounded-lg mt-0.5 ${configClub?.validacionQrActiva ? 'bg-emerald-500/10 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
+                <QrCode size={18} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground">Sanciones por Validación QR</span>
+                  <Badge variant="outline" className={`text-[10px] font-semibold py-0 px-1.5 ${configClub?.validacionQrActiva ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                    {configClub?.validacionQrActiva ? 'Activo (Obligatorio)' : 'Inactivo (Opcional)'}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  {configClub?.validacionQrActiva
+                    ? 'Los turnos sin escanear aplican 7 días de inhabilitación al vencer la tolerancia.'
+                    : 'Validación libre: no se sanciona automáticamente a quienes no escaneen el QR.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center shrink-0">
+              <Switch
+                checked={Boolean(configClub?.validacionQrActiva)}
+                disabled={togglingQr || loading}
+                onCheckedChange={(val) => handleToggleConfig('validacion_qr_activa', val)}
+                className="data-[state=checked]:bg-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* Card: Sanciones por Cancelación Tardía */}
+          <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-start gap-2.5">
+              <div className={`p-2 rounded-lg mt-0.5 ${configClub?.sancionesCancelacionActiva ? 'bg-amber-500/10 text-amber-400' : 'bg-muted text-muted-foreground'}`}>
+                <CalendarX2 size={18} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground">Sanciones por Cancelación Tardía</span>
+                  <Badge variant="outline" className={`text-[10px] font-semibold py-0 px-1.5 ${configClub?.sancionesCancelacionActiva ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                    {configClub?.sancionesCancelacionActiva ? 'Activo' : 'En Pausa'}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  {configClub?.sancionesCancelacionActiva
+                    ? 'Cancelaciones con menos de 2 hs (si la cancha queda vacía) o menos de 30 min inhabilitan al socio.'
+                    : 'Cancelaciones libres: los socios pueden cancelar turnos en cualquier momento sin penalidad.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center shrink-0">
+              <Switch
+                checked={configClub?.sancionesCancelacionActiva !== false}
+                disabled={togglingCancelacion || loading}
+                onCheckedChange={(val) => handleToggleConfig('sanciones_cancelacion_activa', val)}
+                className="data-[state=checked]:bg-amber-500"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. Barra de Búsqueda, Filtros Temporales (Mes/Día), Categoría y Selector de Vista */}
       <div className="space-y-3">
@@ -899,19 +1034,6 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
                           {/* Acciones */}
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Botón WhatsApp */}
-                              {socio.telefono && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40"
-                                  onClick={() => handleOpenWhatsApp(socio)}
-                                  title="Enviar aviso por WhatsApp"
-                                >
-                                  <MessageCircle size={15} />
-                                </Button>
-                              )}
-
                               {/* Botón ver historial */}
                               <Button
                                 variant="outline"
@@ -994,19 +1116,37 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
                                           </TableCell>
                                           {!readOnly && (
                                             <TableCell className="text-right">
-                                              {sancion.activa && (
+                                              <div className="flex items-center justify-end gap-1.5">
+                                                {sancion.activa && (
+                                                  <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="text-[11px] h-7 px-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40 border border-emerald-500/30"
+                                                    onClick={() => {
+                                                      setSancionToLevantar(sancion);
+                                                      setSocioTarget(socio);
+                                                    }}
+                                                    title="Levantar sanción y permitirle reservar"
+                                                  >
+                                                    Habilitar
+                                                  </Button>
+                                                )}
                                                 <Button
-                                                  variant="secondary"
+                                                  variant="ghost"
                                                   size="sm"
-                                                  className="text-[11px] h-7 px-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/40 border border-emerald-500/30"
-                                                  onClick={() => {
-                                                    setSancionToLevantar(sancion);
-                                                    setSocioTarget(socio);
-                                                  }}
+                                                  className="h-7 w-7 p-0 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40"
+                                                  onClick={() => setSancionToDelete({
+                                                    id: sancion.id,
+                                                    socioNombre: socio.nombreCompleto,
+                                                    socioDni: socio.socioDni,
+                                                    motivo: sancion.motivo,
+                                                    fechaInicio: sancion.fechaInicio,
+                                                  })}
+                                                  title="Eliminar sanción permanentemente del historial"
                                                 >
-                                                  Habilitar
+                                                  <Trash2 size={13} />
                                                 </Button>
-                                              )}
+                                              </div>
                                             </TableCell>
                                           )}
                                         </TableRow>
@@ -1046,6 +1186,9 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
                   <TableHead className="text-xs uppercase font-bold">Cancha / Turno</TableHead>
                   <TableHead className="text-xs uppercase font-bold">Vence</TableHead>
                   <TableHead className="text-xs uppercase font-bold text-center">Estado</TableHead>
+                  {!readOnly && (
+                    <TableHead className="text-xs uppercase font-bold text-right">Acción</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1100,6 +1243,25 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
                           </Badge>
                         )}
                       </TableCell>
+                      {!readOnly && (
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40"
+                            onClick={() => setSancionToDelete({
+                              id: item.id,
+                              socioNombre: item.socioNombre,
+                              socioDni: item.socioDni,
+                              motivo: item.motivo,
+                              fechaInicio: item.fechaInicio,
+                            })}
+                            title="Eliminar sanción permanentemente del historial"
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
@@ -1290,6 +1452,61 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 8. Modal para Confirmar Eliminación Definitiva de Sanción */}
+      <Dialog open={!!sancionToDelete} onOpenChange={(open) => { if (!open) setSancionToDelete(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-500">
+              <Trash2 size={20} />
+              <span>¿Eliminar Sanción del Historial?</span>
+            </DialogTitle>
+            <DialogDescription>
+              Esta acción borrará permanentemente la sanción de la base de datos y limpiará el historial del socio. Si la sanción estaba vigente, el socio quedará habilitado de inmediato.
+            </DialogDescription>
+          </DialogHeader>
+
+          {sancionToDelete && (
+            <div className="space-y-3 py-2 text-xs">
+              <div className="p-3 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-200 space-y-1">
+                <p><strong>Socio:</strong> {sancionToDelete.socioNombre} (DNI: {sancionToDelete.socioDni})</p>
+                <p><strong>Fecha sanción:</strong> {format(parseISO(sancionToDelete.fechaInicio), 'dd/MM/yyyy')}</p>
+                <p><strong>Motivo:</strong> {sancionToDelete.motivo}</p>
+              </div>
+              <p className="text-muted-foreground text-[11px] leading-relaxed">
+                Esta acción no se puede deshacer. Se registrará en la auditoría del club.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSancionToDelete(null)}
+              disabled={submittingDelete}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmDelete}
+              disabled={submittingDelete}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {submittingDelete ? (
+                <>
+                  <Loader2 size={14} className="animate-spin mr-1.5" />
+                  Borrando...
+                </>
+              ) : (
+                'Eliminar definitivamente'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
