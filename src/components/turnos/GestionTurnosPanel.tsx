@@ -1277,12 +1277,10 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                           <TableHead className="text-center text-xs font-bold">
                             Turnos Totales
                           </TableHead>
-                          <TableHead className="text-right text-xs font-bold">Contacto</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {sociosFiltrados.map((s, idx) => {
-                          const waLink = formatWhatsappLink(s.telefono, s.nombre);
                           return (
                             <TableRow key={s.id || s.dni} className="hover:bg-muted/40 transition-colors">
                               <TableCell className="text-center font-bold text-xs text-muted-foreground">
@@ -1315,22 +1313,6 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                               <TableCell className="text-center text-xs text-muted-foreground font-semibold">
                                 {s.reservasTotales}
                               </TableCell>
-                              <TableCell className="text-right">
-                                {waLink ? (
-                                  <a
-                                    href={waLink}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-500 hover:underline"
-                                    title="Contactar por WhatsApp"
-                                  >
-                                    <MessageCircle className="h-3.5 w-3.5" />
-                                    <span>WhatsApp</span>
-                                  </a>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -1356,12 +1338,10 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                           </TableHead>
                           <TableHead className="text-center text-xs font-bold">Estado Cupo</TableHead>
                           <TableHead className="text-center text-xs font-bold">Extras a Cobrar</TableHead>
-                          <TableHead className="text-right text-xs font-bold">Contacto</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {invitadosFiltrados.map((s, idx) => {
-                          const waLink = formatWhatsappLink(s.telefono, s.nombre);
                           return (
                             <TableRow key={s.id || s.dni} className="hover:bg-muted/40 transition-colors">
                               <TableCell className="text-center font-bold text-xs text-muted-foreground">
@@ -1408,22 +1388,6 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                                   )
                                 ) : (
                                   <span className="text-xs text-muted-foreground font-medium">0</span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {waLink ? (
-                                  <a
-                                    href={waLink}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-500 hover:underline"
-                                    title="Contactar por WhatsApp"
-                                  >
-                                    <MessageCircle className="h-3.5 w-3.5" />
-                                    <span>WhatsApp</span>
-                                  </a>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">-</span>
                                 )}
                               </TableCell>
                             </TableRow>
