@@ -67,6 +67,8 @@ interface Socio {
   estado: string;
   categoria: string;
   cuotas?: Cuota[];
+  alDia?: boolean;
+  mesesAdeudados?: number;
 }
 
 interface Asistencia {
@@ -238,14 +240,20 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
       return alertas;
     }
     if (socio.estado === 'inactivo') alertas.push('Inactivo');
-    const hoy = new Date();
-    const mesesAdeudados = (socio.cuotas || []).filter((c: any) => {
-      if (c.estado === 'pagado') return false;
-      const [anio, mes] = c.mes.split('-');
-      const vencimiento = new Date(parseInt(anio), parseInt(mes), 1); 
-      return hoy >= vencimiento;
-    }).length;
-    if (mesesAdeudados >= 4) alertas.push(`Debe ${mesesAdeudados} cuotas`);
+    
+    // Si la API ya calculó los meses adeudados reales, usamos ese valor
+    const meses = typeof socio.mesesAdeudados === 'number'
+      ? socio.mesesAdeudados
+      : (socio.cuotas || []).filter((c: any) => {
+          if (c.estado === 'pagado') return false;
+          const [anio, mes] = c.mes.split('-');
+          const vencimiento = new Date(parseInt(anio), parseInt(mes), 1);
+          return new Date() >= vencimiento;
+        }).length;
+
+    if (meses > 0) {
+      alertas.push(meses === 1 ? 'Debe 1 mes' : `Debe ${meses} meses`);
+    }
     return alertas;
   };
 

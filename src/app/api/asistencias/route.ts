@@ -61,7 +61,68 @@ export async function GET(request: Request) {
       orderBy: { fecha: "desc" },
     });
 
-    return NextResponse.json(asistencias);
+    // Enriquecer cada asistencia con el cálculo real de deuda del socio (igual a /api/socios)
+    const ahora = new Date();
+    const mesActual = ahora.toISOString().slice(0, 7);
+    const mesActualNum = ahora.getFullYear() * 12 + (ahora.getMonth() + 1);
+
+    const asistenciasEnriquecidas = asistencias.map((asistencia) => {
+      const socio = asistencia.socio;
+      if (!socio) return asistencia;
+
+      const cuotasPendientes = (socio.cuotas || []).filter(c => c.estado === 'pendiente');
+      let mesesAdeudadosReales = cuotasPendientes.length;
+      let debeMesActualVirtual = false;
+
+      if (socio.estado === 'activo' && socio.categoria !== 'vitalicio' && socio.rol !== 'admin') {
+        const todosLosMesesRegistrados = [
+          ...(socio.pagos || []).map(p => p.mesPagado),
+          ...(socio.cuotas || []).map(c => c.mes),
+        ].filter(Boolean).sort();
+
+        let mesInicioNum: number;
+
+        if (todosLosMesesRegistrados.length > 0) {
+          const lastMes = todosLosMesesRegistrados[todosLosMesesRegistrados.length - 1];
+          const [y, m] = lastMes.split("-").map(Number);
+          mesInicioNum = (y * 12 + m) + 1;
+          
+          if (lastMes < mesActual) {
+            debeMesActualVirtual = true;
+          }
+        } else {
+          const fechaAlta = socio.fechaAlta ? new Date(socio.fechaAlta) : ahora;
+          mesInicioNum = fechaAlta.getFullYear() * 12 + (fechaAlta.getMonth() + 1);
+          debeMesActualVirtual = true;
+        }
+
+        if (mesInicioNum <= mesActualNum) {
+          mesesAdeudadosReales += (mesActualNum - mesInicioNum + 1);
+        }
+      }
+
+      // Ignorar mes actual siempre (tolerancia del mes corriente)
+      const debeMesActualFisico = cuotasPendientes.some(c => c.mes === mesActual);
+      if (debeMesActualFisico || debeMesActualVirtual) {
+        mesesAdeudadosReales = Math.max(0, mesesAdeudadosReales - 1);
+      }
+
+      const esVitalicio = socio.categoria === "vitalicio";
+      const esAdmin = socio.rol === "admin";
+      const mesesAdeudados = (esVitalicio || esAdmin) ? 0 : mesesAdeudadosReales;
+      const alDia = esAdmin || esVitalicio || mesesAdeudados === 0;
+
+      return {
+        ...asistencia,
+        socio: {
+          ...socio,
+          alDia,
+          mesesAdeudados,
+        }
+      };
+    });
+
+    return NextResponse.json(asistenciasEnriquecidas);
   } catch (error) {
     console.error("Error al obtener asistencias:", error);
     return NextResponse.json(
