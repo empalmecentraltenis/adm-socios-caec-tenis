@@ -16,11 +16,12 @@ interface JugadorTurno {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const tipo = searchParams.get('tipo') || 'dia'; // 'dia' | 'semana' | 'mes' | 'rango'
+    const tipo = searchParams.get('tipo') || 'dia'; // 'dia' | 'semana' | 'mes' | 'ano' | 'rango'
     const fechaParam = searchParams.get('fecha');
     const desdeParam = searchParams.get('desde');
     const hastaParam = searchParams.get('hasta');
     const mesParam = searchParams.get('mes');
+    const anoParam = searchParams.get('ano');
 
     // 1. Obtener tarifas activas de la configuración
     const configs = await db.configuracion.findMany({
@@ -55,6 +56,10 @@ export async function GET(request: Request) {
       const [year, month] = mesParam.split('-').map(Number);
       startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
       endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    } else if ((tipo === 'ano' || tipo === 'año') && anoParam) {
+      const year = Number(anoParam);
+      startDate = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+      endDate = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
     } else if (desdeParam && hastaParam) {
       const [y1, m1, d1] = desdeParam.split('-').map(Number);
       const [y2, m2, d2] = hastaParam.split('-').map(Number);

@@ -58,6 +58,8 @@ import {
   subWeeks,
   addMonths,
   subMonths,
+  addYears,
+  subYears,
   startOfWeek,
   endOfWeek,
   startOfMonth,
@@ -174,7 +176,7 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
   const { toast } = useToast();
 
   // Estados de navegación temporal
-  const [periodoTipo, setPeriodoTipo] = useState<'dia' | 'semana' | 'mes'>('mes');
+  const [periodoTipo, setPeriodoTipo] = useState<'dia' | 'semana' | 'mes' | 'ano'>('mes');
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
   // Estados de datos
@@ -210,12 +212,20 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
       return { desdeStr: dStr, hastaStr: hStr, periodoLabel: label };
     }
 
-    // Mes
-    const start = startOfMonth(currentDate);
-    const end = endOfMonth(currentDate);
-    const dStr = format(start, 'yyyy-MM-dd');
-    const hStr = format(end, 'yyyy-MM-dd');
-    const label = `${format(currentDate, 'MMMM yyyy', { locale: es })}`;
+    if (periodoTipo === 'mes') {
+      const start = startOfMonth(currentDate);
+      const end = endOfMonth(currentDate);
+      const dStr = format(start, 'yyyy-MM-dd');
+      const hStr = format(end, 'yyyy-MM-dd');
+      const label = `${format(currentDate, 'MMMM yyyy', { locale: es })}`;
+      return { desdeStr: dStr, hastaStr: hStr, periodoLabel: label };
+    }
+
+    // Año completo
+    const yStr = format(currentDate, 'yyyy');
+    const dStr = `${yStr}-01-01`;
+    const hStr = `${yStr}-12-31`;
+    const label = `Año ${yStr} (Acumulado)`;
     return { desdeStr: dStr, hastaStr: hStr, periodoLabel: label };
   }, [periodoTipo, currentDate]);
 
@@ -228,6 +238,8 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
         url += `&fecha=${desdeStr}`;
       } else if (periodoTipo === 'mes') {
         url += `&mes=${format(currentDate, 'yyyy-MM')}`;
+      } else if (periodoTipo === 'ano') {
+        url += `&ano=${format(currentDate, 'yyyy')}`;
       } else {
         url += `&desde=${desdeStr}&hasta=${hastaStr}`;
       }
@@ -266,14 +278,16 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
     setDiaFiltro('todos');
     if (periodoTipo === 'dia') setCurrentDate((prev) => subDays(prev, 1));
     else if (periodoTipo === 'semana') setCurrentDate((prev) => subWeeks(prev, 1));
-    else setCurrentDate((prev) => subMonths(prev, 1));
+    else if (periodoTipo === 'mes') setCurrentDate((prev) => subMonths(prev, 1));
+    else setCurrentDate((prev) => subYears(prev, 1));
   };
 
   const handleNext = () => {
     setDiaFiltro('todos');
     if (periodoTipo === 'dia') setCurrentDate((prev) => addDays(prev, 1));
     else if (periodoTipo === 'semana') setCurrentDate((prev) => addWeeks(prev, 1));
-    else setCurrentDate((prev) => addMonths(prev, 1));
+    else if (periodoTipo === 'mes') setCurrentDate((prev) => addMonths(prev, 1));
+    else setCurrentDate((prev) => addYears(prev, 1));
   };
 
   // Guardar tarifas editadas
@@ -463,6 +477,16 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
               >
                 Mes
               </button>
+              <button
+                onClick={() => { setPeriodoTipo('ano'); setDiaFiltro('todos'); }}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  periodoTipo === 'ano'
+                    ? 'bg-[#FFCC00] text-[#121212] shadow-sm'
+                    : 'text-[#AAAAAA] hover:text-white'
+                }`}
+              >
+                Año
+              </button>
             </div>
 
             <Button
@@ -543,114 +567,7 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
         </div>
       </div>
 
-      {/* 2. KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Recaudación Total Luz */}
-        <Card className="bg-[#181818] border-[#2A2A2A] shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-xs text-[#888888] uppercase font-bold tracking-wider">
-                Total Recaudación Luz
-              </CardDescription>
-              <div className="p-2 rounded-lg bg-amber-400/10 text-amber-400">
-                <DollarSign className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-black text-white mt-1">
-              {loading ? (
-                <Skeleton className="h-8 w-28 bg-[#2A2A2A]" />
-              ) : (
-                formatCurrency(data?.kpis.totalGeneralMonto || 0)
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-[#888888]">
-              {data?.kpis.totalGeneralTurnos || 0} turnos nocturnos en el período
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Turnos Socios */}
-        <Card className="bg-[#181818] border-[#2A2A2A] shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-xs text-[#888888] uppercase font-bold tracking-wider">
-                Turnos Socios
-              </CardDescription>
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
-                <Users className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-black text-white mt-1">
-              {loading ? (
-                <Skeleton className="h-8 w-28 bg-[#2A2A2A]" />
-              ) : (
-                formatCurrency(data?.kpis.totalSociosMonto || 0)
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-[#888888]">
-              {data?.kpis.totalSociosTurnos || 0} turnos jugados ($6.000 c/u)
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Turnos Profesor */}
-        <Card className="bg-[#181818] border-[#2A2A2A] shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-xs text-[#888888] uppercase font-bold tracking-wider">
-                Turnos Profesor
-              </CardDescription>
-              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
-                <GraduationCap className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-black text-white mt-1">
-              {loading ? (
-                <Skeleton className="h-8 w-28 bg-[#2A2A2A]" />
-              ) : (
-                formatCurrency(data?.kpis.totalProfeMonto || 0)
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-[#888888]">
-              {data?.kpis.totalProfeTurnos || 0} clases nocturnas ($3.000 c/u)
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Socios a Liquidar */}
-        <Card className="bg-[#181818] border-[#2A2A2A] shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-xs text-[#888888] uppercase font-bold tracking-wider">
-                Socios a Cobrar
-              </CardDescription>
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-                <CheckCircle2 className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-black text-white mt-1">
-              {loading ? (
-                <Skeleton className="h-8 w-28 bg-[#2A2A2A]" />
-              ) : (
-                `${data?.kpis.totalSociosCobranza || 0} socios`
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-[#888888]">
-              Listos para facturar en secretaría
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 3. Pestañas Principales: Socios y Profesor */}
+      {/* 2. Pestañas Principales: Socios y Profesor */}
       <Tabs defaultValue="socios" className="w-full space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <TabsList className="bg-[#1E1E1E] border border-[#2A2A2A] p-1">
@@ -1099,6 +1016,52 @@ export default function TurnosLuzPanel({ readOnly = false }: TurnosLuzPanelProps
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 3. Métricas Globales compactas al pie (estilo Sanciones / QR) */}
+      <div className="border border-[#2A2A2A] rounded-xl bg-[#181818] px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-[#888888] shadow-sm">
+        <span className="font-semibold text-white uppercase tracking-wider text-[10px] mr-1">
+          Métricas globales ({periodoLabel}):
+        </span>
+
+        {/* Recaudación Total Luz */}
+        <span className="flex items-center gap-1.5">
+          <DollarSign size={13} className="text-amber-400" />
+          <span className="font-bold text-amber-400">
+            {loading ? '...' : formatCurrency(data?.kpis.totalGeneralMonto || 0)}
+          </span>
+          <span>total recaudación</span>
+          <span className="text-[#666666]">({data?.kpis.totalGeneralTurnos || 0} turnos nocturnos)</span>
+        </span>
+
+        {/* Turnos Socios */}
+        <span className="flex items-center gap-1.5">
+          <Users size={13} className="text-blue-400" />
+          <span className="font-bold text-blue-400">
+            {loading ? '...' : formatCurrency(data?.kpis.totalSociosMonto || 0)}
+          </span>
+          <span>socios</span>
+          <span className="text-[#666666]">({data?.kpis.totalSociosTurnos || 0} turnos)</span>
+        </span>
+
+        {/* Turnos Profesor */}
+        <span className="flex items-center gap-1.5">
+          <GraduationCap size={13} className="text-purple-400" />
+          <span className="font-bold text-purple-400">
+            {loading ? '...' : formatCurrency(data?.kpis.totalProfeMonto || 0)}
+          </span>
+          <span>profesor</span>
+          <span className="text-[#666666]">({data?.kpis.totalProfeTurnos || 0} clases)</span>
+        </span>
+
+        {/* Socios a Cobrar */}
+        <span className="flex items-center gap-1.5">
+          <CheckCircle2 size={13} className="text-emerald-400" />
+          <span className="font-bold text-emerald-400">
+            {loading ? '...' : `${data?.kpis.totalSociosCobranza || 0} socios`}
+          </span>
+          <span>a cobrar en secretaría</span>
+        </span>
+      </div>
 
       {/* ===================== MODAL EDITAR TARIFAS ===================== */}
       <Dialog open={editTarifasOpen} onOpenChange={setEditTarifasOpen}>
