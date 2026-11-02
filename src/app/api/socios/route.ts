@@ -67,53 +67,54 @@ export async function GET(request: Request) {
       vitalicio: cuotaVitalicio,
     };
 
+    const mesActualNum = ahora.getFullYear() * 12 + (ahora.getMonth() + 1);
+
     const sociosConEstado = socios.map((socio) => {
-      // 1. Obtener cuotas pendientes reales de la nueva tabla
-      const cuotasPendientes = socio.cuotas.filter(c => c.estado === 'pendiente');
-      let mesesAdeudadosReales = cuotasPendientes.length;
+      let mesesAdeudados = 0;
 
-      // Lógica dinámica: Detectar meses faltantes (virtuales) para socios activos
-      let debeMesActualVirtual = false;
       if (socio.estado === 'activo' && socio.categoria !== 'vitalicio' && socio.rol !== 'admin') {
-        const todosLosMesesRegistrados = [
-          ...socio.pagos.map(p => p.mesPagado),
-          ...socio.cuotas.map(c => c.mes)
-        ].sort();
+        const mesesPagadosSet = new Set(socio.pagos.map((p) => p.mesPagado));
+        const deudaVencida: string[] = [];
 
-        const mesActualNum = ahora.getFullYear() * 12 + (ahora.getMonth() + 1);
-        let mesInicioNum;
+        if (socio.pagos.length > 0) {
+          // El pago más reciente
+          const ultimoMesPago = socio.pagos[0].mesPagado;
+          const [y, m] = ultimoMesPago.split("-").map(Number);
+          let iterNum = y * 12 + m + 1;
 
-        if (todosLosMesesRegistrados.length > 0) {
-          const lastMes = todosLosMesesRegistrados[todosLosMesesRegistrados.length - 1];
-          const [y, m] = lastMes.split("-").map(Number);
-          mesInicioNum = (y * 12 + m) + 1;
-          
-          if (lastMes < mesActual) {
-            debeMesActualVirtual = true;
+          while (iterNum <= mesActualNum) {
+            const curY = Math.floor((iterNum - 1) / 12);
+            const curM = ((iterNum - 1) % 12) + 1;
+            const curMesStr = `${curY}-${String(curM).padStart(2, "0")}`;
+
+            // Solo los meses anteriores al mes actual se consideran vencidos
+            if (curMesStr < mesActual && !mesesPagadosSet.has(curMesStr)) {
+              deudaVencida.push(curMesStr);
+            }
+            iterNum++;
           }
         } else {
-          const fechaAlta = socio.fechaAlta ? new Date(socio.fechaAlta) : ahora;
-          mesInicioNum = fechaAlta.getFullYear() * 12 + (fechaAlta.getMonth() + 1);
-          debeMesActualVirtual = true;
+          // Sin pagos registrados: computar desde fecha de alta o inicio de 2026
+          const fechaAlta = socio.fechaAlta ? new Date(socio.fechaAlta) : new Date(2026, 0, 1);
+          let iterNum = fechaAlta.getFullYear() * 12 + (fechaAlta.getMonth() + 1);
+          while (iterNum <= mesActualNum) {
+            const curY = Math.floor((iterNum - 1) / 12);
+            const curM = ((iterNum - 1) % 12) + 1;
+            const curMesStr = `${curY}-${String(curM).padStart(2, "0")}`;
+            if (curMesStr < mesActual) {
+              deudaVencida.push(curMesStr);
+            }
+            iterNum++;
+          }
         }
 
-        if (mesInicioNum <= mesActualNum) {
-          mesesAdeudadosReales += (mesActualNum - mesInicioNum + 1);
-        }
+        mesesAdeudados = deudaVencida.length;
       }
-
-      // Ignorar mes actual siempre, porque tienen todo el mes para pagar
-      const debeMesActualFisico = cuotasPendientes.some(c => c.mes === mesActual);
-      if (debeMesActualFisico || debeMesActualVirtual) {
-        mesesAdeudadosReales = Math.max(0, mesesAdeudadosReales - 1);
-      }
-
-      let mesesAdeudados = mesesAdeudadosReales;
 
       const valorCuota = cuotaPorCategoria[socio.categoria] || 8000;
       const esVitalicio = socio.categoria === "vitalicio";
       const esAdmin = socio.rol === "admin";
-      
+
       // alDia: tiene menos de 2 cuotas pendientes (o es vitalicio o admin)
       // Un solo mes de deuda se considera dentro de la tolerancia de 'Al día' para reserva de turnos
       const alDia = esAdmin || esVitalicio || mesesAdeudados < 2;
@@ -121,9 +122,9 @@ export async function GET(request: Request) {
       return {
         ...socio,
         alDia,
-        mesesAdeudados: (esVitalicio || esAdmin) ? 0 : mesesAdeudados,
+        mesesAdeudados: esVitalicio || esAdmin ? 0 : mesesAdeudados,
         totalPagado: socio.pagos.reduce((acc, p) => acc + p.monto, 0),
-        deudaEstimada: (esVitalicio || esAdmin) ? 0 : mesesAdeudados * valorCuota,
+        deudaEstimada: esVitalicio || esAdmin ? 0 : mesesAdeudados * valorCuota,
         valorCuota,
       };
     });
