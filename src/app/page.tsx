@@ -11,6 +11,7 @@ import AbmSocioModal from '@/components/socios/AbmSocioModal';
 import ConfiguracionPanel from '@/components/configuracion/ConfiguracionPanel';
 import BalanceMensual from '@/components/balance/BalanceMensual';
 import InversionesPanel from '@/components/inversiones/InversionesPanel';
+import AlumnosEscuelaPanel from '@/components/escuela/AlumnosEscuelaPanel';
 import ClasesProfesorPanel from '@/components/profe/ClasesProfesorPanel';
 import AsistenciaAlumnosPanel from '@/components/asistencias/AsistenciaAlumnosPanel';
 import TurnosLuzPanel from '@/components/luz/TurnosLuzPanel';
@@ -19,7 +20,7 @@ import SancionesPanel from '@/components/sanciones/SancionesPanel';
 import GestionTurnosPanel from '@/components/turnos/GestionTurnosPanel';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'socios' | 'gestion-turnos' | 'luz' | 'invitados' | 'sanciones' | 'configuracion' | 'balance' | 'inversiones' | 'profe' | 'asistencias';
+type TabType = 'socios' | 'gestion-turnos' | 'luz' | 'invitados' | 'sanciones' | 'configuracion' | 'balance' | 'inversiones' | 'escuela-alumnos' | 'profe' | 'asistencias';
 
 interface SocioFull {
   id: string;
@@ -109,6 +110,7 @@ export default function Home() {
     configuracion: { title: 'Configuración', subtitle: 'Valores de cuota y categorías' },
     balance: { title: 'Balance Mensual', subtitle: 'Caja de la sub-comisión de tenis' },
     inversiones: { title: 'Inversiones y Ahorros', subtitle: 'Resumen de capital en plazos fijos y dólares' },
+    'escuela-alumnos': { title: 'Alumnos Escuela de Tenis', subtitle: 'Padrón de alumnos inscriptos por grupos (Escuelita, Minitenis y Entrenamiento)' },
     profe: { title: 'Clases Profesor', subtitle: 'Planilla de carga de clases diarias, recaudación y reportes para Comisión Directiva' },
     asistencias: { title: 'Asistencia Alumnos', subtitle: 'Registro y seguimiento de concurrencia a clases por código QR' },
   };
@@ -169,6 +171,9 @@ export default function Home() {
 
           {/* Sanciones Tab */}
           {activeTab === 'sanciones' && <SancionesPanel readOnly={isReadOnly} />}
+
+          {/* Alumnos Escuela Tab */}
+          {activeTab === 'escuela-alumnos' && <AlumnosEscuelaPanel readOnly={isReadOnly} />}
 
           {/* Clases Profesor Tab */}
           {activeTab === 'profe' && <ClasesProfesorPanel readOnly={isReadOnly} />}

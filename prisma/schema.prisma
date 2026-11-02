@@ -263,3 +263,20 @@ model ConfiguracionClub {
   @@map("configuracion_club")
 }
 
+model AlumnoEscuela {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre        String
+  grupo         String   // 'Escuelita' | 'Minitenis' | 'Grupo Entrenamiento'
+  edad          Int?
+  telefono      String?
+  tutor         String?
+  observaciones String?
+  activo        Boolean? @default(true)
+  createdAt     DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(dbgenerated("timezone('utc'::text, now())")) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([grupo])
+  @@index([activo])
+  @@map("alumnos_escuela")
+}
+
