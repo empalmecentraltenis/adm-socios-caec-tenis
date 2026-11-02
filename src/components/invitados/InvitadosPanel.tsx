@@ -495,114 +495,7 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
         </div>
       </div>
 
-      {/* 2. KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Recaudación Total Invitados */}
-        <Card className="bg-[#181818] border-[#2A2A2A] shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-xs text-[#888888] uppercase font-bold tracking-wider">
-                Total a Cobrar Invitados
-              </CardDescription>
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-                <DollarSign className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-black text-white mt-1">
-              {loading ? (
-                <Skeleton className="h-8 w-28 bg-[#2A2A2A]" />
-              ) : (
-                formatCurrency(data?.kpis.totalRecaudacion || 0)
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-[#888888]">
-              {data?.kpis.totalInvitadosCobrados || 0} invitados extras facturables
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Invitados en Período */}
-        <Card className="bg-[#181818] border-[#2A2A2A] shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-xs text-[#888888] uppercase font-bold tracking-wider">
-                Total Invitaciones
-              </CardDescription>
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
-                <Ticket className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-black text-white mt-1">
-              {loading ? (
-                <Skeleton className="h-8 w-28 bg-[#2A2A2A]" />
-              ) : (
-                `${data?.kpis.totalInvitadosPeriodo || 0} personas`
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-[#888888]">
-              {data?.kpis.totalInvitadosGratis || 0} bonificadas · {data?.kpis.totalInvitadosCobrados || 0} con cargo
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Socios con Cargo */}
-        <Card className="bg-[#181818] border-[#2A2A2A] shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-xs text-[#888888] uppercase font-bold tracking-wider">
-                Socios a Facturar
-              </CardDescription>
-              <div className="p-2 rounded-lg bg-amber-400/10 text-amber-400">
-                <Users className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-black text-white mt-1">
-              {loading ? (
-                <Skeleton className="h-8 w-28 bg-[#2A2A2A]" />
-              ) : (
-                `${data?.kpis.sociosConCargo || 0} socios`
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-[#888888]">
-              Superaron el cupo de 4 invitados anuales
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Turnos con Invitados */}
-        <Card className="bg-[#181818] border-[#2A2A2A] shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-xs text-[#888888] uppercase font-bold tracking-wider">
-                Partidos con Invitados
-              </CardDescription>
-              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
-                <Sparkles className="h-4 w-4" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-black text-white mt-1">
-              {loading ? (
-                <Skeleton className="h-8 w-28 bg-[#2A2A2A]" />
-              ) : (
-                `${data?.kpis.totalTurnosConInvitados || 0} turnos`
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-[#888888]">
-              Partidos single y dobles disputados
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 3. Vistas: Resumen para Secretaría vs Detalle Turno por Turno */}
+      {/* 2. Vistas: Resumen para Secretaría vs Detalle Turno por Turno */}
       <Card className="bg-[#181818] border-[#2A2A2A]">
         <CardHeader className="pb-3 border-b border-[#2A2A2A]">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -946,6 +839,53 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
           )}
         </CardContent>
       </Card>
+
+      {/* 3. Métricas Globales compactas al pie (estilo Sanciones / QR y Luz) */}
+      <div className="border border-[#2A2A2A] rounded-xl bg-[#181818] px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs text-[#888888] shadow-sm">
+        <span className="font-semibold text-white uppercase tracking-wider text-[10px] mr-1">
+          Métricas globales ({periodoLabel}):
+        </span>
+
+        {/* Recaudación Total Invitados */}
+        <span className="flex items-center gap-1.5">
+          <DollarSign size={13} className="text-emerald-400" />
+          <span className="font-bold text-emerald-400">
+            {loading ? '...' : formatCurrency(data?.kpis.totalRecaudacion || 0)}
+          </span>
+          <span>a cobrar</span>
+          <span className="text-[#666666]">({data?.kpis.totalInvitadosCobrados || 0} extras facturables)</span>
+        </span>
+
+        {/* Total Invitaciones */}
+        <span className="flex items-center gap-1.5">
+          <Ticket size={13} className="text-blue-400" />
+          <span className="font-bold text-blue-400">
+            {loading ? '...' : `${data?.kpis.totalInvitadosPeriodo || 0} personas`}
+          </span>
+          <span>invitadas</span>
+          <span className="text-[#666666]">
+            ({data?.kpis.totalInvitadosGratis || 0} bonificadas · {data?.kpis.totalInvitadosCobrados || 0} con cargo)
+          </span>
+        </span>
+
+        {/* Socios a Facturar */}
+        <span className="flex items-center gap-1.5">
+          <Users size={13} className="text-amber-400" />
+          <span className="font-bold text-amber-400">
+            {loading ? '...' : `${data?.kpis.sociosConCargo || 0} socios`}
+          </span>
+          <span>a facturar</span>
+        </span>
+
+        {/* Partidos con Invitados */}
+        <span className="flex items-center gap-1.5">
+          <Sparkles size={13} className="text-purple-400" />
+          <span className="font-bold text-purple-400">
+            {loading ? '...' : `${data?.kpis.totalTurnosConInvitados || 0} turnos`}
+          </span>
+          <span>partidos con invitados</span>
+        </span>
+      </div>
 
       {/* ===================== MODAL EDITAR TARIFAS ===================== */}
       <Dialog open={editTarifasOpen} onOpenChange={setEditTarifasOpen}>
