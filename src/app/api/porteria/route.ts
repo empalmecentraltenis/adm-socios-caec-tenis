@@ -42,8 +42,8 @@ export async function GET(request: Request) {
       return new Date(Date.UTC(y, m - 1, d));
     });
 
-    // Consultar canchas, socios y turnos en paralelo
-    const [canchas, socios, turnosRaw] = await Promise.all([
+    // Consultar canchas, socios, turnos y noticias activas en paralelo
+    const [canchas, socios, turnosRaw, noticiasRaw] = await Promise.all([
       db.cancha.findMany({
         where: { activa: true },
         orderBy: { id: 'asc' },
@@ -84,6 +84,11 @@ export async function GET(request: Request) {
           { horaInicio: 'asc' },
           { canchaId: 'asc' },
         ],
+      }),
+      db.noticia.findMany({
+        where: { activo: true },
+        orderBy: { fechaCreacion: 'desc' },
+        take: 5,
       }),
     ]);
 
@@ -250,6 +255,13 @@ export async function GET(request: Request) {
       bloqueados: turnosManana.filter((t) => t.tipo !== 'socio' && t.tipo !== 'profe').length,
     };
 
+    const noticias = noticiasRaw.map((n) => ({
+      id: n.id,
+      titulo: n.titulo,
+      contenido: n.contenido,
+      fechaCreacion: n.fechaCreacion.toISOString(),
+    }));
+
     return NextResponse.json({
       horaServidor: currentHourStr,
       todayStr,
@@ -261,6 +273,7 @@ export async function GET(request: Request) {
       turnosHoy,
       turnosManana,
       turnos: turnosSeleccionados,
+      noticias,
     });
   } catch (error) {
     console.error('Error en /api/porteria:', error);

@@ -15,6 +15,9 @@ import {
   Radio,
   Wrench,
   Trophy,
+  Megaphone,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -41,6 +44,13 @@ interface Participante {
   telefono: string;
   esTitular: boolean;
   haValidadoQR: boolean;
+}
+
+interface NoticiaPorteria {
+  id: string;
+  titulo: string;
+  contenido: string;
+  fechaCreacion: string;
 }
 
 interface TurnoPorteria {
@@ -114,6 +124,8 @@ export default function PorteriaPage() {
   const [turnosOtro, setTurnosOtro] = useState<TurnoPorteria[]>([]);
   const [kpisHoy, setKpisHoy] = useState<KpisDia>({ total: 0, socios: 0, profe: 0, enCurso: 0, proximos: 0, finalizados: 0 });
   const [kpisManana, setKpisManana] = useState<KpisDia>({ total: 0, socios: 0, profe: 0 });
+  const [noticias, setNoticias] = useState<NoticiaPorteria[]>([]);
+  const [noticiasOcultas, setNoticiasOcultas] = useState(false);
 
   // Filtros y Buscador
   const [searchTerm, setSearchTerm] = useState('');
@@ -151,6 +163,7 @@ export default function PorteriaPage() {
       setTurnosManana(data.turnosManana || []);
       setKpisHoy(data.kpisHoy || { total: 0, socios: 0, profe: 0 });
       setKpisManana(data.kpisManana || { total: 0, socios: 0, profe: 0 });
+      setNoticias(data.noticias || []);
 
       if (tabDia === 'otro') {
         setTurnosOtro(data.turnos || []);
@@ -427,6 +440,80 @@ export default function PorteriaPage() {
           </Button>
         </div>
       </header>
+
+      {/* AVISOS / COMUNICADOS OFICIALES DESDE APP DE RESERVAS (NOTICIAS ADMIN) */}
+      {noticias.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-[#181613] to-amber-500/5 border border-amber-500/30 rounded-2xl p-4 shadow-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <Megaphone className="h-5 w-5 animate-bounce" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-400">
+                    Aviso Oficial · Subcomisión de Tenis
+                  </span>
+                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] px-1.5 py-0">
+                    {noticias.length} {noticias.length === 1 ? 'comunicado activo' : 'comunicados activos'}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-[#A0A0A5]">
+                  Publicado desde el panel de reservas para socios y personal del club
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setNoticiasOcultas((prev) => !prev)}
+              className="text-[#999999] hover:text-white hover:bg-white/5 h-8 px-2 text-xs gap-1"
+            >
+              {noticiasOcultas ? (
+                <>
+                  <span className="hidden sm:inline">Ver detalle</span>
+                  <ChevronDown className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">Plegar</span>
+                  <ChevronUp className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
+
+          {!noticiasOcultas && (
+            <div className="space-y-2.5 pt-1">
+              {noticias.map((n) => (
+                <div
+                  key={n.id}
+                  className="bg-[#121215]/80 border border-amber-500/20 rounded-xl p-3.5 space-y-1.5 transition-colors hover:border-amber-500/40"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-amber-200 tracking-wide flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>
+                      {n.titulo}
+                    </h3>
+                    <span className="text-[10px] text-[#888888] font-mono">
+                      {new Date(n.fechaCreacion).toLocaleDateString('es-AR', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#CCCCCC] leading-relaxed whitespace-pre-wrap pl-3.5 border-l-2 border-amber-500/30">
+                    {n.contenido}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* SELECTOR DE DÍA: HOY / MAÑANA / OTRA FECHA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
