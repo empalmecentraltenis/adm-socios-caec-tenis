@@ -86,6 +86,8 @@ interface ReporteSocio {
   socio: Socio;
   totalClases: number;
   esNoRegistrado: boolean;
+  fechas: string[];
+  ultimasNotas?: string[];
 }
 
 const MESES = [
@@ -111,8 +113,8 @@ const monthOptions = generateMonthOptions();
 export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?: boolean } = {}) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'diaria' | 'mensual'>('diaria');
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchReporte, setSearchReporte] = useState('');
+  const [vistaReporte, setVistaReporte] = useState<'acumulado' | 'detalle'>('acumulado');
 
   // Estados para alumnos (DNI)
   const [asistenciasDiarias, setAsistenciasDiarias] = useState<Asistencia[]>([]);
@@ -333,16 +335,27 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
     });
   }, [asistenciasDiarias, searchTerm]);
 
-  // Reporte agrupado de alumnos del mes con ranking
+  // Reporte agrupado de alumnos del período con conteo acumulado y ranking
   const rankingAlumnos = useMemo(() => {
     const agrupado = asistenciasMensuales.reduce((acc: Record<string, ReporteSocio>, asistencia) => {
-      const socioId = asistencia.socio.id;
-      const noReg = (asistencia.socio.apellido?.toLowerCase() === 'no registrado') || 
-                    Boolean(asistencia.notas?.toLowerCase().includes('no registrado'));
-      if (!acc[socioId]) {
-        acc[socioId] = { socio: asistencia.socio, totalClases: 0, esNoRegistrado: noReg };
+      // Clave única: Si tiene socio con ID usamos socio.id; si es no registrado usamos su DNI para acumularlo por persona
+      const clave = asistencia.socio?.id || `dni_${asistencia.socio?.dni || 'sin_dni'}`;
+      const noReg = isAlumnoNoRegistrado(asistencia);
+      
+      if (!acc[clave]) {
+        acc[clave] = {
+          socio: asistencia.socio,
+          totalClases: 0,
+          esNoRegistrado: noReg,
+          fechas: [],
+          ultimasNotas: [],
+        };
       }
-      acc[socioId].totalClases += 1;
+      acc[clave].totalClases += 1;
+      acc[clave].fechas.push(asistencia.fecha);
+      if (asistencia.notas && !acc[clave].ultimasNotas?.includes(asistencia.notas)) {
+        acc[clave].ultimasNotas?.push(asistencia.notas);
+      }
       return acc;
     }, {});
 
@@ -350,9 +363,21 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
       if (b.totalClases !== a.totalClases) {
         return b.totalClases - a.totalClases;
       }
-      return a.socio.apellido.localeCompare(b.socio.apellido);
+      return (a.socio.apellido || '').localeCompare(b.socio.apellido || '');
     });
   }, [asistenciasMensuales]);
+
+  // Filtrado de alumnos acumulados por término de búsqueda
+  const filteredRankingAlumnos = useMemo(() => {
+    if (!searchReporte.trim()) return rankingAlumnos;
+    const term = searchReporte.toLowerCase().trim();
+    return rankingAlumnos.filter((r) => {
+      const nom = `${r.socio.nombre} ${r.socio.apellido}`.toLowerCase();
+      const dni = (r.socio.dni || '').toLowerCase();
+      const cat = (r.socio.categoria || '').toLowerCase();
+      return nom.includes(term) || dni.includes(term) || cat.includes(term);
+    });
+  }, [rankingAlumnos, searchReporte]);
 
   // Exportar asistencias a Excel (diario o período)
   const exportarAExcel = (tipo: 'diario' | 'periodo') => {
@@ -416,26 +441,55 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
       const sheetName = tipo === 'diario' ? 'Asistencias Dia' : 'Asistencias Periodo';
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
-      // Si es reporte de período, agregamos una segunda solapa con el Resumen por Alumno (Ranking)
-      if (tipo === 'periodo' && rankingAlumnos.length > 0) {
-        const resumenRows = rankingAlumnos.map((r, idx) => ({
-          'Puesto': idx + 1,
-          'Alumno / Socio': `${r.socio.apellido}, ${r.socio.nombre}`,
-          'DNI': r.socio.dni,
-          'Categoría': r.socio.categoria || 'Alumno',
-          'Total Clases Asistidas': r.totalClases,
-          'Estado': r.esNoRegistrado ? 'No Registrado' : (r.socio.estado || 'Activo'),
-        }));
+      // Al exportar período, la primera hoja es el Resumen Acumulado por Alumno (Total Clases en el Mes/Período)
+      if (tipo === 'periodo') {
+        const resumenRows = rankingAlumnos.map((r, idx) => {
+          const noReg = r.esNoRegistrado;
+          let estadoCuota = 'Al día';
+          if (noReg) {
+            estadoCuota = 'Sin ficha';
+          } else if (r.socio.estado === 'inactivo') {
+            estadoCuota = 'Inactivo';
+          } else if ((r.socio.mesesAdeudados || 0) > 0) {
+            estadoCuota = `Debe ${r.socio.mesesAdeudados} cuota(s)`;
+          }
+
+          return {
+            'Puesto': idx + 1,
+            'Alumno / Socio': noReg ? 'Alumno No Registrado' : `${r.socio.apellido}, ${r.socio.nombre}`,
+            'DNI': r.socio.dni,
+            'Categoría': noReg ? 'No Registrado' : (r.socio.categoria || 'Alumno'),
+            'Total Asistencias': r.totalClases,
+            'Estado Cuota': estadoCuota,
+            'Fechas que Asistió': r.fechas.map((f) => format(new Date(f), 'dd/MM')).join(', '),
+          };
+        });
+
         const wsResumen = XLSX.utils.json_to_sheet(resumenRows);
         wsResumen['!cols'] = [
           { wch: 8 },
           { wch: 32 },
           { wch: 14 },
-          { wch: 16 },
-          { wch: 24 },
-          { wch: 16 },
+          { wch: 18 },
+          { wch: 18 },
+          { wch: 20 },
+          { wch: 45 },
         ];
-        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen por Alumno');
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, wsResumen, 'Total Asistencias Alumnos');
+
+        // Segunda solapa: Detalle individual paso a paso
+        XLSX.utils.book_append_sheet(wb, ws, 'Detalle Individual');
+
+        const fileName = `Asistencias_Particulares_Acumulado_${modoPeriodoReporte}_${periodoLabel.replace(/[\/\s:]+/g, '_')}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+
+        toast({
+          title: 'Excel generado exitosamente',
+          description: `Se exportaron ${rankingAlumnos.length} alumnos acumulados (${rows.length} registros).`,
+        });
+        return;
       }
 
       const fileName = tipo === 'diario'
@@ -822,14 +876,40 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                 </div>
 
                 {/* Acciones principales: Exportar Excel e Imprimir */}
-                <div className="flex items-center gap-2 print:hidden self-start sm:self-auto">
+                <div className="flex items-center gap-2 print:hidden self-start sm:self-auto flex-wrap">
+                  {/* Selector de subvista: Acumulado (por alumno) vs Detalle individual */}
+                  <div className="flex items-center bg-[#141414] border border-[#2E2E2E] rounded-lg p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setVistaReporte('acumulado')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                        vistaReporte === 'acumulado'
+                          ? 'bg-[#FFCC00] text-black shadow-sm'
+                          : 'text-[#AAAAAA] hover:text-white'
+                      }`}
+                    >
+                      Acumulado ({rankingAlumnos.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVistaReporte('detalle')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                        vistaReporte === 'detalle'
+                          ? 'bg-[#FFCC00] text-black shadow-sm'
+                          : 'text-[#AAAAAA] hover:text-white'
+                      }`}
+                    >
+                      Pase x Pase ({asistenciasMensuales.length})
+                    </button>
+                  </div>
+
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => exportarAExcel('periodo')}
                     disabled={loading || asistenciasMensuales.length === 0}
                     className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 h-8 text-xs font-semibold gap-1.5"
-                    title="Descargar archivo Excel con detalle y ranking por alumno"
+                    title="Descargar archivo Excel con resumen acumulado de clases por alumno y detalle de asistencias"
                   >
                     <FileSpreadsheet className="h-3.5 w-3.5" />
                     <span>Exportar Excel</span>
@@ -1003,13 +1083,159 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
               </div>
             </div>
 
+            {/* Barra de búsqueda para el Reporte de Alumnos */}
+            <div className="mb-3">
+              <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar en el reporte por nombre, apellido, DNI..."
+                  value={searchReporte}
+                  onChange={(e) => setSearchReporte(e.target.value)}
+                  className="pl-9 h-8 text-xs bg-[#242424] border-[#383838] text-white focus:border-[#FFCC00]"
+                />
+              </div>
+            </div>
+
             {loading && asistenciasMensuales.length === 0 ? (
               <div className="space-y-3 mt-4 print:hidden">
                 {[...Array(3)].map((_, i) => (
                   <Skeleton key={i} className="h-12 w-full bg-[#2A2A2A]" />
                 ))}
               </div>
+            ) : vistaReporte === 'acumulado' ? (
+              /* ==========================================================
+                 TABLA 1: VISTA ACUMULADA (TOTAL ASISTENCIAS POR ALUMNO)
+                 ========================================================== */
+              <div className="overflow-x-auto print:overflow-visible">
+                <Table className="print:text-black">
+                  <TableHeader>
+                    <TableRow className="border-[#333333] hover:bg-transparent print:border-b-2 print:border-black">
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 w-12 text-center print:text-black">#</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black print:font-bold">Alumno / Socio</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black print:font-bold">DNI</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center print:text-black print:font-bold">Total Asistencias</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center print:hidden">Estado Cuota</TableHead>
+                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black">Días que vino</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRankingAlumnos.length === 0 ? (
+                      <TableRow className="border-[#333333] print:border-b">
+                        <TableCell colSpan={6} className="text-center py-10 text-[#666666] text-sm print:text-black">
+                          {searchReporte
+                            ? 'No se encontraron alumnos que coincidan con la búsqueda.'
+                            : 'No hay asistencias registradas en este período.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredRankingAlumnos.map((item, idx) => {
+                        const noRegistrado = item.esNoRegistrado;
+                        const alertas = getAlertasSocio(item.socio);
+                        const tieneAlertas = alertas.length > 0;
+
+                        return (
+                          <TableRow
+                            key={item.socio.id || `dni_${item.socio.dni}_${idx}`}
+                            className={cn(
+                              'border-[#333333] transition-colors print:border-b print:border-gray-300',
+                              noRegistrado
+                                ? 'bg-amber-500/10 hover:bg-amber-500/15'
+                                : tieneAlertas
+                                ? 'bg-red-500/5 hover:bg-red-500/10'
+                                : 'hover:bg-[#252525]'
+                            )}
+                          >
+                            {/* Puesto */}
+                            <TableCell className="text-center font-mono text-xs text-[#888888] py-3 print:text-black">
+                              {idx + 1}
+                            </TableCell>
+
+                            {/* Alumno */}
+                            <TableCell className="text-[#CCCCCC] text-sm py-3 print:text-black">
+                              {noRegistrado ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-amber-300">Alumno No Registrado</span>
+                                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold px-1.5 py-0">
+                                    Sin ficha
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <div>
+                                  <span className="font-semibold text-white">{item.socio.apellido}</span>, {item.socio.nombre}
+                                  {item.socio.categoria && (
+                                    <span className="text-[11px] text-[#777777] ml-2 capitalize">
+                                      ({item.socio.categoria})
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+
+                            {/* DNI */}
+                            <TableCell className="py-3 font-mono whitespace-nowrap print:text-black">
+                              <span className={cn(
+                                "text-xs font-bold px-2 py-1 rounded border",
+                                noRegistrado
+                                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                  : "bg-[#2A2A2A] text-white border-[#3A3A3A]"
+                              )}>
+                                {item.socio.dni}
+                              </span>
+                            </TableCell>
+
+                            {/* Total Asistencias (Conteo acumulado) */}
+                            <TableCell className="text-center py-3">
+                              <Badge className="bg-[#FFCC00]/20 text-[#FFCC00] border border-[#FFCC00]/50 text-xs font-extrabold px-3 py-1">
+                                {item.totalClases} {item.totalClases === 1 ? 'clase' : 'clases'}
+                              </Badge>
+                            </TableCell>
+
+                            {/* Estado Cuota */}
+                            <TableCell className="text-center py-3 print:hidden">
+                              {noRegistrado ? (
+                                <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] font-bold">
+                                  <UserX className="h-3 w-3 mr-1" /> Sin ficha
+                                </Badge>
+                              ) : tieneAlertas ? (
+                                <div className="flex items-center justify-center gap-1 flex-wrap">
+                                  {alertas.map((alerta, i) => (
+                                    <Badge key={i} variant="outline" className="bg-red-500/15 text-red-400 border-red-500/20 text-[10px]">
+                                      {alerta}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1 text-green-500 text-xs font-medium">
+                                  <CheckCircle2 className="h-4 w-4" /> Al día
+                                </div>
+                              )}
+                            </TableCell>
+
+                            {/* Fechas que asistió */}
+                            <TableCell className="text-xs text-[#AAAAAA] py-3 max-w-[280px]">
+                              <div className="flex flex-wrap gap-1">
+                                {item.fechas.map((f, fi) => (
+                                  <span
+                                    key={fi}
+                                    className="px-1.5 py-0.5 rounded bg-[#242424] border border-[#383838] text-[11px] font-mono text-[#CCCCCC]"
+                                    title={format(new Date(f), "dd/MM/yyyy 'a las' HH:mm 'hs'")}
+                                  >
+                                    {format(new Date(f), 'dd/MM')}
+                                  </span>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
+              /* ==========================================================
+                 TABLA 2: VISTA DETALLADA PASE POR PASE (CON BOTÓN ELIMINAR)
+                 ========================================================== */
               <div className="overflow-x-auto print:overflow-visible">
                 <Table className="print:text-black">
                   <TableHeader>
@@ -1028,7 +1254,7 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                     {asistenciasMensuales.length === 0 ? (
                       <TableRow className="border-[#333333] print:border-b">
                         <TableCell colSpan={!readOnly ? 6 : 5} className="text-center py-10 text-[#666666] text-sm print:text-black">
-                          No hay asistencias registradas en este mes.
+                          No hay asistencias registradas en este período.
                         </TableCell>
                       </TableRow>
                     ) : (
