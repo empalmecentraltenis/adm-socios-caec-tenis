@@ -113,20 +113,42 @@ export async function GET(request: Request) {
         },
         alumno: whereAlumno,
       },
+      include: {
+        alumno: {
+          select: { id: true, grupo: true },
+        },
+      },
       orderBy: { fecha: 'asc' },
     });
 
-    // Días en los que hubo al menos 1 registro/clase
-    const fechasConClaseSet = new Set<string>();
+    // Días en los que HUBO CLASE DICTADA (al menos un presente en ese día)
+    // Se computan las fechas válidas generales y por grupo
+    const fechasConPresentesGeneral = new Set<string>();
+    const fechasConPresentesPorGrupo = new Map<string, Set<string>>();
+
     for (const a of asistenciasRango) {
-      fechasConClaseSet.add(a.fecha);
+      if (a.presente) {
+        fechasConPresentesGeneral.add(a.fecha);
+
+        const grupo = a.alumno?.grupo;
+        if (grupo) {
+          if (!fechasConPresentesPorGrupo.has(grupo)) {
+            fechasConPresentesPorGrupo.set(grupo, new Set<string>());
+          }
+          fechasConPresentesPorGrupo.get(grupo)!.add(a.fecha);
+        }
+      }
     }
-    const fechasConClase = Array.from(fechasConClaseSet).sort();
+
+    const fechasConClase = Array.from(fechasConPresentesGeneral).sort();
     const totalClasesPeriodo = fechasConClase.length;
 
     // Matriz de asistencias por alumno: alumnoId -> { totalPresentes, detallePorFecha: Record<fecha, boolean> }
     const mapaAsistencias = new Map<string, { presentes: number; porFecha: Record<string, boolean> }>();
     for (const a of asistenciasRango) {
+      // Solo consideramos registros que correspondan a fechas con clase dictada
+      if (!fechasConPresentesGeneral.has(a.fecha)) continue;
+
       const entry = mapaAsistencias.get(a.alumnoId) || { presentes: 0, porFecha: {} };
       entry.porFecha[a.fecha] = a.presente;
       if (a.presente) {
@@ -138,7 +160,14 @@ export async function GET(request: Request) {
     const reporteAlumnos = alumnos.map((al) => {
       const datos = mapaAsistencias.get(al.id) || { presentes: 0, porFecha: {} };
       const presentes = datos.presentes;
-      const porcentaje = totalClasesPeriodo > 0 ? Math.round((presentes / totalClasesPeriodo) * 100) : 0;
+
+      // Si se filtró por un grupo específico o el alumno tiene grupo,
+      // la cantidad de clases dictadas para su grupo son los días en que ese grupo tuvo al menos 1 presente.
+      // Si el grupo no tiene registro específico pero hubo clases generales, usamos las de su grupo si existen, o general.
+      const fechasGrupo = fechasConPresentesPorGrupo.get(al.grupo);
+      const totalClasesAlumno = fechasGrupo ? fechasGrupo.size : (grupoParam ? totalClasesPeriodo : (fechasConPresentesPorGrupo.size > 0 ? 0 : totalClasesPeriodo));
+
+      const porcentaje = totalClasesAlumno > 0 ? Math.round((presentes / totalClasesAlumno) * 100) : 0;
 
       return {
         id: al.id,
@@ -148,7 +177,7 @@ export async function GET(request: Request) {
         tutor: al.tutor,
         telefono: al.telefono,
         presentes,
-        totalClases: totalClasesPeriodo,
+        totalClases: totalClasesAlumno,
         porcentaje,
         detallePorFecha: datos.porFecha,
       };
