@@ -15,8 +15,10 @@ import {
   Filter,
   CheckSquare,
   ListOrdered,
+  BarChart3,
 } from 'lucide-react';
 import TomarAsistenciaEscuela from './TomarAsistenciaEscuela';
+import ReporteAsistenciaEscuela from './ReporteAsistenciaEscuela';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -83,7 +85,7 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedGrupo, setSelectedGrupo] = useState<string>('todos');
-  const [vistaActiva, setVistaActiva] = useState<'padron' | 'asistencia'>('padron');
+  const [vistaActiva, setVistaActiva] = useState<'padron' | 'asistencia' | 'reportes'>('padron');
 
   // Modales
   const [modalOpen, setModalOpen] = useState(false);
@@ -320,6 +322,19 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
           <CheckSquare className="h-4 w-4" />
           <span>⚡ Tomar Asistencia (Pase de Lista)</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setVistaActiva('reportes')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            vistaActiva === 'reportes'
+              ? 'bg-amber-400 text-black shadow-md'
+              : 'bg-[#1C1C1C] text-amber-400 hover:text-white border border-amber-400/30'
+          }`}
+        >
+          <BarChart3 className="h-4 w-4" />
+          <span>📊 Reportes (Semanal / Mensual)</span>
+        </button>
       </div>
 
       {/* VISTA 1: TOMAR ASISTENCIA RÁPIDA */}
@@ -327,7 +342,12 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
         <TomarAsistenciaEscuela />
       )}
 
-      {/* VISTA 2: PADRÓN GENERAL DE ALUMNOS */}
+      {/* VISTA 2: REPORTES SEMANALES Y MENSUALES */}
+      {vistaActiva === 'reportes' && (
+        <ReporteAsistenciaEscuela />
+      )}
+
+      {/* VISTA 3: PADRÓN GENERAL DE ALUMNOS */}
       {vistaActiva === 'padron' && (
         <>
           {/* KPI Cards Superiores */}

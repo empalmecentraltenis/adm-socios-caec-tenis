@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,13 +10,23 @@ const getTodayArg = () => {
   return format(now, 'yyyy-MM-dd');
 };
 
-// GET /api/asistencias-escuela?fecha=YYYY-MM-DD&mes=YYYY-MM&grupo=...
+// GET /api/asistencias-escuela
+// Params:
+// - modo: 'dia' | 'semana' | 'mes' | 'rango'
+// - fecha: 'YYYY-MM-DD'
+// - mes: 'YYYY-MM'
+// - desde: 'YYYY-MM-DD'
+// - hasta: 'YYYY-MM-DD'
+// - grupo: string
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const fecha = searchParams.get('fecha') || getTodayArg();
+    const modo = searchParams.get('modo') || (searchParams.get('mes') ? 'mes' : searchParams.get('desde') ? 'rango' : 'dia');
+    const fechaParam = searchParams.get('fecha') || getTodayArg();
     const grupo = searchParams.get('grupo');
-    const mes = searchParams.get('mes'); // opcional para histórico mensual
+    const mesParam = searchParams.get('mes');
+    const desdeParam = searchParams.get('desde');
+    const hastaParam = searchParams.get('hasta');
 
     // 1. Obtener alumnos activos
     const whereAlumno: any = { activo: true };
@@ -31,11 +42,11 @@ export async function GET(request: Request) {
       ]
     });
 
-    // 2. Si se pide por fecha específica (para la toma rápida del día)
-    if (!mes) {
+    // CASO A: MODO DÍA (Pase de lista diario)
+    if (modo === 'dia' && !mesParam && !desdeParam) {
       const asistenciasFecha = await db.asistenciaAlumnoEscuela.findMany({
         where: {
-          fecha,
+          fecha: fechaParam,
           alumno: whereAlumno,
         },
       });
@@ -55,45 +66,104 @@ export async function GET(request: Request) {
         presente: asistenciasMap.get(al.id) ?? false,
       }));
 
-      const totalAlumnos = lista.length;
-      const totalPresentes = lista.filter((a) => a.presente).length;
-
       return NextResponse.json({
         success: true,
-        fecha,
-        totalAlumnos,
-        totalPresentes,
+        modo: 'dia',
+        fecha: fechaParam,
+        totalAlumnos: lista.length,
+        totalPresentes: lista.filter((a) => a.presente).length,
         alumnos: lista,
       });
     }
 
-    // 3. Si se pide por mes (histórico / estadísticas)
-    const asistenciasMes = await db.asistenciaAlumnoEscuela.findMany({
-      where: {
-        fecha: { startsWith: mes },
-        alumno: whereAlumno,
-      },
-    });
+    // CASO B: MODO REPORTE (Semanal, Mensual o Rango personalizado)
+    let fechaInicioStr = '';
+    let fechaFinStr = '';
+    let periodoLabel = '';
 
-    const asistenciasPorAlumno = new Map<string, number>();
-    for (const a of asistenciasMes) {
-      if (a.presente) {
-        asistenciasPorAlumno.set(a.alumnoId, (asistenciasPorAlumno.get(a.alumnoId) || 0) + 1);
-      }
+    const refDate = parseISO(fechaParam);
+
+    if (modo === 'semana') {
+      const inicioSemana = startOfWeek(refDate, { weekStartsOn: 1 }); // Lunes
+      const finSemana = endOfWeek(refDate, { weekStartsOn: 1 }); // Domingo
+      fechaInicioStr = format(inicioSemana, 'yyyy-MM-dd');
+      fechaFinStr = format(finSemana, 'yyyy-MM-dd');
+      periodoLabel = `Semana del ${format(inicioSemana, 'dd/MM/yyyy')} al ${format(finSemana, 'dd/MM/yyyy')}`;
+    } else if (modo === 'mes') {
+      const mesAUsar = mesParam || format(refDate, 'yyyy-MM');
+      const [y, m] = mesAUsar.split('-').map(Number);
+      const primerDia = new Date(y, m - 1, 1);
+      const ultimoDia = new Date(y, m, 0);
+      fechaInicioStr = format(primerDia, 'yyyy-MM-dd');
+      fechaFinStr = format(ultimoDia, 'yyyy-MM-dd');
+      periodoLabel = format(primerDia, 'MMMM yyyy', { locale: es }).toUpperCase();
+    } else {
+      // Rango personalizado
+      fechaInicioStr = desdeParam || fechaParam;
+      fechaFinStr = hastaParam || fechaInicioStr;
+      periodoLabel = `Período ${fechaInicioStr} al ${fechaFinStr}`;
     }
 
-    const listaHistorica = alumnos.map((al) => ({
-      id: al.id,
-      nombre: al.nombre,
-      grupo: al.grupo,
-      edad: al.edad,
-      asistenciasMes: asistenciasPorAlumno.get(al.id) || 0,
-    }));
+    // Buscar todas las asistencias en el rango
+    const asistenciasRango = await db.asistenciaAlumnoEscuela.findMany({
+      where: {
+        fecha: {
+          gte: fechaInicioStr,
+          lte: fechaFinStr,
+        },
+        alumno: whereAlumno,
+      },
+      orderBy: { fecha: 'asc' },
+    });
+
+    // Días en los que hubo al menos 1 registro/clase
+    const fechasConClaseSet = new Set<string>();
+    for (const a of asistenciasRango) {
+      fechasConClaseSet.add(a.fecha);
+    }
+    const fechasConClase = Array.from(fechasConClaseSet).sort();
+    const totalClasesPeriodo = fechasConClase.length;
+
+    // Matriz de asistencias por alumno: alumnoId -> { totalPresentes, detallePorFecha: Record<fecha, boolean> }
+    const mapaAsistencias = new Map<string, { presentes: number; porFecha: Record<string, boolean> }>();
+    for (const a of asistenciasRango) {
+      const entry = mapaAsistencias.get(a.alumnoId) || { presentes: 0, porFecha: {} };
+      entry.porFecha[a.fecha] = a.presente;
+      if (a.presente) {
+        entry.presentes++;
+      }
+      mapaAsistencias.set(a.alumnoId, entry);
+    }
+
+    const reporteAlumnos = alumnos.map((al) => {
+      const datos = mapaAsistencias.get(al.id) || { presentes: 0, porFecha: {} };
+      const presentes = datos.presentes;
+      const porcentaje = totalClasesPeriodo > 0 ? Math.round((presentes / totalClasesPeriodo) * 100) : 0;
+
+      return {
+        id: al.id,
+        nombre: al.nombre,
+        grupo: al.grupo,
+        edad: al.edad,
+        tutor: al.tutor,
+        telefono: al.telefono,
+        presentes,
+        totalClases: totalClasesPeriodo,
+        porcentaje,
+        detallePorFecha: datos.porFecha,
+      };
+    });
 
     return NextResponse.json({
       success: true,
-      mes,
-      alumnos: listaHistorica,
+      modo,
+      fechaInicio: fechaInicioStr,
+      fechaFin: fechaFinStr,
+      periodoLabel,
+      totalAlumnos: alumnos.length,
+      totalClases: totalClasesPeriodo,
+      fechasConClase,
+      alumnos: reporteAlumnos,
     });
   } catch (error: any) {
     console.error('Error al obtener asistencias de escuela:', error);
@@ -174,4 +244,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message || 'Error al registrar asistencia' }, { status: 500 });
   }
 }
-

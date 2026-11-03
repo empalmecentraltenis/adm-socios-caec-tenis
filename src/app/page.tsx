@@ -112,7 +112,7 @@ export default function Home() {
     inversiones: { title: 'Inversiones y Ahorros', subtitle: 'Resumen de capital en plazos fijos y dólares' },
     'escuela-alumnos': { title: 'Alumnos Escuela de Tenis', subtitle: 'Padrón de alumnos inscriptos por grupos (Escuelita, Minitenis y Entrenamiento)' },
     profe: { title: 'Clases Profesor', subtitle: 'Planilla de carga de clases diarias, recaudación y reportes para Comisión Directiva' },
-    asistencias: { title: 'Asistencia Alumnos', subtitle: 'Registro y seguimiento de concurrencia a clases por código QR' },
+    asistencias: { title: 'Asistencia Particulares', subtitle: 'Registro y seguimiento de concurrencia a clases particulares por código QR' },
   };
 
   return (

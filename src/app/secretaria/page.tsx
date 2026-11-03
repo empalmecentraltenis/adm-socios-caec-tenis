@@ -186,9 +186,11 @@ export default function SecretariaPage() {
   const [loadingCaja, setLoadingCaja] = useState<boolean>(false);
 
   // Filtros de fecha de Caja / Rendición
-  const [modoPeriodoCaja, setModoPeriodoCaja] = useState<'hoy' | 'ayer' | 'mes' | 'personalizado'>('hoy');
+  const [modoPeriodoCaja, setModoPeriodoCaja] = useState<'hoy' | 'ayer' | 'mes' | 'otro_mes' | 'anio' | 'personalizado'>('hoy');
   const [cajaFechaDesde, setCajaFechaDesde] = useState<string>('');
   const [cajaFechaHasta, setCajaFechaHasta] = useState<string>('');
+  const [cajaMesSeleccionado, setCajaMesSeleccionado] = useState<string>('');
+  const [cajaAnioSeleccionado, setCajaAnioSeleccionado] = useState<string>('2026');
 
   // Buscador y Selección de Socio en Mostrador
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -262,7 +264,13 @@ export default function SecretariaPage() {
   }, [cajaFechaDesde, toast]);
 
   // Cambiar período de caja específicamente
-  const cambiarPeriodoCaja = async (modo: 'hoy' | 'ayer' | 'mes' | 'personalizado', dDesde?: string, dHasta?: string) => {
+  const cambiarPeriodoCaja = async (
+    modo: 'hoy' | 'ayer' | 'mes' | 'otro_mes' | 'anio' | 'personalizado',
+    dDesde?: string,
+    dHasta?: string,
+    mesElegido?: string,
+    anioElegido?: string
+  ) => {
     setModoPeriodoCaja(modo);
     setLoadingCaja(true);
 
@@ -290,6 +298,18 @@ export default function SecretariaPage() {
         const m = String(baseHoy.getMonth() + 1).padStart(2, '0');
         desde = `${y}-${m}-01`;
         hasta = fechaHoy || `${y}-${m}-${new Date(y, baseHoy.getMonth() + 1, 0).getDate()}`;
+      } else if (modo === 'otro_mes') {
+        const mStr = mesElegido || cajaMesSeleccionado || mesActual || '2026-03';
+        setCajaMesSeleccionado(mStr);
+        const [yNum, mNum] = mStr.split('-').map(Number);
+        const ultimoDia = new Date(yNum, mNum, 0).getDate();
+        desde = `${mStr}-01`;
+        hasta = `${mStr}-${String(ultimoDia).padStart(2, '0')}`;
+      } else if (modo === 'anio') {
+        const aStr = anioElegido || cajaAnioSeleccionado || String(anioActual) || '2026';
+        setCajaAnioSeleccionado(aStr);
+        desde = `${aStr}-01-01`;
+        hasta = `${aStr}-12-31`;
       } else if (modo === 'personalizado') {
         desde = dDesde || cajaFechaDesde;
         hasta = dHasta || cajaFechaHasta || desde;
@@ -1398,11 +1418,11 @@ export default function SecretariaPage() {
               </div>
 
               {/* BOTONES RÁPIDOS */}
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
                 <button
                   type="button"
                   onClick={() => cambiarPeriodoCaja('hoy')}
-                  className={`py-1 px-2 rounded-lg text-xs font-bold transition-colors ${
+                  className={`py-1 px-1.5 rounded-lg text-xs font-bold transition-colors ${
                     modoPeriodoCaja === 'hoy'
                       ? 'bg-amber-400 text-black shadow-sm'
                       : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
@@ -1413,7 +1433,7 @@ export default function SecretariaPage() {
                 <button
                   type="button"
                   onClick={() => cambiarPeriodoCaja('ayer')}
-                  className={`py-1 px-2 rounded-lg text-xs font-bold transition-colors ${
+                  className={`py-1 px-1.5 rounded-lg text-xs font-bold transition-colors ${
                     modoPeriodoCaja === 'ayer'
                       ? 'bg-amber-400 text-black shadow-sm'
                       : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
@@ -1424,7 +1444,7 @@ export default function SecretariaPage() {
                 <button
                   type="button"
                   onClick={() => cambiarPeriodoCaja('mes')}
-                  className={`py-1 px-2 rounded-lg text-xs font-bold transition-colors ${
+                  className={`py-1 px-1.5 rounded-lg text-xs font-bold transition-colors ${
                     modoPeriodoCaja === 'mes'
                       ? 'bg-amber-400 text-black shadow-sm'
                       : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
@@ -1434,8 +1454,36 @@ export default function SecretariaPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    setModoPeriodoCaja('otro_mes');
+                    if (!cajaMesSeleccionado) setCajaMesSeleccionado(mesActual || '2026-03');
+                  }}
+                  className={`py-1 px-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    modoPeriodoCaja === 'otro_mes'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                  }`}
+                >
+                  Otro Mes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModoPeriodoCaja('anio');
+                    cambiarPeriodoCaja('anio', undefined, undefined, undefined, cajaAnioSeleccionado || '2026');
+                  }}
+                  className={`py-1 px-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    modoPeriodoCaja === 'anio'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                  }`}
+                >
+                  Todo el Año
+                </button>
+                <button
+                  type="button"
                   onClick={() => setModoPeriodoCaja('personalizado')}
-                  className={`py-1 px-2 rounded-lg text-xs font-bold transition-colors ${
+                  className={`py-1 px-1.5 rounded-lg text-xs font-bold transition-colors ${
                     modoPeriodoCaja === 'personalizado'
                       ? 'bg-amber-400 text-black shadow-sm'
                       : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
@@ -1444,6 +1492,57 @@ export default function SecretariaPage() {
                   Fechas
                 </button>
               </div>
+
+              {/* SELECTOR DE OTRO MES */}
+              {modoPeriodoCaja === 'otro_mes' && (
+                <div className="pt-2 border-t border-[#2A2A2A] flex items-center gap-2">
+                  <div className="flex-1">
+                    <span className="text-[10px] text-[#888] block mb-0.5">Seleccionar Mes (YYYY-MM)</span>
+                    <Input
+                      type="month"
+                      value={cajaMesSeleccionado || mesActual || '2026-03'}
+                      onChange={(e) => setCajaMesSeleccionado(e.target.value)}
+                      className="h-8 text-xs bg-[#242424] border-[#383838] text-white p-1"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => cambiarPeriodoCaja('otro_mes', undefined, undefined, cajaMesSeleccionado)}
+                    className="h-8 px-3 mt-3.5 bg-amber-400 text-black hover:bg-amber-500 font-bold text-xs"
+                  >
+                    Ver Mes
+                  </Button>
+                </div>
+              )}
+
+              {/* SELECTOR DE TODO EL AÑO */}
+              {modoPeriodoCaja === 'anio' && (
+                <div className="pt-2 border-t border-[#2A2A2A] flex items-center justify-between gap-2">
+                  <span className="text-xs text-[#AAAAAA]">
+                    Rendición anual completa del año <strong>{cajaAnioSeleccionado || '2026'}</strong>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {['2025', '2026', '2027'].map((yr) => (
+                      <Button
+                        key={yr}
+                        size="sm"
+                        variant={cajaAnioSeleccionado === yr ? 'default' : 'outline'}
+                        onClick={() => {
+                          setCajaAnioSeleccionado(yr);
+                          cambiarPeriodoCaja('anio', undefined, undefined, undefined, yr);
+                        }}
+                        className={`h-7 px-2.5 text-xs font-bold ${
+                          cajaAnioSeleccionado === yr
+                            ? 'bg-amber-400 text-black'
+                            : 'bg-[#242424] border-[#383838] text-[#AAAAAA] hover:text-white'
+                        }`}
+                      >
+                        {yr}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* SELECTOR DE FECHAS PERSONALIZADO */}
               {modoPeriodoCaja === 'personalizado' && (
@@ -1487,6 +1586,10 @@ export default function SecretariaPage() {
                     ? 'Total Cobrado Ayer'
                     : modoPeriodoCaja === 'mes'
                     ? 'Total Cobrado Este Mes'
+                    : modoPeriodoCaja === 'otro_mes'
+                    ? `Total Mes (${cajaMesSeleccionado || mesActual})`
+                    : modoPeriodoCaja === 'anio'
+                    ? `Total Año ${cajaAnioSeleccionado}`
                     : 'Total Recaudado'}
                 </span>
                 <span className="text-xl font-black text-white mt-1 block">
@@ -1547,7 +1650,11 @@ export default function SecretariaPage() {
                         : modoPeriodoCaja === 'ayer'
                         ? 'Cobros de Ayer'
                         : modoPeriodoCaja === 'mes'
-                        ? 'Cobros del Mes'
+                        ? 'Cobros de Este Mes'
+                        : modoPeriodoCaja === 'otro_mes'
+                        ? `Cobros de ${cajaMesSeleccionado || mesActual}`
+                        : modoPeriodoCaja === 'anio'
+                        ? `Cobros del Año ${cajaAnioSeleccionado}`
                         : 'Cobros del Período'}{' '}
                       ({pagosHoy.length})
                     </span>

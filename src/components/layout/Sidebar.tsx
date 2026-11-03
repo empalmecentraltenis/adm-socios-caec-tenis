@@ -21,7 +21,7 @@ const navItems = [
   { id: 'inversiones', label: 'Inversiones y Ahorros', icon: Landmark },
   { id: 'escuela-alumnos', label: 'Alumnos Escuela', icon: GraduationCap },
   { id: 'profe', label: 'Clases Profesor', icon: GraduationCap },
-  { id: 'asistencias', label: 'Asistencia Alumnos', icon: CheckSquare },
+  { id: 'asistencias', label: 'Asistencia Particulares', icon: CheckSquare },
   { id: 'configuracion', label: 'Configuración', icon: Settings },
 ];
 
