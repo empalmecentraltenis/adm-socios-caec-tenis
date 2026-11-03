@@ -113,6 +113,7 @@ const monthOptions = generateMonthOptions();
 export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?: boolean } = {}) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'diaria' | 'mensual'>('diaria');
+  const [searchTerm, setSearchTerm] = useState('');
   const [searchReporte, setSearchReporte] = useState('');
   const [vistaReporte, setVistaReporte] = useState<'acumulado' | 'detalle'>('acumulado');
 
