@@ -48,6 +48,8 @@ import {
   Trash2,
   Loader2,
   FileSpreadsheet,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { startOfWeek, endOfWeek } from 'date-fns';
@@ -87,6 +89,11 @@ interface ReporteSocio {
   totalClases: number;
   esNoRegistrado: boolean;
   fechas: string[];
+  detalles: Array<{
+    id: string;
+    fecha: string;
+    notas?: string | null;
+  }>;
   ultimasNotas?: string[];
 }
 
@@ -117,6 +124,7 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
   const [searchTerm, setSearchTerm] = useState('');
   const [searchReporte, setSearchReporte] = useState('');
   const [vistaReporte, setVistaReporte] = useState<'acumulado' | 'detalle'>('acumulado');
+  const [expandedAlumnoKey, setExpandedAlumnoKey] = useState<string | null>(null);
 
   // Estados para alumnos (DNI)
   const [asistenciasDiarias, setAsistenciasDiarias] = useState<Asistencia[]>([]);
@@ -350,11 +358,17 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
           totalClases: 0,
           esNoRegistrado: noReg,
           fechas: [],
+          detalles: [],
           ultimasNotas: [],
         };
       }
       acc[clave].totalClases += 1;
       acc[clave].fechas.push(asistencia.fecha);
+      acc[clave].detalles.push({
+        id: asistencia.id,
+        fecha: asistencia.fecha,
+        notas: asistencia.notas,
+      });
       if (asistencia.notas && !acc[clave].ultimasNotas?.includes(asistencia.notas)) {
         acc[clave].ultimasNotas?.push(asistencia.notas);
       }
@@ -1117,7 +1131,7 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black print:font-bold">DNI</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center print:text-black print:font-bold">Total Asistencias</TableHead>
                       <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 text-center print:hidden">Estado Cuota</TableHead>
-                      <TableHead className="text-[#999999] font-medium text-xs h-9 py-1 print:text-black">Días que vino</TableHead>
+                      <TableHead className="w-10 text-center print:hidden"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1131,103 +1145,160 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                       </TableRow>
                     ) : (
                       filteredRankingAlumnos.map((item, idx) => {
+                        const itemKey = item.socio.id || `dni_${item.socio.dni}_${idx}`;
+                        const isExpanded = expandedAlumnoKey === itemKey;
                         const noRegistrado = item.esNoRegistrado;
                         const alertas = getAlertasSocio(item.socio);
                         const tieneAlertas = alertas.length > 0;
 
                         return (
-                          <TableRow
-                            key={item.socio.id || `dni_${item.socio.dni}_${idx}`}
-                            className={cn(
-                              'border-[#333333] transition-colors print:border-b print:border-gray-300',
-                              noRegistrado
-                                ? 'bg-amber-500/10 hover:bg-amber-500/15'
-                                : tieneAlertas
-                                ? 'bg-red-500/5 hover:bg-red-500/10'
-                                : 'hover:bg-[#252525]'
-                            )}
-                          >
-                            {/* Puesto */}
-                            <TableCell className="text-center font-mono text-xs text-[#888888] py-3 print:text-black">
-                              {idx + 1}
-                            </TableCell>
-
-                            {/* Alumno */}
-                            <TableCell className="text-[#CCCCCC] text-sm py-3 print:text-black">
-                              {noRegistrado ? (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-amber-300">Alumno No Registrado</span>
-                                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold px-1.5 py-0">
-                                    Sin ficha
-                                  </Badge>
-                                </div>
-                              ) : (
-                                <div>
-                                  <span className="font-semibold text-white">{item.socio.apellido}</span>, {item.socio.nombre}
-                                  {item.socio.categoria && (
-                                    <span className="text-[11px] text-[#777777] ml-2 capitalize">
-                                      ({item.socio.categoria})
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </TableCell>
-
-                            {/* DNI */}
-                            <TableCell className="py-3 font-mono whitespace-nowrap print:text-black">
-                              <span className={cn(
-                                "text-xs font-bold px-2 py-1 rounded border",
+                          <>
+                            <TableRow
+                              key={itemKey}
+                              onClick={() => setExpandedAlumnoKey(isExpanded ? null : itemKey)}
+                              className={cn(
+                                'border-[#333333] transition-colors cursor-pointer print:border-b print:border-gray-300',
                                 noRegistrado
-                                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                                  : "bg-[#2A2A2A] text-white border-[#3A3A3A]"
-                              )}>
-                                {item.socio.dni}
-                              </span>
-                            </TableCell>
-
-                            {/* Total Asistencias (Conteo acumulado) */}
-                            <TableCell className="text-center py-3">
-                              <Badge className="bg-[#FFCC00]/20 text-[#FFCC00] border border-[#FFCC00]/50 text-xs font-extrabold px-3 py-1">
-                                {item.totalClases} {item.totalClases === 1 ? 'clase' : 'clases'}
-                              </Badge>
-                            </TableCell>
-
-                            {/* Estado Cuota */}
-                            <TableCell className="text-center py-3 print:hidden">
-                              {noRegistrado ? (
-                                <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] font-bold">
-                                  <UserX className="h-3 w-3 mr-1" /> Sin ficha
-                                </Badge>
-                              ) : tieneAlertas ? (
-                                <div className="flex items-center justify-center gap-1 flex-wrap">
-                                  {alertas.map((alerta, i) => (
-                                    <Badge key={i} variant="outline" className="bg-red-500/15 text-red-400 border-red-500/20 text-[10px]">
-                                      {alerta}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-center gap-1 text-green-500 text-xs font-medium">
-                                  <CheckCircle2 className="h-4 w-4" /> Al día
-                                </div>
+                                  ? 'bg-amber-500/10 hover:bg-amber-500/15'
+                                  : tieneAlertas
+                                  ? 'bg-red-500/5 hover:bg-red-500/10'
+                                  : isExpanded
+                                  ? 'bg-[#222222]'
+                                  : 'hover:bg-[#252525]'
                               )}
-                            </TableCell>
+                            >
+                              {/* Puesto */}
+                              <TableCell className="text-center font-mono text-xs text-[#888888] py-3 print:text-black">
+                                {idx + 1}
+                              </TableCell>
 
-                            {/* Fechas que asistió */}
-                            <TableCell className="text-xs text-[#AAAAAA] py-3 max-w-[280px]">
-                              <div className="flex flex-wrap gap-1">
-                                {item.fechas.map((f, fi) => (
-                                  <span
-                                    key={fi}
-                                    className="px-1.5 py-0.5 rounded bg-[#242424] border border-[#383838] text-[11px] font-mono text-[#CCCCCC]"
-                                    title={format(new Date(f), "dd/MM/yyyy 'a las' HH:mm 'hs'")}
-                                  >
-                                    {format(new Date(f), 'dd/MM')}
-                                  </span>
-                                ))}
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                              {/* Alumno */}
+                              <TableCell className="text-[#CCCCCC] text-sm py-3 print:text-black">
+                                {noRegistrado ? (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-amber-300">Alumno No Registrado</span>
+                                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold px-1.5 py-0">
+                                      Sin ficha
+                                    </Badge>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <span className="font-semibold text-white">{item.socio.apellido}</span>, {item.socio.nombre}
+                                    {item.socio.categoria && (
+                                      <span className="text-[11px] text-[#777777] ml-2 capitalize">
+                                        ({item.socio.categoria})
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </TableCell>
+
+                              {/* DNI */}
+                              <TableCell className="py-3 font-mono whitespace-nowrap print:text-black">
+                                <span className={cn(
+                                  "text-xs font-bold px-2 py-1 rounded border",
+                                  noRegistrado
+                                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                    : "bg-[#2A2A2A] text-white border-[#3A3A3A]"
+                                )}>
+                                  {item.socio.dni}
+                                </span>
+                              </TableCell>
+
+                              {/* Total Asistencias (Conteo acumulado) */}
+                              <TableCell className="text-center py-3">
+                                <Badge className="bg-[#FFCC00]/20 text-[#FFCC00] border border-[#FFCC00]/50 text-xs font-extrabold px-3 py-1">
+                                  {item.totalClases} {item.totalClases === 1 ? 'clase' : 'clases'}
+                                </Badge>
+                              </TableCell>
+
+                              {/* Estado Cuota */}
+                              <TableCell className="text-center py-3 print:hidden">
+                                {noRegistrado ? (
+                                  <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] font-bold">
+                                    <UserX className="h-3 w-3 mr-1" /> Sin ficha
+                                  </Badge>
+                                ) : tieneAlertas ? (
+                                  <div className="flex items-center justify-center gap-1 flex-wrap">
+                                    {alertas.map((alerta, i) => (
+                                      <Badge key={i} variant="outline" className="bg-red-500/15 text-red-400 border-red-500/20 text-[10px]">
+                                        {alerta}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-1 text-green-500 text-xs font-medium">
+                                    <CheckCircle2 className="h-4 w-4" /> Al día
+                                  </div>
+                                )}
+                              </TableCell>
+
+                              {/* Botón Acordeón Desplegable */}
+                              <TableCell className="text-center py-3 print:hidden">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-[#888888] hover:text-white"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedAlumnoKey(isExpanded ? null : itemKey);
+                                  }}
+                                  title={isExpanded ? 'Ocultar detalle de clases' : 'Ver detalle de clases asistidas'}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4 text-[#FFCC00]" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+
+                            {/* Fila desplegable estilo Turnos con Luz / Invitados */}
+                            {isExpanded && (
+                              <TableRow className="bg-[#181818] border-[#2A2A2A] hover:bg-[#181818]">
+                                <TableCell colSpan={6} className="p-3 pl-8 pr-6">
+                                  <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-3.5 space-y-2.5 shadow-inner">
+                                    <div className="flex items-center justify-between text-xs font-bold text-[#AAAAAA] border-b border-[#242424] pb-2">
+                                      <span className="flex items-center gap-1.5 text-white">
+                                        <Award className="h-3.5 w-3.5 text-[#FFCC00]" />
+                                        Detalle de asistencias de {item.socio.nombre} {item.socio.apellido}:
+                                      </span>
+                                      <span className="text-[11px] text-[#888]">
+                                        Total: <strong className="text-[#FFCC00]">{item.totalClases}</strong> {item.totalClases === 1 ? 'asistencia' : 'asistencias'}
+                                      </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+                                      {item.detalles.map((det, dIdx) => (
+                                        <div
+                                          key={det.id || dIdx}
+                                          className="flex items-center justify-between text-xs py-2 px-3 rounded-lg bg-[#1C1C1C] border border-[#2E2E2E] text-[#CCCCCC]"
+                                        >
+                                          <div className="flex flex-col">
+                                            <span className="font-semibold text-white">
+                                              {format(new Date(det.fecha), "EEEE dd/MM/yyyy", { locale: es })}
+                                            </span>
+                                            <span className="text-[11px] text-[#888] font-mono">
+                                              Hora: {format(new Date(det.fecha), "HH:mm 'hs'")}
+                                            </span>
+                                            {det.notas && (
+                                              <span className="text-[11px] text-amber-300/80 italic mt-0.5">
+                                                {det.notas}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold px-1.5 py-0.5 shrink-0">
+                                            Presente
+                                          </Badge>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </>
                         );
                       })
                     )}
