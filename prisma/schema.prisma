@@ -275,8 +275,26 @@ model AlumnoEscuela {
   createdAt     DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @default(dbgenerated("timezone('utc'::text, now())")) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  asistencias   AsistenciaAlumnoEscuela[]
+
   @@index([grupo])
   @@index([activo])
   @@map("alumnos_escuela")
+}
+
+model AsistenciaAlumnoEscuela {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  alumnoId  String        @map("alumno_id") @db.Uuid
+  fecha     String        // YYYY-MM-DD para búsquedas e indexación rápida por día
+  presente  Boolean       @default(true)
+  grupo     String?       // Grupo al momento de la asistencia
+  createdAt DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+
+  alumno    AlumnoEscuela @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+
+  @@unique([alumnoId, fecha])
+  @@index([fecha])
+  @@index([alumnoId])
+  @@map("asistencias_alumnos_escuela")
 }
 

@@ -13,7 +13,10 @@ import {
   Sparkles,
   Trophy,
   Filter,
+  CheckSquare,
+  ListOrdered,
 } from 'lucide-react';
+import TomarAsistenciaEscuela from './TomarAsistenciaEscuela';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -80,6 +83,7 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedGrupo, setSelectedGrupo] = useState<string>('todos');
+  const [vistaActiva, setVistaActiva] = useState<'padron' | 'asistencia'>('padron');
 
   // Modales
   const [modalOpen, setModalOpen] = useState(false);
@@ -285,9 +289,49 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
   }, [alumnos]);
 
   return (
-    <div className="space-y-6">
-      {/* KPI Cards Superiores */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="space-y-5">
+      {/* Selector de Pestaña Principal: Padrón vs Tomar Asistencia */}
+      <div className="flex items-center gap-2 border-b border-[#2A2A2A] pb-2">
+        <button
+          type="button"
+          onClick={() => setVistaActiva('padron')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            vistaActiva === 'padron'
+              ? 'bg-primary text-black shadow-md'
+              : 'bg-[#1C1C1C] text-[#AAAAAA] hover:text-white border border-[#2E2E2E]'
+          }`}
+        >
+          <ListOrdered className="h-4 w-4" />
+          <span>Padrón de Alumnos</span>
+          <Badge className={`text-[10px] px-1.5 py-0 ${vistaActiva === 'padron' ? 'bg-black text-primary' : 'bg-[#2A2A2A] text-[#888]'}`}>
+            {stats.total}
+          </Badge>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setVistaActiva('asistencia')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            vistaActiva === 'asistencia'
+              ? 'bg-emerald-500 text-black shadow-md'
+              : 'bg-[#1C1C1C] text-emerald-400 hover:text-white border border-emerald-500/30'
+          }`}
+        >
+          <CheckSquare className="h-4 w-4" />
+          <span>⚡ Tomar Asistencia (Pase de Lista)</span>
+        </button>
+      </div>
+
+      {/* VISTA 1: TOMAR ASISTENCIA RÁPIDA */}
+      {vistaActiva === 'asistencia' && (
+        <TomarAsistenciaEscuela />
+      )}
+
+      {/* VISTA 2: PADRÓN GENERAL DE ALUMNOS */}
+      {vistaActiva === 'padron' && (
+        <>
+          {/* KPI Cards Superiores */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-[#888888]">
             <span className="text-xs font-semibold uppercase tracking-wider">Total Alumnos</span>
@@ -699,6 +743,8 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </>
+      )}
     </div>
   );
 }

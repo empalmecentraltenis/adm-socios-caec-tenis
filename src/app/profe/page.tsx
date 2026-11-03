@@ -16,8 +16,11 @@ import {
   Sparkles,
   ArrowRight,
   TrendingUp,
-  Info
+  Info,
+  CheckSquare,
+  FileSpreadsheet
 } from 'lucide-react';
+import TomarAsistenciaEscuela from '@/components/escuela/TomarAsistenciaEscuela';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { parseLocalDate } from '@/lib/utils';
@@ -58,6 +61,7 @@ export default function ProfePage() {
 
   const [recientes, setRecientes] = useState<Registro[]>([]);
   const [loadingRecientes, setLoadingRecientes] = useState<boolean>(false);
+  const [vistaProfe, setVistaProfe] = useState<'planilla' | 'asistencia'>('planilla');
 
   // Consultar si ya hay una carga para la fecha seleccionada
   const checkDateRecord = useCallback(async (dateStr: string) => {
@@ -215,8 +219,46 @@ export default function ProfePage() {
           </p>
         </div>
 
-        {/* Card Principal */}
-        <Card className="bg-[#1E1E1E] border-[#333333] shadow-2xl overflow-hidden">
+        {/* Selector de Modo en Celular: Planilla de Caja vs Tomar Asistencia */}
+        <div className="grid grid-cols-2 gap-2 bg-[#1E1E1E] p-1 rounded-xl border border-[#2E2E2E]">
+          <button
+            type="button"
+            onClick={() => setVistaProfe('planilla')}
+            className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              vistaProfe === 'planilla'
+                ? 'bg-[#FFCC00] text-black shadow-md'
+                : 'text-[#AAAAAA] hover:text-white'
+            }`}
+          >
+            <FileSpreadsheet size={15} />
+            <span>Carga de Clases</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setVistaProfe('asistencia')}
+            className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              vistaProfe === 'asistencia'
+                ? 'bg-emerald-500 text-black shadow-md'
+                : 'text-emerald-400 hover:text-white'
+            }`}
+          >
+            <CheckSquare size={15} />
+            <span>Tomar Asistencia</span>
+          </button>
+        </div>
+
+        {/* VISTA 1: TOMAR ASISTENCIA DE ESCUELA */}
+        {vistaProfe === 'asistencia' && (
+          <div className="space-y-4">
+            <TomarAsistenciaEscuela initialFecha={fecha} isCompact={true} />
+          </div>
+        )}
+
+        {/* VISTA 2: PLANILLA DIARIA DE CLASES */}
+        {vistaProfe === 'planilla' && (
+          <>
+            {/* Card Principal */}
+            <Card className="bg-[#1E1E1E] border-[#333333] shadow-2xl overflow-hidden">
           <CardHeader className="border-b border-[#2C2C2C] pb-4 bg-gradient-to-b from-[#252525] to-[#1E1E1E]">
             <CardTitle className="text-xl text-white font-bold flex items-center justify-between">
               <span>Registro del Día</span>
@@ -508,6 +550,8 @@ export default function ProfePage() {
             </div>
           )}
         </div>
+          </>
+        )}
 
         {/* Footer */}
         <div className="text-center text-[#555555] text-xs pt-4">
