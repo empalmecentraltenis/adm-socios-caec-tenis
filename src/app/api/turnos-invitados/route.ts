@@ -292,7 +292,12 @@ export async function GET(request: Request) {
           if (ordenActual <= cupoInvitadosAnual) {
             gratisEnTurno++;
           } else {
-            cobradosEnTurno++;
+            // Solo se cobra si el turno es a partir del 16/11/2026
+            if (fechaStr >= '2026-11-16') {
+              cobradosEnTurno++;
+            } else {
+              gratisEnTurno++;
+            }
           }
         }
 

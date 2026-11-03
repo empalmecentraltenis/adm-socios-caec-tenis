@@ -194,9 +194,15 @@ export async function GET(request: Request) {
       }>;
     }>();
 
+    const FECHA_INICIO_COBRO_LUZ = '2026-11-16';
+
     for (const t of turnosDb) {
       // El cargo por luz solo se genera cuando el turno ya terminó
       if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
+
+      const fechaStr = extractDate(t.fecha);
+      // Turnos anteriores al 16/11/2026 quedan bonificados
+      if (fechaStr < FECHA_INICIO_COBRO_LUZ) continue;
 
       const horaStr = extractTime(t.horaInicio);
       const horaFinStr = extractTime(t.horaFin);
@@ -204,7 +210,6 @@ export async function GET(request: Request) {
       // Solo turnos a partir de las 19:00 hs
       if (horaStr < '19:00') continue;
 
-      const fechaStr = extractDate(t.fecha);
       const canchaNombre = t.cancha?.nombre || `Cancha ${t.canchaId}`;
 
       // A) Turnos del Profesor (bloqueados por clases)

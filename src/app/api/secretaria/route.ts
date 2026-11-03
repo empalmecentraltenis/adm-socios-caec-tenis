@@ -67,6 +67,9 @@ export async function GET(request: Request) {
       return hFinStr <= horaActualStr;
     };
 
+    // FECHA DE INICIO DE COBRO PARA LUZ E INVITADOS EXTRAS: 16 de Noviembre de 2026
+    const FECHA_INICIO_COBRO_ADICIONALES = '2026-11-16';
+
     // 1. Configuraciones
     const configuraciones = await db.configuracion.findMany();
     const getValor = (clave: string) => {
@@ -167,6 +170,9 @@ export async function GET(request: Request) {
       if (horaStr < '19:00') continue;
 
       const fechaStr = extractDate(t.fecha);
+      // Turnos anteriores al 16/11/2026 quedan bonificados/libres de cobro de luz
+      if (fechaStr < FECHA_INICIO_COBRO_ADICIONALES) continue;
+
       const canchaNombre = t.cancha?.nombre || `Cancha ${t.canchaId}`;
       const titularDni = t.socioDni || '';
 
@@ -306,17 +312,11 @@ export async function GET(request: Request) {
       const totalInvitadosUsados = turnosConInvitados.reduce((acc, t) => acc + t.cantidadInvitados, 0);
       const bonificadosUsados = Math.min(4, totalInvitadosUsados);
       const bonificadosRestantes = Math.max(0, 4 - totalInvitadosUsados);
-      const extrasTotal = Math.max(0, totalInvitadosUsados - 4);
-
-      // Pagos de invitados registrados para este socio
-      const pagosInvitados = pagosInvitadosPorSocio.get(s.dni) || [];
-      const extrasPagadosCount = pagosInvitados.length;
-      const extrasPendientesCount = Math.max(0, extrasTotal - extrasPagadosCount);
-      const deudaInvitados = extrasPendientesCount * precioInvitadoExtra;
 
       // Desglose cronológico de invitados para la interfaz
       let acumulado = 0;
       // Contabilizar pagos por turno o generales del socio
+      const pagosInvitados = pagosInvitadosPorSocio.get(s.dni) || [];
       const pagosPorTurnoId = new Map<string, number>();
       let pagosSinTurnoId = 0;
       for (const p of pagosInvitados) {
@@ -336,8 +336,16 @@ export async function GET(request: Request) {
         let conCargoEnTurno = 0;
 
         for (let i = desde; i <= hasta; i++) {
-          if (i <= 4) bonificadosEnTurno++;
-          else conCargoEnTurno++;
+          if (i <= 4) {
+            bonificadosEnTurno++;
+          } else {
+            // Solo se cobra si el turno es a partir del 16/11/2026
+            if (t.fecha >= FECHA_INICIO_COBRO_ADICIONALES) {
+              conCargoEnTurno++;
+            } else {
+              bonificadosEnTurno++;
+            }
+          }
         }
 
         // Calcular cuántos cargos de este turno ya fueron pagados
@@ -366,6 +374,11 @@ export async function GET(request: Request) {
           pagado,
         };
       });
+
+      const extrasTotal = desgloseInvitados.reduce((acc, d) => acc + d.conCargo, 0);
+      const extrasPagadosCount = desgloseInvitados.reduce((acc, d) => acc + d.pagados, 0);
+      const extrasPendientesCount = desgloseInvitados.reduce((acc, d) => acc + d.pendientes, 0);
+      const deudaInvitados = extrasPendientesCount * precioInvitadoExtra;
 
       // D) CONSOLIDADO
       const deudaTotal = deudaCuotas + deudaLuz + deudaInvitados;
