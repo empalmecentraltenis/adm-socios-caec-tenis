@@ -47,7 +47,10 @@ import {
   Award,
   Trash2,
   Loader2,
+  FileSpreadsheet,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { startOfWeek, endOfWeek } from 'date-fns';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -116,9 +119,14 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
   const [asistenciasMensuales, setAsistenciasMensuales] = useState<Asistencia[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Selectores de fecha
+  // Selectores de fecha para Reportes / Exportación
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+  const [modoPeriodoReporte, setModoPeriodoReporte] = useState<'mes' | 'semana' | 'anio' | 'personalizado'>('mes');
+  const [reporteAnio, setReporteAnio] = useState<string>('2026');
+  const [reporteFechaDesde, setReporteFechaDesde] = useState<string>('');
+  const [reporteFechaHasta, setReporteFechaHasta] = useState<string>('');
+  const [periodoLabel, setPeriodoLabel] = useState<string>('');
 
   // Estado para eliminación de asistencias
   const [asistenciaParaEliminar, setAsistenciaParaEliminar] = useState<Asistencia | null>(null);
@@ -181,29 +189,52 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
     }
   }, []);
 
-  // Fetch asistencias mensuales
-  const fetchAsistenciasMensuales = useCallback(async (monthStr: string) => {
+  // Fetch asistencias del período configurado (semana, mes, año, rango)
+  const fetchAsistenciasPeriodo = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/asistencias?mes=${monthStr}`);
+      let queryParam = '';
+      if (modoPeriodoReporte === 'semana') {
+        const now = new Date();
+        const start = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        const end = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        queryParam = `desde=${start}&hasta=${end}`;
+        setPeriodoLabel(`Semana (${format(startOfWeek(now, { weekStartsOn: 1 }), 'dd/MM')} al ${format(endOfWeek(now, { weekStartsOn: 1 }), 'dd/MM/yyyy')})`);
+      } else if (modoPeriodoReporte === 'anio') {
+        queryParam = `anio=${reporteAnio}`;
+        setPeriodoLabel(`Año ${reporteAnio}`);
+      } else if (modoPeriodoReporte === 'personalizado') {
+        if (reporteFechaDesde && reporteFechaHasta) {
+          queryParam = `desde=${reporteFechaDesde}&hasta=${reporteFechaHasta}`;
+          setPeriodoLabel(`Período ${reporteFechaDesde} al ${reporteFechaHasta}`);
+        } else {
+          queryParam = `mes=${selectedMonth}`;
+        }
+      } else {
+        // modo === 'mes'
+        queryParam = `mes=${selectedMonth}`;
+        setPeriodoLabel(format(new Date(selectedMonth + '-01T00:00:00'), 'MMMM yyyy', { locale: es }).toUpperCase());
+      }
+
+      const res = await fetch(`/api/asistencias?${queryParam}`);
       if (res.ok) {
         const data = await res.json();
         setAsistenciasMensuales(data);
       }
     } catch (error) {
-      console.error('Error fetching asistencias mensuales', error);
+      console.error('Error fetching asistencias del período', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [modoPeriodoReporte, selectedMonth, reporteAnio, reporteFechaDesde, reporteFechaHasta]);
 
   useEffect(() => {
     if (activeTab === 'diaria') {
       fetchAsistenciasDiarias(selectedDate);
     } else {
-      fetchAsistenciasMensuales(selectedMonth);
+      fetchAsistenciasPeriodo();
     }
-  }, [activeTab, selectedDate, selectedMonth, fetchAsistenciasDiarias, fetchAsistenciasMensuales]);
+  }, [activeTab, selectedDate, fetchAsistenciasDiarias, fetchAsistenciasPeriodo]);
 
   // Polling automático cada 20s para la vista del día de hoy
   useEffect(() => {
@@ -322,6 +353,110 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
       return a.socio.apellido.localeCompare(b.socio.apellido);
     });
   }, [asistenciasMensuales]);
+
+  // Exportar asistencias a Excel (diario o período)
+  const exportarAExcel = (tipo: 'diario' | 'periodo') => {
+    try {
+      const lista = tipo === 'diario' ? filteredDiarias : asistenciasMensuales;
+
+      if (lista.length === 0) {
+        toast({
+          title: 'Sin datos',
+          description: 'No hay asistencias registradas para exportar en este período.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const rows = lista.map((a, idx) => {
+        const noRegistrado = isAlumnoNoRegistrado(a);
+        const fechaObj = new Date(a.fecha);
+        const fechaStr = format(fechaObj, 'dd/MM/yyyy');
+        const horaStr = format(fechaObj, 'HH:mm');
+
+        let nombre = `${a.socio.apellido}, ${a.socio.nombre}`;
+        if (noRegistrado) {
+          nombre = 'Alumno No Registrado';
+        }
+
+        let estadoCuota = 'Al día';
+        if (noRegistrado) {
+          estadoCuota = 'Sin ficha';
+        } else if (a.socio.estado === 'inactivo') {
+          estadoCuota = 'Inactivo';
+        } else if ((a.socio.mesesAdeudados || 0) > 0) {
+          estadoCuota = `Debe ${a.socio.mesesAdeudados} cuota(s)`;
+        }
+
+        return {
+          'N°': idx + 1,
+          'Fecha': fechaStr,
+          'Hora': horaStr,
+          'Alumno / Socio': nombre,
+          'DNI': a.socio.dni,
+          'Categoría': a.socio.categoria || 'Alumno',
+          'Estado Cuota': estadoCuota,
+          'Observaciones / Notas': a.notas || '-',
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 6 },   // N°
+        { wch: 14 },  // Fecha
+        { wch: 10 },  // Hora
+        { wch: 32 },  // Nombre
+        { wch: 14 },  // DNI
+        { wch: 16 },  // Categoria
+        { wch: 20 },  // Estado Cuota
+        { wch: 35 },  // Observaciones
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const sheetName = tipo === 'diario' ? 'Asistencias Dia' : 'Asistencias Periodo';
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+      // Si es reporte de período, agregamos una segunda solapa con el Resumen por Alumno (Ranking)
+      if (tipo === 'periodo' && rankingAlumnos.length > 0) {
+        const resumenRows = rankingAlumnos.map((r, idx) => ({
+          'Puesto': idx + 1,
+          'Alumno / Socio': `${r.socio.apellido}, ${r.socio.nombre}`,
+          'DNI': r.socio.dni,
+          'Categoría': r.socio.categoria || 'Alumno',
+          'Total Clases Asistidas': r.totalClases,
+          'Estado': r.esNoRegistrado ? 'No Registrado' : (r.socio.estado || 'Activo'),
+        }));
+        const wsResumen = XLSX.utils.json_to_sheet(resumenRows);
+        wsResumen['!cols'] = [
+          { wch: 8 },
+          { wch: 32 },
+          { wch: 14 },
+          { wch: 16 },
+          { wch: 24 },
+          { wch: 16 },
+        ];
+        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen por Alumno');
+      }
+
+      const fileName = tipo === 'diario'
+        ? `Asistencias_Particulares_${format(selectedDate, 'yyyy-MM-dd')}.xlsx`
+        : `Asistencias_Particulares_${modoPeriodoReporte}_${periodoLabel.replace(/[\/\s:]+/g, '_')}.xlsx`;
+
+      XLSX.writeFile(wb, fileName);
+
+      toast({
+        title: 'Excel generado exitosamente',
+        description: `Se exportaron ${rows.length} asistencias en el archivo.`,
+      });
+    } catch (err: any) {
+      console.error('Error al exportar a Excel:', err);
+      toast({
+        title: 'Error al exportar',
+        description: 'No se pudo generar el archivo Excel.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Conteo de alumnos no registrados en el día
   const noRegistradosHoyCount = useMemo(() => {
@@ -482,6 +617,18 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                   className="h-8 text-xs border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
                 >
                   Hoy
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportarAExcel('diario')}
+                  disabled={loading || filteredDiarias.length === 0}
+                  className="h-8 text-xs border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-semibold gap-1.5"
+                  title="Exportar asistencias del día a Excel"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                  <span>Exportar Excel</span>
                 </Button>
 
                 <Button
@@ -657,56 +804,202 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
         </TabsContent>
 
         {/* =========================================================================
-            TAB 2: REPORTE MENSUAL — LISTADO INDIVIDUAL DE ASISTENCIAS
+            TAB 2: REPORTE DE PERÍODO — LISTADO Y RANKING (SEMANAL / MENSUAL / ANUAL)
            ========================================================================= */}
         <TabsContent value="mensual" className="m-0 space-y-4 focus-visible:outline-none">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 print:border-none print:p-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-              <div>
-                <h3 className="text-white text-base font-bold print:text-black flex items-center gap-2">
-                  <Award className="w-5 h-5 text-[#FFCC00]" />
-                  Asistencias Mensuales de Alumnos
-                </h3>
-                <p className="text-[#999999] text-xs print:text-gray-600">
-                  {asistenciasMensuales.length} registro{asistenciasMensuales.length !== 1 ? 's' : ''} en{' '}
-                  {format(new Date(selectedMonth + '-01T00:00:00'), 'MMMM yyyy', { locale: es })} · {rankingAlumnos.length} alumnos distintos
-                </p>
-              </div>
-              
-              <div className="flex items-center gap-2 print:hidden">
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="h-8 text-xs bg-[#2A2A2A] border-[#333333] text-white focus:ring-[#FFCC00] w-[160px]">
-                    <SelectValue placeholder="Seleccionar mes" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1E1E1E] border-[#333333] text-white">
-                    {monthOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value} className="focus:bg-[#333333] focus:text-white">
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.print()}
-                  className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
-                >
-                  <Printer className="h-3.5 w-3.5 mr-1.5" />
-                  Imprimir
-                </Button>
+            {/* Cabecera y Selector de Período estilo Secretaría */}
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-white text-base font-bold print:text-black flex items-center gap-2">
+                    <Award className="w-5 h-5 text-[#FFCC00]" />
+                    <span>Reporte de Asistencias de Alumnos</span>
+                  </h3>
+                  <p className="text-[#999999] text-xs print:text-gray-600 mt-0.5">
+                    {periodoLabel || selectedMonth} · <strong>{asistenciasMensuales.length}</strong> asistencia{asistenciasMensuales.length !== 1 ? 's' : ''} registradas · <strong>{rankingAlumnos.length}</strong> alumnos únicos
+                  </p>
+                </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchAsistenciasMensuales(selectedMonth)}
-                  disabled={loading}
-                  className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
-                >
-                  <RefreshCcw className={`h-3.5 w-3.5 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  Actualizar
-                </Button>
+                {/* Acciones principales: Exportar Excel e Imprimir */}
+                <div className="flex items-center gap-2 print:hidden self-start sm:self-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportarAExcel('periodo')}
+                    disabled={loading || asistenciasMensuales.length === 0}
+                    className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 h-8 text-xs font-semibold gap-1.5"
+                    title="Descargar archivo Excel con detalle y ranking por alumno"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                    <span>Exportar Excel</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.print()}
+                    className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
+                  >
+                    <Printer className="h-3.5 w-3.5 mr-1.5" />
+                    Imprimir
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchAsistenciasPeriodo()}
+                    disabled={loading}
+                    className="border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white h-8 text-xs font-semibold"
+                  >
+                    <RefreshCcw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+                    Actualizar
+                  </Button>
+                </div>
+              </div>
+
+              {/* Botonera de Períodos: Semana, Este Mes, Otro Mes, Todo el Año, Fechas */}
+              <div className="bg-[#141414] border border-[#2E2E2E] rounded-xl p-3 flex flex-col gap-2.5 print:hidden">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">
+                    Período del Reporte:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setModoPeriodoReporte('semana')}
+                      className={`py-1 px-2.5 rounded-lg text-xs font-bold transition-colors ${
+                        modoPeriodoReporte === 'semana'
+                          ? 'bg-[#FFCC00] text-black shadow-sm'
+                          : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                      }`}
+                    >
+                      Esta Semana
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModoPeriodoReporte('mes');
+                        setSelectedMonth(format(new Date(), 'yyyy-MM'));
+                      }}
+                      className={`py-1 px-2.5 rounded-lg text-xs font-bold transition-colors ${
+                        modoPeriodoReporte === 'mes' && selectedMonth === format(new Date(), 'yyyy-MM')
+                          ? 'bg-[#FFCC00] text-black shadow-sm'
+                          : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                      }`}
+                    >
+                      Este Mes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModoPeriodoReporte('mes')}
+                      className={`py-1 px-2.5 rounded-lg text-xs font-bold transition-colors ${
+                        modoPeriodoReporte === 'mes' && selectedMonth !== format(new Date(), 'yyyy-MM')
+                          ? 'bg-[#FFCC00] text-black shadow-sm'
+                          : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                      }`}
+                    >
+                      Otro Mes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModoPeriodoReporte('anio')}
+                      className={`py-1 px-2.5 rounded-lg text-xs font-bold transition-colors ${
+                        modoPeriodoReporte === 'anio'
+                          ? 'bg-[#FFCC00] text-black shadow-sm'
+                          : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                      }`}
+                    >
+                      Todo el Año
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModoPeriodoReporte('personalizado')}
+                      className={`py-1 px-2.5 rounded-lg text-xs font-bold transition-colors ${
+                        modoPeriodoReporte === 'personalizado'
+                          ? 'bg-[#FFCC00] text-black shadow-sm'
+                          : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                      }`}
+                    >
+                      Rango Fechas
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-selector según el modo seleccionado */}
+                {modoPeriodoReporte === 'mes' && (
+                  <div className="pt-2 border-t border-[#262626] flex items-center gap-2">
+                    <span className="text-[11px] text-[#888]">Seleccionar Mes:</span>
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                      <SelectTrigger className="h-7 text-xs bg-[#242424] border-[#383838] text-white focus:ring-[#FFCC00] w-[180px]">
+                        <SelectValue placeholder="Seleccionar mes" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1E1E1E] border-[#333333] text-white">
+                        {monthOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="focus:bg-[#333333] focus:text-white">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {modoPeriodoReporte === 'anio' && (
+                  <div className="pt-2 border-t border-[#262626] flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#888]">
+                      Asistencias de todo el año <strong>{reporteAnio}</strong>:
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {['2024', '2025', '2026', '2027'].map((yr) => (
+                        <Button
+                          key={yr}
+                          size="sm"
+                          variant={reporteAnio === yr ? 'default' : 'outline'}
+                          onClick={() => setReporteAnio(yr)}
+                          className={`h-7 px-3 text-xs font-bold ${
+                            reporteAnio === yr
+                              ? 'bg-[#FFCC00] text-black'
+                              : 'bg-[#242424] border-[#383838] text-[#AAAAAA] hover:text-white'
+                          }`}
+                        >
+                          {yr}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {modoPeriodoReporte === 'personalizado' && (
+                  <div className="pt-2 border-t border-[#262626] flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-[#888]">Desde:</span>
+                      <Input
+                        type="date"
+                        value={reporteFechaDesde}
+                        onChange={(e) => setReporteFechaDesde(e.target.value)}
+                        className="h-7 text-xs bg-[#242424] border-[#383838] text-white w-36"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-[#888]">Hasta:</span>
+                      <Input
+                        type="date"
+                        value={reporteFechaHasta}
+                        onChange={(e) => setReporteFechaHasta(e.target.value)}
+                        className="h-7 text-xs bg-[#242424] border-[#383838] text-white w-36"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => fetchAsistenciasPeriodo()}
+                      disabled={!reporteFechaDesde || !reporteFechaHasta}
+                      className="h-7 px-3 bg-[#FFCC00] text-black hover:bg-[#E6B800] font-bold text-xs"
+                    >
+                      Filtrar
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 

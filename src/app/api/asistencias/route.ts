@@ -7,9 +7,32 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const dateStr = searchParams.get("fecha");
     const monthStr = searchParams.get("mes");
+    const yearStr = searchParams.get("anio");
+    const desdeStr = searchParams.get("desde");
+    const hastaStr = searchParams.get("hasta");
     
-    let whereClause = {};
-    if (monthStr) {
+    let whereClause: any = {};
+    if (desdeStr && hastaStr) {
+      // Rango personalizado o semana (YYYY-MM-DD a YYYY-MM-DD)
+      const startOfRange = new Date(`${desdeStr}T00:00:00.000-03:00`);
+      const endOfRange = new Date(`${hastaStr}T23:59:59.999-03:00`);
+      whereClause = {
+        fecha: {
+          gte: startOfRange,
+          lte: endOfRange,
+        }
+      };
+    } else if (yearStr) {
+      // Todo el año (YYYY)
+      const startOfYear = new Date(`${yearStr}-01-01T00:00:00.000-03:00`);
+      const endOfYear = new Date(`${yearStr}-12-31T23:59:59.999-03:00`);
+      whereClause = {
+        fecha: {
+          gte: startOfYear,
+          lte: endOfYear,
+        }
+      };
+    } else if (monthStr) {
       // Filtrar por mes (YYYY-MM) considerando zona horaria Argentina (UTC-3)
       const [year, month] = monthStr.split('-');
       const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();

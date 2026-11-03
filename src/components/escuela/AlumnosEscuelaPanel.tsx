@@ -16,7 +16,9 @@ import {
   CheckSquare,
   ListOrdered,
   BarChart3,
+  FileSpreadsheet,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import TomarAsistenciaEscuela from './TomarAsistenciaEscuela';
 import ReporteAsistenciaEscuela from './ReporteAsistenciaEscuela';
 import { Button } from '@/components/ui/button';
@@ -280,6 +282,58 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
     return map;
   }, [filteredAlumnos]);
 
+  // Exportar padrón a Excel
+  const exportarAExcel = () => {
+    try {
+      const dataToExport = filteredAlumnos.map((al, idx) => ({
+        'N°': idx + 1,
+        'Nombre y Apellido': al.nombre,
+        'Grupo': al.grupo,
+        'Edad': al.edad ? `${al.edad} años` : '-',
+        'Tutor / Responsable': al.tutor || '-',
+        'Teléfono': al.telefono || '-',
+        'Observaciones': al.observaciones || '-',
+        'Estado': al.activo === false ? 'Inactivo' : 'Activo',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+      // Anchos de columna óptimos
+      ws['!cols'] = [
+        { wch: 6 },   // N°
+        { wch: 30 },  // Nombre
+        { wch: 22 },  // Grupo
+        { wch: 12 },  // Edad
+        { wch: 26 },  // Tutor
+        { wch: 18 },  // Teléfono
+        { wch: 35 },  // Observaciones
+        { wch: 12 },  // Estado
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Padrón Alumnos');
+
+      const fechaHoy = new Date().toISOString().split('T')[0];
+      const nombreArchivo = selectedGrupo === 'todos'
+        ? `Padron_Alumnos_Escuela_${fechaHoy}.xlsx`
+        : `Padron_Alumnos_${selectedGrupo.replace(/\s+/g, '_')}_${fechaHoy}.xlsx`;
+
+      XLSX.writeFile(wb, nombreArchivo);
+
+      toast({
+        title: 'Exportación completada',
+        description: `Se exportaron ${dataToExport.length} alumnos a Excel.`,
+      });
+    } catch (err: any) {
+      console.error('Error al exportar a Excel:', err);
+      toast({
+        title: 'Error al exportar',
+        description: 'No se pudo generar el archivo Excel.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Contadores
   const stats = useMemo(() => {
     return {
@@ -447,6 +501,18 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
               className="pl-8 h-8 text-xs bg-[#121212] border-[#2A2A2A] text-white placeholder:text-[#666666] focus-visible:ring-primary"
             />
           </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={exportarAExcel}
+            disabled={loading || filteredAlumnos.length === 0}
+            className="h-8 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs gap-1.5 font-semibold shrink-0"
+            title="Exportar padrón a archivo Excel"
+          >
+            <FileSpreadsheet size={14} />
+            <span className="hidden sm:inline">Exportar Excel</span>
+          </Button>
 
           <Button
             size="sm"
