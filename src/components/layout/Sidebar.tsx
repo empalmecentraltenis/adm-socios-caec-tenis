@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare, Landmark, Zap, UserPlus, GraduationCap, ShieldAlert, CalendarDays, Receipt, ExternalLink, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, X, Menu, LogOut, Wallet, CheckSquare, Landmark, Zap, UserPlus, GraduationCap, ShieldAlert, CalendarDays, Receipt, ExternalLink, ShieldCheck, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { signOut } from 'next-auth/react';
 
@@ -108,7 +108,7 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
             href="/porteria"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-bold bg-[#1C1C1C] border border-[#2E2E2E] text-zinc-300 hover:bg-[#282828] hover:text-white hover:border-[#3E3E3E] transition-all mb-2 shadow-sm group"
+            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-bold bg-[#1C1C1C] border border-[#2E2E2E] text-zinc-300 hover:bg-[#282828] hover:text-white hover:border-[#3E3E3E] transition-all mb-1.5 shadow-sm group"
             title="Abrir panel de control de accesos de Portería en nueva pestaña"
           >
             <div className="flex items-center gap-2.5">
@@ -116,6 +116,21 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
               <span>Portería (Accesos)</span>
             </div>
             <ExternalLink className="h-3.5 w-3.5 opacity-40 group-hover:opacity-100" />
+          </a>
+
+          {/* Acceso directo a Comisión Directiva */}
+          <a
+            href="/comision"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-bold bg-[#18181A] border border-amber-400/30 text-amber-300 hover:bg-amber-400 hover:text-black transition-all mb-2 shadow-sm group"
+            title="Abrir Portal Ejecutivo de Comisión Directiva en nueva pestaña"
+          >
+            <div className="flex items-center gap-2.5">
+              <Building2 className="h-4 w-4 text-amber-400 group-hover:text-black transition-transform" />
+              <span>Comisión Directiva</span>
+            </div>
+            <ExternalLink className="h-3.5 w-3.5 opacity-40 group-hover:opacity-100 group-hover:text-black" />
           </a>
           {filteredNavItems.map((item) => {
             const isActive = activeTab === item.id;

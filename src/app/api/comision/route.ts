@@ -77,7 +77,7 @@ export async function GET(request: Request) {
     const startOfMonth = new Date(`${anio}-${mesNumStr}-01T00:00:00.000-03:00`);
     const endOfMonth = new Date(`${anio}-${mesNumStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999-03:00`);
 
-    const asistenciasParticulares = await db.asistencia.findMany({
+    const asistenciasParticulares = await db.asistenciaClase.findMany({
       where: {
         fecha: {
           gte: startOfMonth,
@@ -92,6 +92,7 @@ export async function GET(request: Request) {
             nombre: true,
             apellido: true,
             categoria: true,
+            telefono: true,
           },
         },
       },
@@ -108,15 +109,15 @@ export async function GET(request: Request) {
       telefono?: string | null;
       cantidadClases: number;
       fechas: string[];
-      estados: string[];
     }>();
 
     for (const asis of asistenciasParticulares) {
-      const esSocio = Boolean(asis.socioId && asis.socio);
-      const key = esSocio ? `socio_${asis.socioId}` : `nosocio_${(asis.nombreNoSocio || 'Sin Nombre').trim().toLowerCase()}`;
-      const nombre = esSocio
-        ? `${asis.socio!.apellido}, ${asis.socio!.nombre}`
-        : (asis.nombreNoSocio || 'No Socio');
+      const socio = asis.socio;
+      const esSocio = Boolean(socio && socio.categoria !== 'alumno');
+      const key = socio ? `socio_${socio.id}` : `asistencia_${asis.id}`;
+      const nombre = socio
+        ? `${socio.apellido}, ${socio.nombre}`
+        : 'Alumno';
 
       const fechaStr = asis.fecha.toISOString().split('T')[0];
 
@@ -125,19 +126,17 @@ export async function GET(request: Request) {
           key,
           nombre,
           esSocio,
-          numeroSocio: asis.socio?.numeroSocio,
-          categoria: asis.socio?.categoria,
-          telefono: asis.telefonoNoSocio,
+          numeroSocio: socio?.numeroSocio,
+          categoria: socio?.categoria,
+          telefono: socio?.telefono,
           cantidadClases: 0,
           fechas: [],
-          estados: [],
         });
       }
 
       const item = particularesMap.get(key)!;
       item.cantidadClases++;
       item.fechas.push(fechaStr);
-      item.estados.push(asis.estado);
     }
 
     const particularesLista = Array.from(particularesMap.values()).sort((a, b) =>
