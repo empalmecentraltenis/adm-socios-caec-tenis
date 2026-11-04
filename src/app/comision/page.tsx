@@ -588,8 +588,8 @@ export default function ComisionDirectivaPage() {
 
       {/* 2. Cuerpo Principal */}
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* KPI Cards Superiores (Sin resultado del mes, con Saldo Actual Total) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* KPI Cards Superiores */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <div className="bg-[#141416] border border-[#242428] rounded-2xl p-4 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between text-[#888888]">
               <span className="text-[11px] font-bold uppercase tracking-wider">Padrón de Socios</span>
@@ -629,21 +629,6 @@ export default function ComisionDirectivaPage() {
               </div>
               <div className="text-[11px] text-purple-300 font-semibold mt-0.5">
                 Alumnos activos en {labelMesActual}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-[#141416] border border-amber-500/30 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between text-amber-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Saldo Final del Mes</span>
-              <Wallet size={18} className="text-amber-400" />
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400">
-                {formatCurrency(data?.balance?.mesActual?.saldoFinal ?? 0)}
-              </div>
-              <div className="text-[11px] text-[#888888] mt-0.5">
-                Saldo Actual General: <strong className="text-white">{formatCurrency(data?.balance?.saldoActualTotal ?? 0)}</strong>
               </div>
             </div>
           </div>
@@ -717,15 +702,8 @@ export default function ComisionDirectivaPage() {
             </div>
           </div>
 
-          {/* Resumen del mes activo */}
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-4 gap-3 bg-[#131315] border-b border-[#242428]">
-            <div className="bg-[#18181B] border border-[#28282E] p-3 rounded-xl">
-              <div className="text-[10px] text-[#888] font-bold uppercase">Saldo Inicial ({labelMesActual})</div>
-              <div className="text-base font-black font-mono text-white">
-                {formatCurrency(data?.balance?.mesActual?.saldoInicial ?? 0)}
-              </div>
-            </div>
-
+          {/* Resumen del mes activo (Ingresos, Egresos y Saldo Final de Cierre) */}
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#131315] border-b border-[#242428]">
             <div className="bg-[#18181B] border border-emerald-500/20 p-3 rounded-xl">
               <div className="text-[10px] text-emerald-400 font-bold uppercase">Ingresos del Mes</div>
               <div className="text-base font-black font-mono text-emerald-400">
