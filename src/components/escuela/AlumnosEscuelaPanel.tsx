@@ -17,10 +17,12 @@ import {
   ListOrdered,
   BarChart3,
   FileSpreadsheet,
+  DollarSign,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import TomarAsistenciaEscuela from './TomarAsistenciaEscuela';
 import ReporteAsistenciaEscuela from './ReporteAsistenciaEscuela';
+import PagosCuotaEscuelaPanel from './PagosCuotaEscuelaPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -87,7 +89,7 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedGrupo, setSelectedGrupo] = useState<string>('todos');
-  const [vistaActiva, setVistaActiva] = useState<'padron' | 'asistencia' | 'reportes'>('padron');
+  const [vistaActiva, setVistaActiva] = useState<'padron' | 'asistencia' | 'reportes' | 'pagos'>('padron');
 
   // Modales
   const [modalOpen, setModalOpen] = useState(false);
@@ -387,16 +389,34 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
           }`}
         >
           <BarChart3 className="h-4 w-4" />
-          <span>📊 Reportes (Semanal / Mensual)</span>
+          <span>📊 Reportes Asistencia</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setVistaActiva('pagos')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            vistaActiva === 'pagos'
+              ? 'bg-emerald-400 text-black shadow-md'
+              : 'bg-[#1C1C1C] text-emerald-300 hover:text-white border border-emerald-500/40'
+          }`}
+        >
+          <DollarSign className="h-4 w-4" />
+          <span>💵 Cuotas y Pagos (Comisión Directiva)</span>
         </button>
       </div>
 
-      {/* VISTA 1: TOMAR ASISTENCIA RÁPIDA */}
+      {/* VISTA 1: COBRO DE CUOTAS Y REPORTES PARA COMISIÓN DIRECTIVA */}
+      {vistaActiva === 'pagos' && (
+        <PagosCuotaEscuelaPanel readOnly={readOnly} />
+      )}
+
+      {/* VISTA 2: TOMAR ASISTENCIA RÁPIDA */}
       {vistaActiva === 'asistencia' && (
         <TomarAsistenciaEscuela />
       )}
 
-      {/* VISTA 2: REPORTES SEMANALES Y MENSUALES */}
+      {/* VISTA 3: REPORTES SEMANALES Y MENSUALES DE ASISTENCIA */}
       {vistaActiva === 'reportes' && (
         <ReporteAsistenciaEscuela />
       )}

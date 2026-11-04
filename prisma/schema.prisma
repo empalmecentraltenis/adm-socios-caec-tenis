@@ -276,10 +276,31 @@ model AlumnoEscuela {
   updatedAt     DateTime @default(dbgenerated("timezone('utc'::text, now())")) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   asistencias   AsistenciaAlumnoEscuela[]
+  pagosCuota    PagoCuotaEscuela[]
 
   @@index([grupo])
   @@index([activo])
   @@map("alumnos_escuela")
+}
+
+model PagoCuotaEscuela {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  alumnoId      String        @map("alumno_id") @db.Uuid
+  mes           String        // YYYY-MM ej: '2026-11'
+  monto         Float
+  fechaPago     String        // YYYY-MM-DD
+  metodoPago    String        @default("efectivo") @map("metodo_pago") // 'efectivo' | 'transferencia'
+  observaciones String?
+  grupo         String?       // Grupo al momento del cobro
+  createdAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  alumno        AlumnoEscuela @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+
+  @@unique([alumnoId, mes])
+  @@index([mes])
+  @@index([alumnoId])
+  @@map("pagos_cuotas_escuela")
 }
 
 model AsistenciaAlumnoEscuela {

@@ -18,9 +18,11 @@ import {
   TrendingUp,
   Info,
   CheckSquare,
-  FileSpreadsheet
+  FileSpreadsheet,
+  CreditCard,
 } from 'lucide-react';
 import TomarAsistenciaEscuela from '@/components/escuela/TomarAsistenciaEscuela';
+import PagosCuotaEscuelaPanel from '@/components/escuela/PagosCuotaEscuelaPanel';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { parseLocalDate } from '@/lib/utils';
@@ -61,7 +63,7 @@ export default function ProfePage() {
 
   const [recientes, setRecientes] = useState<Registro[]>([]);
   const [loadingRecientes, setLoadingRecientes] = useState<boolean>(false);
-  const [vistaProfe, setVistaProfe] = useState<'planilla' | 'asistencia'>('planilla');
+  const [vistaProfe, setVistaProfe] = useState<'planilla' | 'asistencia' | 'cuotas'>('planilla');
 
   // Consultar si ya hay una carga para la fecha seleccionada
   const checkDateRecord = useCallback(async (dateStr: string) => {
@@ -219,42 +221,61 @@ export default function ProfePage() {
           </p>
         </div>
 
-        {/* Selector de Modo en Celular: Planilla de Caja vs Tomar Asistencia */}
-        <div className="grid grid-cols-2 gap-2 bg-[#1E1E1E] p-1 rounded-xl border border-[#2E2E2E]">
+        {/* Selector de Modo en Celular: Planilla de Clases vs Tomar Asistencia vs Cuotas Escuela */}
+        <div className="grid grid-cols-3 gap-1.5 bg-[#1E1E1E] p-1 rounded-xl border border-[#2E2E2E]">
           <button
             type="button"
             onClick={() => setVistaProfe('planilla')}
-            className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               vistaProfe === 'planilla'
                 ? 'bg-[#FFCC00] text-black shadow-md'
                 : 'text-[#AAAAAA] hover:text-white'
             }`}
           >
-            <FileSpreadsheet size={15} />
-            <span>Carga de Clases</span>
+            <FileSpreadsheet size={14} />
+            <span className="truncate">Clases</span>
           </button>
           <button
             type="button"
             onClick={() => setVistaProfe('asistencia')}
-            className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               vistaProfe === 'asistencia'
                 ? 'bg-emerald-500 text-black shadow-md'
                 : 'text-emerald-400 hover:text-white'
             }`}
           >
-            <CheckSquare size={15} />
-            <span>Tomar Asistencia</span>
+            <CheckSquare size={14} />
+            <span className="truncate">Asistencia</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setVistaProfe('cuotas')}
+            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              vistaProfe === 'cuotas'
+                ? 'bg-emerald-400 text-black shadow-md'
+                : 'text-emerald-300 hover:text-white'
+            }`}
+          >
+            <CreditCard size={14} />
+            <span className="truncate">Cuotas</span>
           </button>
         </div>
 
-        {/* VISTA 1: TOMAR ASISTENCIA DE ESCUELA */}
+        {/* VISTA 1: CUOTAS Y PAGOS ESCUELA */}
+        {vistaProfe === 'cuotas' && (
+          <div className="space-y-4">
+            <PagosCuotaEscuelaPanel readOnly={false} />
+          </div>
+        )}
+
+        {/* VISTA 2: TOMAR ASISTENCIA DE ESCUELA */}
         {vistaProfe === 'asistencia' && (
           <div className="space-y-4">
             <TomarAsistenciaEscuela initialFecha={fecha} isCompact={true} />
           </div>
         )}
 
-        {/* VISTA 2: PLANILLA DIARIA DE CLASES */}
+        {/* VISTA 3: PLANILLA DIARIA DE CLASES */}
         {vistaProfe === 'planilla' && (
           <>
             {/* Card Principal */}
