@@ -23,6 +23,9 @@ import {
   AlertCircle,
   Clock,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,6 +80,13 @@ interface ResumenPagos {
   totalEsperado: number;
   totalRecaudado: number;
   porcentajeCobrado: number;
+}
+
+interface MesResumenItem {
+  mes: string;
+  numeroMes: number;
+  totalRecaudado: number;
+  cantidadPagados: number;
 }
 
 const GRUPOS = ['Escuelita', 'Minitenis', 'Grupo Entrenamiento'] as const;
@@ -139,6 +149,7 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
 
   const [alumnos, setAlumnos] = useState<AlumnoPagoItem[]>([]);
   const [resumen, setResumen] = useState<ResumenPagos | null>(null);
+  const [mesesAnio, setMesesAnio] = useState<MesResumenItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Modal para registrar o editar cobro
@@ -173,6 +184,9 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
       if (res.ok && data.success) {
         setAlumnos(data.alumnos || []);
         setResumen(data.resumen || null);
+        if (data.mesesAnio) {
+          setMesesAnio(data.mesesAnio);
+        }
       } else {
         toast({
           title: 'Error al cargar pagos',
@@ -427,6 +441,24 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
     }
   };
 
+  // Año actual seleccionado
+  const anioActual = useMemo(() => {
+    return mesSeleccionado.split('-')[0] || String(new Date().getFullYear());
+  }, [mesSeleccionado]);
+
+  // Funciones para navegar de año
+  const handleCambiarAnio = (delta: number) => {
+    const curYear = parseInt(anioActual, 10);
+    const newYear = curYear + delta;
+    const mesNum = mesSeleccionado.split('-')[1] || '01';
+    setMesSeleccionado(`${newYear}-${mesNum}`);
+  };
+
+  // Total anual recaudado de todos los meses del año cargados
+  const totalAnualRecaudado = useMemo(() => {
+    return mesesAnio.reduce((acc, m) => acc + m.totalRecaudado, 0);
+  }, [mesesAnio]);
+
   // Formato etiqueta de mes: ej. "NOVIEMBRE 2026"
   const labelMesActual = useMemo(() => {
     const [y, m] = mesSeleccionado.split('-').map(Number);
@@ -619,20 +651,134 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* 1. Barra de Filtros, Mes y Acciones de Exportación */}
-      <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        {/* Selector de Mes y Grupo */}
+      {/* 0. Selector General de Meses del Año con Resumen de Recaudación */}
+      <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-3 sm:p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#242424]">
+          <div className="flex items-center gap-2">
+            <Calendar size={18} className="text-amber-400" />
+            <h3 className="text-sm font-bold text-white tracking-wide">
+              Vista General por Meses
+            </h3>
+            <span className="text-xs text-[#888888]">
+              (Hacé clic en un mes para ver su detalle de alumnos y pagos)
+            </span>
+          </div>
+
+          {/* Navegador de Año y Total Anual */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-[#121212] border border-[#2A2A2A] rounded-lg px-1 py-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCambiarAnio(-1)}
+                className="h-6 w-6 p-0 text-[#888888] hover:text-white"
+                title="Año anterior"
+              >
+                <ChevronLeft size={14} />
+              </Button>
+              <span className="text-xs font-mono font-bold text-white px-2">
+                {anioActual}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCambiarAnio(1)}
+                className="h-6 w-6 p-0 text-[#888888] hover:text-white"
+                title="Año siguiente"
+              >
+                <ChevronRight size={14} />
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs">
+              <span className="text-[#888888] font-medium hidden sm:inline">Total {anioActual}:</span>
+              <span className="font-mono font-bold text-emerald-400">
+                ${totalAnualRecaudado.toLocaleString('es-AR')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Carrusel / Grilla de 12 meses */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 pt-3">
+          {MESES_NOMBRES.map((nombreMes, index) => {
+            const numMesStr = String(index + 1).padStart(2, '0');
+            const mesItemKey = `${anioActual}-${numMesStr}`;
+            const esSeleccionado = mesSeleccionado === mesItemKey;
+            
+            const mesData = mesesAnio.find((m) => m.mes === mesItemKey) || {
+              totalRecaudado: 0,
+              cantidadPagados: 0,
+            };
+
+            const tieneRecaudacion = mesData.totalRecaudado > 0;
+
+            return (
+              <button
+                key={mesItemKey}
+                type="button"
+                onClick={() => setMesSeleccionado(mesItemKey)}
+                className={`relative flex flex-col items-center justify-between p-2 rounded-lg text-left transition-all cursor-pointer ${
+                  esSeleccionado
+                    ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20 ring-2 ring-amber-400 font-semibold'
+                    : tieneRecaudacion
+                    ? 'bg-[#1e1e1e] border border-emerald-500/30 hover:border-emerald-500/60 hover:bg-[#252525] text-white'
+                    : 'bg-[#141414] border border-[#262626] hover:border-[#383838] hover:bg-[#1a1a1a] text-[#888888]'
+                }`}
+              >
+                {/* Nombre de mes */}
+                <div className="flex items-center justify-between w-full">
+                  <span className={`text-[11px] uppercase tracking-wider font-bold ${
+                    esSeleccionado ? 'text-black' : tieneRecaudacion ? 'text-white' : 'text-[#888888]'
+                  }`}>
+                    {nombreMes.slice(0, 3)}
+                  </span>
+                  {mesData.cantidadPagados > 0 && (
+                    <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-bold ${
+                      esSeleccionado
+                        ? 'bg-black text-amber-300'
+                        : 'bg-emerald-500/20 text-emerald-400'
+                    }`}>
+                      {mesData.cantidadPagados}
+                    </span>
+                  )}
+                </div>
+
+                {/* Total cobrado del mes */}
+                <div className="w-full mt-1.5 pt-1 border-t border-black/10 dark:border-white/5">
+                  <div className={`text-[10px] font-mono leading-tight ${
+                    esSeleccionado
+                      ? 'text-black font-extrabold'
+                      : tieneRecaudacion
+                      ? 'text-emerald-400 font-bold'
+                      : 'text-[#555555]'
+                  }`}>
+                    {tieneRecaudacion ? `$${mesData.totalRecaudado.toLocaleString('es-AR')}` : '$0'}
+                  </div>
+                </div>
+
+                {/* Indicador de mes actual */}
+                {esSeleccionado && (
+                  <div className="absolute -bottom-1 w-2 h-1 bg-amber-400 rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 1. Barra de Filtros y Acciones del Mes Seleccionado */}
+      <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-3 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        {/* Etiqueta del mes activo y Filtro por Grupo */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Selector de Mes */}
-          <div className="flex items-center gap-1.5 bg-[#121212] border border-[#2A2A2A] px-2.5 py-1 rounded-lg">
+          {/* Badge de Mes Activo */}
+          <div className="flex items-center gap-2 bg-[#121212] border border-amber-500/30 px-3 py-1 rounded-lg">
             <Calendar size={14} className="text-amber-400" />
-            <span className="text-xs text-[#888888] font-bold">Mes:</span>
-            <input
-              type="month"
-              value={mesSeleccionado}
-              onChange={(e) => setMesSeleccionado(e.target.value)}
-              className="bg-transparent text-white text-xs font-bold focus:outline-none cursor-pointer"
-            />
+            <span className="text-xs font-bold text-amber-400">
+              {labelMesActual}
+            </span>
           </div>
 
           {/* Filtro por Grupo */}

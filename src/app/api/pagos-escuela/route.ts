@@ -94,6 +94,41 @@ export async function GET(request: Request) {
       };
     });
 
+    // 4. Resumen histórico por mes (para vista general de meses del año)
+    const anioActual = mes.substring(0, 4);
+    const todosPagosAnio = await db.pagoCuotaEscuela.findMany({
+      where: {
+        mes: {
+          startsWith: anioActual,
+        },
+      },
+      select: {
+        mes: true,
+        monto: true,
+      },
+    });
+
+    const mesesResumenMap: Record<string, { totalRecaudado: number; cantidadPagados: number }> = {};
+    for (const p of todosPagosAnio) {
+      if (!mesesResumenMap[p.mes]) {
+        mesesResumenMap[p.mes] = { totalRecaudado: 0, cantidadPagados: 0 };
+      }
+      mesesResumenMap[p.mes].totalRecaudado += p.monto;
+      mesesResumenMap[p.mes].cantidadPagados += 1;
+    }
+
+    const mesesAnio = Array.from({ length: 12 }, (_, i) => {
+      const mNum = String(i + 1).padStart(2, '0');
+      const mStr = `${anioActual}-${mNum}`;
+      const datos = mesesResumenMap[mStr] || { totalRecaudado: 0, cantidadPagados: 0 };
+      return {
+        mes: mStr,
+        numeroMes: i + 1,
+        totalRecaudado: datos.totalRecaudado,
+        cantidadPagados: datos.cantidadPagados,
+      };
+    });
+
     return NextResponse.json({
       success: true,
       mes,
@@ -105,6 +140,7 @@ export async function GET(request: Request) {
         totalRecaudado,
         porcentajeCobrado: totalEsperado > 0 ? Math.round((totalRecaudado / totalEsperado) * 100) : 0,
       },
+      mesesAnio,
       alumnos: lista,
     });
   } catch (err: any) {
