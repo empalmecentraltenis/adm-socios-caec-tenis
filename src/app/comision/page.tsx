@@ -66,6 +66,13 @@ export default function ComisionDirectivaPage() {
   const [searchSocios, setSearchSocios] = useState('');
   const [searchProfesor, setSearchProfesor] = useState('');
 
+  // Estados de acordeón desplegable por sección (por defecto cerrados para una vista ejecutiva compacta y prolija)
+  const [showDetalleBalance, setShowDetalleBalance] = useState(false);
+  const [showDetalleEscuela, setShowDetalleEscuela] = useState(false);
+  const [showDetalleParticulares, setShowDetalleParticulares] = useState(false);
+  const [showDetalleProfesor, setShowDetalleProfesor] = useState(false);
+  const [showDetalleSocios, setShowDetalleSocios] = useState(false);
+
   // Estado de descarga de paquete ZIP
   const [downloadingZip, setDownloadingZip] = useState(false);
 
@@ -726,53 +733,72 @@ export default function ComisionDirectivaPage() {
             </div>
           </div>
 
-          {/* Tabla de Movimientos del Mes */}
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
-                <tr>
-                  <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">Fecha</th>
-                  <th className="py-2.5 px-3">Concepto / Detalle</th>
-                  <th className="py-2.5 px-3">Responsable</th>
-                  <th className="py-2.5 px-3">Tipo</th>
-                  <th className="py-2.5 px-3 text-right">Monto</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D1D20]">
-                {!data?.balance?.movimientos || data.balance.movimientos.length === 0 ? (
+          {/* Botón desplegable / ocultable de Movimientos */}
+          <div className="p-3 bg-[#131315] border-b border-[#242428] flex items-center justify-between">
+            <span className="text-xs text-[#888888]">
+              Movimientos registrados en {labelMesActual}: <strong className="text-white">{data?.balance?.movimientos?.length || 0}</strong>
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDetalleBalance((prev) => !prev)}
+              className="text-xs h-7 text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 gap-1.5 font-bold"
+            >
+              <span>{showDetalleBalance ? 'Ocultar movimientos detallados' : 'Ver movimientos detallados'}</span>
+              {showDetalleBalance ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </Button>
+          </div>
+
+          {/* Tabla de Movimientos del Mes (Desplegable) */}
+          {showDetalleBalance && (
+            <div className="overflow-x-auto max-h-72 overflow-y-auto animate-in fade-in duration-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
                   <tr>
-                    <td colSpan={6} className="text-center py-6 text-[#666]">
-                      No hay movimientos asentados en {labelMesActual}.
-                    </td>
+                    <th className="py-2.5 px-3">#</th>
+                    <th className="py-2.5 px-3">Fecha</th>
+                    <th className="py-2.5 px-3">Concepto / Detalle</th>
+                    <th className="py-2.5 px-3">Responsable</th>
+                    <th className="py-2.5 px-3">Tipo</th>
+                    <th className="py-2.5 px-3 text-right">Monto</th>
                   </tr>
-                ) : (
-                  data.balance.movimientos.map((m: any, idx: number) => (
-                    <tr key={m.id} className="hover:bg-white/[0.02]">
-                      <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 font-mono text-[11px] text-[#888]">{m.fecha}</td>
-                      <td className="py-2 px-3 font-semibold text-white">{m.descripcion}</td>
-                      <td className="py-2 px-3 text-[#888]">{m.responsable || '-'}</td>
-                      <td className="py-2 px-3">
-                        <Badge className={`text-[10px] uppercase font-bold ${
-                          m.tipo === 'ingreso'
-                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                            : 'bg-red-500/15 text-red-400 border-red-500/30'
-                        }`}>
-                          {m.tipo}
-                        </Badge>
-                      </td>
-                      <td className={`py-2 px-3 text-right font-mono font-bold ${
-                        m.tipo === 'ingreso' ? 'text-emerald-400' : 'text-red-400'
-                      }`}>
-                        {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.monto)}
+                </thead>
+                <tbody className="divide-y divide-[#1D1D20]">
+                  {!data?.balance?.movimientos || data.balance.movimientos.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-6 text-[#666]">
+                        No hay movimientos asentados en {labelMesActual}.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    data.balance.movimientos.map((m: any, idx: number) => (
+                      <tr key={m.id} className="hover:bg-white/[0.02]">
+                        <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
+                        <td className="py-2 px-3 font-mono text-[11px] text-[#888]">{m.fecha}</td>
+                        <td className="py-2 px-3 font-semibold text-white">{m.descripcion}</td>
+                        <td className="py-2 px-3 text-[#888]">{m.responsable || '-'}</td>
+                        <td className="py-2 px-3">
+                          <Badge className={`text-[10px] uppercase font-bold ${
+                            m.tipo === 'ingreso'
+                              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              : 'bg-red-500/15 text-red-400 border-red-500/30'
+                          }`}>
+                            {m.tipo}
+                          </Badge>
+                        </td>
+                        <td className={`py-2 px-3 text-right font-mono font-bold ${
+                          m.tipo === 'ingreso' ? 'text-emerald-400' : 'text-red-400'
+                        }`}>
+                          {m.tipo === 'ingreso' ? '+' : '-'}{formatCurrency(m.monto)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         {/* =========================================================================
@@ -870,73 +896,93 @@ export default function ComisionDirectivaPage() {
             </div>
           </div>
 
-          {/* Filtro y Búsqueda */}
-          <div className="p-3 border-b border-[#242428] flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
-              {['todos', 'Escuelita', 'Minitenis', 'Grupo Entrenamiento'].map((grp) => (
-                <Button
-                  key={grp}
-                  size="sm"
-                  variant={filtroGrupoEscuela === grp ? 'default' : 'ghost'}
-                  onClick={() => setFiltroGrupoEscuela(grp)}
-                  className={`text-xs h-7 px-2.5 ${filtroGrupoEscuela === grp ? 'bg-primary text-black font-bold' : 'text-[#888888]'}`}
-                >
-                  {grp === 'todos' ? 'Todos' : grp === 'Grupo Entrenamiento' ? 'Competencia' : grp}
-                </Button>
-              ))}
-            </div>
-
-            <div className="relative w-full sm:w-56">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
-              <Input
-                type="text"
-                placeholder="Buscar alumno..."
-                value={searchEscuela}
-                onChange={(e) => setSearchEscuela(e.target.value)}
-                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
-              />
-            </div>
+          {/* Barra de control desplegable para el Padrón de Alumnos */}
+          <div className="p-3 bg-[#131315] border-b border-[#242428] flex items-center justify-between">
+            <span className="text-xs text-[#888888]">
+              Alumnos registrados en escuela: <strong className="text-white">{data?.escuela?.totalAlumnos || 0}</strong>
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDetalleEscuela((prev) => !prev)}
+              className="text-xs h-7 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 gap-1.5 font-bold"
+            >
+              <span>{showDetalleEscuela ? 'Ocultar listado de alumnos' : 'Ver listado de alumnos'}</span>
+              {showDetalleEscuela ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </Button>
           </div>
 
-          {/* Tabla Limpia: Solo Nombres y Grupo */}
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
-                <tr>
-                  <th className="py-2.5 px-4 w-16">#</th>
-                  <th className="py-2.5 px-4">Nombre y Apellido del Alumno</th>
-                  <th className="py-2.5 px-4 text-right">Grupo Asignado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D1D20]">
-                {escuelaFiltrada.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="text-center py-6 text-[#666]">
-                      No hay alumnos que coincidan con la búsqueda.
-                    </td>
-                  </tr>
-                ) : (
-                  escuelaFiltrada.map((al: any, idx: number) => (
-                    <tr key={al.id} className="hover:bg-white/[0.02]">
-                      <td className="py-2.5 px-4 text-[#666] font-mono">{idx + 1}</td>
-                      <td className="py-2.5 px-4 font-semibold text-white">{al.nombre}</td>
-                      <td className="py-2.5 px-4 text-right">
-                        <Badge variant="outline" className={`text-[10px] font-bold ${
-                          al.grupo === 'Escuelita'
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : al.grupo === 'Minitenis'
-                            ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
-                            : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                        }`}>
-                          {al.grupo === 'Grupo Entrenamiento' ? 'Competencia' : al.grupo}
-                        </Badge>
-                      </td>
+          {/* Filtro y Tabla Desplegables de Alumnos de Escuela */}
+          {showDetalleEscuela && (
+            <div className="animate-in fade-in duration-200">
+              <div className="p-3 border-b border-[#242428] flex flex-wrap items-center justify-between gap-2 bg-[#121214]">
+                <div className="flex items-center gap-1">
+                  {['todos', 'Escuelita', 'Minitenis', 'Grupo Entrenamiento'].map((grp) => (
+                    <Button
+                      key={grp}
+                      size="sm"
+                      variant={filtroGrupoEscuela === grp ? 'default' : 'ghost'}
+                      onClick={() => setFiltroGrupoEscuela(grp)}
+                      className={`text-xs h-7 px-2.5 ${filtroGrupoEscuela === grp ? 'bg-primary text-black font-bold' : 'text-[#888888]'}`}
+                    >
+                      {grp === 'todos' ? 'Todos' : grp === 'Grupo Entrenamiento' ? 'Competencia' : grp}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="relative w-full sm:w-56">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar alumno..."
+                    value={searchEscuela}
+                    onChange={(e) => setSearchEscuela(e.target.value)}
+                    className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-4 w-16">#</th>
+                      <th className="py-2.5 px-4">Nombre y Apellido del Alumno</th>
+                      <th className="py-2.5 px-4 text-right">Grupo Asignado</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#1D1D20]">
+                    {escuelaFiltrada.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="text-center py-6 text-[#666]">
+                          No hay alumnos que coincidan con la búsqueda.
+                        </td>
+                      </tr>
+                    ) : (
+                      escuelaFiltrada.map((al: any, idx: number) => (
+                        <tr key={al.id} className="hover:bg-white/[0.02]">
+                          <td className="py-2.5 px-4 text-[#666] font-mono">{idx + 1}</td>
+                          <td className="py-2.5 px-4 font-semibold text-white">{al.nombre}</td>
+                          <td className="py-2.5 px-4 text-right">
+                            <Badge variant="outline" className={`text-[10px] font-bold ${
+                              al.grupo === 'Escuelita'
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                : al.grupo === 'Minitenis'
+                                ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
+                                : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            }`}>
+                              {al.grupo === 'Grupo Entrenamiento' ? 'Competencia' : al.grupo}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* =========================================================================
@@ -1004,65 +1050,85 @@ export default function ComisionDirectivaPage() {
             </div>
           </div>
 
-          {/* Filtros */}
-          <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2">
+          {/* Barra de control desplegable para Particulares */}
+          <div className="p-3 bg-[#131315] border-b border-[#242428] flex items-center justify-between">
             <span className="text-xs text-[#888888]">
               Alumnos con clases en {labelMesActual}: <strong className="text-white">{data?.particulares?.totalAlumnosMesActual || 0}</strong>
             </span>
-
-            <div className="relative w-full sm:w-56">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
-              <Input
-                type="text"
-                placeholder="Buscar alumno..."
-                value={searchParticulares}
-                onChange={(e) => setSearchParticulares(e.target.value)}
-                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
-              />
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDetalleParticulares((prev) => !prev)}
+              className="text-xs h-7 text-purple-400 hover:text-purple-300 hover:bg-purple-400/10 gap-1.5 font-bold"
+            >
+              <span>{showDetalleParticulares ? 'Ocultar listado de particulares' : 'Ver listado de particulares'}</span>
+              {showDetalleParticulares ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </Button>
           </div>
 
-          {/* Tabla Particulares */}
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
-                <tr>
-                  <th className="py-2.5 px-4 w-16">#</th>
-                  <th className="py-2.5 px-4">Alumno</th>
-                  <th className="py-2.5 px-4">Condición</th>
-                  <th className="py-2.5 px-4 text-right">Clases Asistidas ({labelMesActual})</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D1D20]">
-                {particularesFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="text-center py-6 text-[#666]">
-                      No hay registros de particulares para {labelMesActual}.
-                    </td>
-                  </tr>
-                ) : (
-                  particularesFiltrados.map((al: any, idx: number) => (
-                    <tr key={al.id} className="hover:bg-white/[0.02]">
-                      <td className="py-2.5 px-4 text-[#666] font-mono">{idx + 1}</td>
-                      <td className="py-2.5 px-4 font-semibold text-white">{al.nombre}</td>
-                      <td className="py-2.5 px-4">
-                        <Badge variant="outline" className={`text-[10px] ${
-                          al.esSocio ? 'border-sky-500/30 text-sky-400 bg-sky-500/10' : 'border-[#333] text-[#888]'
-                        }`}>
-                          {al.esSocio ? 'Socio' : 'No Socio'}
-                        </Badge>
-                      </td>
-                      <td className="py-2.5 px-4 text-right">
-                        <span className="font-mono font-bold text-purple-400 text-xs px-2.5 py-1 rounded bg-purple-500/10 border border-purple-500/20">
-                          {al.cantidadClases} clase(s)
-                        </span>
-                      </td>
+          {/* Filtros y Tabla Particulares (Desplegables) */}
+          {showDetalleParticulares && (
+            <div className="animate-in fade-in duration-200">
+              <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2 bg-[#121214]">
+                <span className="text-xs text-[#888888]">
+                  Detalle nominal de asistencias:
+                </span>
+
+                <div className="relative w-full sm:w-56">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar alumno..."
+                    value={searchParticulares}
+                    onChange={(e) => setSearchParticulares(e.target.value)}
+                    className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-4 w-16">#</th>
+                      <th className="py-2.5 px-4">Alumno</th>
+                      <th className="py-2.5 px-4">Condición</th>
+                      <th className="py-2.5 px-4 text-right">Clases Asistidas ({labelMesActual})</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#1D1D20]">
+                    {particularesFiltrados.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-6 text-[#666]">
+                          No hay registros de particulares para {labelMesActual}.
+                        </td>
+                      </tr>
+                    ) : (
+                      particularesFiltrados.map((al: any, idx: number) => (
+                        <tr key={al.id} className="hover:bg-white/[0.02]">
+                          <td className="py-2.5 px-4 text-[#666] font-mono">{idx + 1}</td>
+                          <td className="py-2.5 px-4 font-semibold text-white">{al.nombre}</td>
+                          <td className="py-2.5 px-4">
+                            <Badge variant="outline" className={`text-[10px] ${
+                              al.esSocio ? 'border-sky-500/30 text-sky-400 bg-sky-500/10' : 'border-[#333] text-[#888]'
+                            }`}>
+                              {al.esSocio ? 'Socio' : 'No Socio'}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 px-4 text-right">
+                            <span className="font-mono font-bold text-purple-400 text-xs px-2.5 py-1 rounded bg-purple-500/10 border border-purple-500/20">
+                              {al.cantidadClases} clase(s)
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* =========================================================================
@@ -1115,63 +1181,83 @@ export default function ComisionDirectivaPage() {
             </div>
           </div>
 
-          {/* Filtro */}
-          <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2">
+          {/* Barra de control desplegable para Registros del Profesor */}
+          <div className="p-3 bg-[#131315] border-b border-[#242428] flex items-center justify-between">
             <span className="text-xs text-[#888]">
-              Registros del mes: <strong className="text-white">{data?.clasesProfesor?.registros?.length || 0}</strong>
+              Registros asentados en {labelMesActual}: <strong className="text-white">{data?.clasesProfesor?.registros?.length || 0}</strong>
             </span>
-
-            <div className="relative w-full sm:w-56">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
-              <Input
-                type="text"
-                placeholder="Buscar fecha u observación..."
-                value={searchProfesor}
-                onChange={(e) => setSearchProfesor(e.target.value)}
-                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
-              />
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDetalleProfesor((prev) => !prev)}
+              className="text-xs h-7 text-sky-400 hover:text-sky-300 hover:bg-sky-400/10 gap-1.5 font-bold"
+            >
+              <span>{showDetalleProfesor ? 'Ocultar detalle de clases' : 'Ver detalle de clases'}</span>
+              {showDetalleProfesor ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </Button>
           </div>
 
-          {/* Tabla Registros Profesor */}
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
-                <tr>
-                  <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">Fecha</th>
-                  <th className="py-2.5 px-3">Turno</th>
-                  <th className="py-2.5 px-3 text-center">Clases</th>
-                  <th className="py-2.5 px-3 text-center">Alumnos</th>
-                  <th className="py-2.5 px-3 text-right">Monto</th>
-                  <th className="py-2.5 px-3">Observaciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D1D20]">
-                {profesorFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-6 text-[#666]">
-                      No hay registros de clases para el mes de {labelMesActual}.
-                    </td>
-                  </tr>
-                ) : (
-                  profesorFiltrados.map((r: any, idx: number) => (
-                    <tr key={r.id} className="hover:bg-white/[0.02]">
-                      <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 font-mono text-white font-semibold">{r.fecha}</td>
-                      <td className="py-2 px-3 text-[#888]">{r.turno || '-'}</td>
-                      <td className="py-2 px-3 text-center font-bold text-white">{r.cantidadClases}</td>
-                      <td className="py-2 px-3 text-center text-sky-400 font-bold">{r.cantidadAlumnos}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
-                        {formatCurrency(r.precioTotal)}
-                      </td>
-                      <td className="py-2 px-3 text-[#888] text-[11px]">{r.observaciones || '-'}</td>
+          {/* Filtros y Tabla Clases Profesor (Desplegables) */}
+          {showDetalleProfesor && (
+            <div className="animate-in fade-in duration-200">
+              <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2 bg-[#121214]">
+                <span className="text-xs text-[#888]">
+                  Detalle de planillas por fecha:
+                </span>
+
+                <div className="relative w-full sm:w-56">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar fecha u observación..."
+                    value={searchProfesor}
+                    onChange={(e) => setSearchProfesor(e.target.value)}
+                    className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-3">#</th>
+                      <th className="py-2.5 px-3">Fecha</th>
+                      <th className="py-2.5 px-3">Turno</th>
+                      <th className="py-2.5 px-3 text-center">Clases</th>
+                      <th className="py-2.5 px-3 text-center">Alumnos</th>
+                      <th className="py-2.5 px-3 text-right">Monto</th>
+                      <th className="py-2.5 px-3">Observaciones</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#1D1D20]">
+                    {profesorFiltrados.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-6 text-[#666]">
+                          No hay registros de clases para el mes de {labelMesActual}.
+                        </td>
+                      </tr>
+                    ) : (
+                      profesorFiltrados.map((r: any, idx: number) => (
+                        <tr key={r.id} className="hover:bg-white/[0.02]">
+                          <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
+                          <td className="py-2 px-3 font-mono text-white font-semibold">{r.fecha}</td>
+                          <td className="py-2 px-3 text-[#888]">{r.turno || '-'}</td>
+                          <td className="py-2 px-3 text-center font-bold text-white">{r.cantidadClases}</td>
+                          <td className="py-2 px-3 text-center text-sky-400 font-bold">{r.cantidadAlumnos}</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
+                            {formatCurrency(r.precioTotal)}
+                          </td>
+                          <td className="py-2 px-3 text-[#888] text-[11px]">{r.observaciones || '-'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* =========================================================================
@@ -1204,57 +1290,77 @@ export default function ComisionDirectivaPage() {
             </Button>
           </div>
 
-          {/* Búsqueda */}
-          <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2">
+          {/* Barra de control desplegable para el Padrón de Socios */}
+          <div className="p-3 bg-[#131315] border-b border-[#242428] flex items-center justify-between">
             <span className="text-xs text-[#888888]">
               Total socios registrados: <strong className="text-white">{data?.socios?.total || 0}</strong>
             </span>
-
-            <div className="relative w-full sm:w-64">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
-              <Input
-                type="text"
-                placeholder="Buscar por nombre o DNI..."
-                value={searchSocios}
-                onChange={(e) => setSearchSocios(e.target.value)}
-                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
-              />
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDetalleSocios((prev) => !prev)}
+              className="text-xs h-7 text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 gap-1.5 font-bold"
+            >
+              <span>{showDetalleSocios ? 'Ocultar nómina de socios' : 'Ver nómina de socios'}</span>
+              {showDetalleSocios ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </Button>
           </div>
 
-          {/* Tabla Socios: Sin categorías */}
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
-                <tr>
-                  <th className="py-2.5 px-4 w-16">#</th>
-                  <th className="py-2.5 px-4">DNI</th>
-                  <th className="py-2.5 px-4">Apellido y Nombre</th>
-                  <th className="py-2.5 px-4">Teléfono</th>
-                  <th className="py-2.5 px-4">Email</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D1D20]">
-                {sociosFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-6 text-[#666]">
-                      No se encontraron socios con los filtros actuales.
-                    </td>
-                  </tr>
-                ) : (
-                  sociosFiltrados.map((s: any, idx: number) => (
-                    <tr key={s.id} className="hover:bg-white/[0.02]">
-                      <td className="py-2 px-4 text-[#666] font-mono">{idx + 1}</td>
-                      <td className="py-2 px-4 font-mono font-bold text-sky-400">{s.dni || '-'}</td>
-                      <td className="py-2 px-4 font-semibold text-white">{s.apellido}, {s.nombre}</td>
-                      <td className="py-2 px-4 text-[#888]">{s.telefono || '-'}</td>
-                      <td className="py-2 px-4 text-[#888] text-[11px] font-mono">{s.email || '-'}</td>
+          {/* Búsqueda y Tabla Socios (Desplegables) */}
+          {showDetalleSocios && (
+            <div className="animate-in fade-in duration-200">
+              <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2 bg-[#121214]">
+                <span className="text-xs text-[#888888]">
+                  Buscador rápido de socios:
+                </span>
+
+                <div className="relative w-full sm:w-64">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar por nombre o DNI..."
+                    value={searchSocios}
+                    onChange={(e) => setSearchSocios(e.target.value)}
+                    className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-4 w-16">#</th>
+                      <th className="py-2.5 px-4">DNI</th>
+                      <th className="py-2.5 px-4">Apellido y Nombre</th>
+                      <th className="py-2.5 px-4">Teléfono</th>
+                      <th className="py-2.5 px-4">Email</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#1D1D20]">
+                    {sociosFiltrados.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-6 text-[#666]">
+                          No se encontraron socios con los filtros actuales.
+                        </td>
+                      </tr>
+                    ) : (
+                      sociosFiltrados.map((s: any, idx: number) => (
+                        <tr key={s.id} className="hover:bg-white/[0.02]">
+                          <td className="py-2 px-4 text-[#666] font-mono">{idx + 1}</td>
+                          <td className="py-2 px-4 font-mono font-bold text-sky-400">{s.dni || '-'}</td>
+                          <td className="py-2 px-4 font-semibold text-white">{s.apellido}, {s.nombre}</td>
+                          <td className="py-2 px-4 text-[#888]">{s.telefono || '-'}</td>
+                          <td className="py-2 px-4 text-[#888] text-[11px] font-mono">{s.email || '-'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </section>
       </main>
 
