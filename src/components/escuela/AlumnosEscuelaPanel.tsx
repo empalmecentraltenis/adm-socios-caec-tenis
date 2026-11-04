@@ -366,18 +366,21 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
           </Badge>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setVistaActiva('asistencia')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
-            vistaActiva === 'asistencia'
-              ? 'bg-emerald-500 text-black shadow-md'
-              : 'bg-[#1C1C1C] text-emerald-400 hover:text-white border border-emerald-500/30'
-          }`}
-        >
-          <CheckSquare className="h-4 w-4" />
-          <span>⚡ Tomar Asistencia (Pase de Lista)</span>
-        </button>
+        {/* Pestaña Tomar Asistencia: solo visible para administradores y profesores (oculto en modo solo lectura) */}
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => setVistaActiva('asistencia')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+              vistaActiva === 'asistencia'
+                ? 'bg-emerald-500 text-black shadow-md'
+                : 'bg-[#1C1C1C] text-emerald-400 hover:text-white border border-emerald-500/30'
+            }`}
+          >
+            <CheckSquare className="h-4 w-4" />
+            <span>⚡ Tomar Asistencia (Pase de Lista)</span>
+          </button>
+        )}
 
         <button
           type="button"
