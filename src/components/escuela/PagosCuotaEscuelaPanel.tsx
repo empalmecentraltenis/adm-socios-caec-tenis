@@ -505,74 +505,7 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* 1. Tarjetas de Resumen Ejecutivo para Comisión Directiva */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Total Recaudado */}
-        <div className="bg-[#181818] border border-emerald-500/30 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-emerald-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Recaudado</span>
-            <DollarSign size={18} />
-          </div>
-          <div className="mt-2">
-            <span className="text-2xl lg:text-3xl font-black text-emerald-400">
-              {formatCurrency(resumen?.totalRecaudado || 0)}
-            </span>
-            <span className="text-[11px] text-[#888888] block mt-0.5">
-              {resumen?.cantidadPagados || 0} alumno(s) cobrados
-            </span>
-          </div>
-        </div>
-
-        {/* Total Estimado / Esperado */}
-        <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#888888]">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Total Estimado</span>
-            <CreditCard size={18} className="text-amber-400" />
-          </div>
-          <div className="mt-2">
-            <span className="text-2xl lg:text-3xl font-black text-white">
-              {formatCurrency(resumen?.totalEsperado || 0)}
-            </span>
-            <span className="text-[11px] text-[#888888] block mt-0.5">
-              100% cuotas del padrón
-            </span>
-          </div>
-        </div>
-
-        {/* Alumnos Cobrados */}
-        <div className="bg-[#181818] border border-sky-500/30 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-sky-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">% Cobranza</span>
-            <Users size={18} />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl lg:text-3xl font-black text-sky-400">
-              {resumen?.porcentajeCobrado || 0}%
-            </span>
-            <span className="text-xs text-[#AAAAAA]">
-              ({resumen?.cantidadPagados || 0}/{resumen?.totalAlumnos || 0})
-            </span>
-          </div>
-        </div>
-
-        {/* Pendientes de Cobro */}
-        <div className="bg-[#181818] border border-amber-500/30 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-amber-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Pendientes</span>
-            <Clock size={18} />
-          </div>
-          <div className="mt-2">
-            <span className="text-2xl lg:text-3xl font-black text-amber-400">
-              {resumen?.cantidadPendientes || 0}
-            </span>
-            <span className="text-[11px] text-[#888888] block mt-0.5">
-              Por cobrar: {formatCurrency((resumen?.totalEsperado || 0) - (resumen?.totalRecaudado || 0))}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Barra de Filtros, Mes y Acciones de Exportación */}
+      {/* 1. Barra de Filtros, Mes y Acciones de Exportación */}
       <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         {/* Selector de Mes y Grupo */}
         <div className="flex flex-wrap items-center gap-2">
@@ -878,6 +811,62 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
           </div>
         </div>
       )}
+
+      {/* 2. Barra Compacta de Resumen (Abajo de todo) */}
+      <div className="bg-[#141414] border border-[#262626] rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {/* Recaudado */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">Recaudado:</span>
+            <span className="font-extrabold text-emerald-400 font-mono text-sm">
+              {formatCurrency(resumen?.totalRecaudado || 0)}
+            </span>
+            <span className="text-[10px] text-[#666666]">
+              ({resumen?.cantidadPagados || 0} alumnos)
+            </span>
+          </div>
+
+          <span className="text-[#333333] hidden sm:inline">•</span>
+
+          {/* Estimado */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">Estimado:</span>
+            <span className="font-bold text-white font-mono text-sm">
+              {formatCurrency(resumen?.totalEsperado || 0)}
+            </span>
+          </div>
+
+          <span className="text-[#333333] hidden sm:inline">•</span>
+
+          {/* % Cobranza */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">Cobranza:</span>
+            <span className="font-bold text-sky-400 font-mono text-xs">
+              {resumen?.porcentajeCobrado || 0}%
+            </span>
+            <span className="text-[10px] text-[#666666]">
+              ({resumen?.cantidadPagados || 0}/{resumen?.totalAlumnos || 0})
+            </span>
+          </div>
+
+          <span className="text-[#333333] hidden sm:inline">•</span>
+
+          {/* Pendientes */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">Pendientes:</span>
+            <span className="font-bold text-amber-400 font-mono text-xs">
+              {resumen?.cantidadPendientes || 0} alumnos
+            </span>
+            <span className="text-[10px] text-[#888888]">
+              ({formatCurrency((resumen?.totalEsperado || 0) - (resumen?.totalRecaudado || 0))})
+            </span>
+          </div>
+        </div>
+
+        <div className="text-[11px] text-[#666666] font-mono">
+          Período: <strong className="text-white">{labelMesActual}</strong>
+        </div>
+      </div>
 
       {/* MODAL PARA REGISTRAR O EDITAR COBRO */}
       <Dialog open={cobroModalOpen} onOpenChange={setCobroModalOpen}>
