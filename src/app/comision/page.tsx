@@ -1236,3 +1236,4 @@ export default function ComisionDirectivaPage() {
     </div>
   );
 }
+

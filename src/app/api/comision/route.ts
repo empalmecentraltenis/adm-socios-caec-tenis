@@ -250,3 +250,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: err.message || 'Error al obtener datos ejecutivos de comisión' }, { status: 500 });
   }
 }
+
