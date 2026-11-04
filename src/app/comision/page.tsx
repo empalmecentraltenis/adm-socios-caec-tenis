@@ -147,9 +147,8 @@ export default function ComisionDirectivaPage() {
       if (searchSocios.trim()) {
         const term = searchSocios.toLowerCase();
         const fullName = `${s.apellido} ${s.nombre}`.toLowerCase();
-        const num = String(s.numeroSocio || '');
         const dni = String(s.dni || '');
-        return fullName.includes(term) || num.includes(term) || dni.includes(term);
+        return fullName.includes(term) || dni.includes(term);
       }
       return true;
     });
@@ -266,7 +265,7 @@ export default function ComisionDirectivaPage() {
     const tableData = data.particulares.alumnos.map((al: any, idx: number) => [
       idx + 1,
       al.nombre,
-      al.esSocio ? `Socio N° ${al.numeroSocio || '-'}` : 'No Socio',
+      al.esSocio ? 'Socio' : 'No Socio',
       al.categoria || '-',
       `${al.cantidadClases} clase(s)`,
       al.fechas.join(', '),
@@ -335,16 +334,16 @@ export default function ComisionDirectivaPage() {
 
     const tableData = data.socios.lista.map((s: any, idx: number) => [
       idx + 1,
-      s.numeroSocio || '-',
+      s.dni || '-',
       `${s.apellido}, ${s.nombre}`,
       s.categoria || '-',
-      s.dni || '-',
       s.telefono || '-',
+      s.email || '-',
     ]);
 
     autoTable(doc, {
       startY: yStart + 20,
-      head: [['#', 'N° Socio', 'Apellido y Nombre', 'Categoría', 'DNI', 'Teléfono']],
+      head: [['#', 'DNI', 'Apellido y Nombre', 'Categoría', 'Teléfono', 'Email']],
       body: tableData,
       theme: 'striped',
       styles: { fontSize: 8, cellPadding: 2 },
@@ -490,7 +489,7 @@ export default function ComisionDirectivaPage() {
         'N°': idx + 1,
         'Alumno': al.nombre,
         'Condición': al.esSocio ? 'Socio' : 'No Socio',
-        'N° Socio': al.numeroSocio || '-',
+        'DNI': al.dni || '-',
         'Categoría': al.categoria || '-',
         'Teléfono': al.telefono || '-',
         'Clases en el Mes': al.cantidadClases,
@@ -503,10 +502,9 @@ export default function ComisionDirectivaPage() {
     const wsSocios = XLSX.utils.json_to_sheet(
       data.socios.lista.map((s: any, idx: number) => ({
         'N°': idx + 1,
-        'N° Socio': s.numeroSocio || '-',
+        'DNI': s.dni || '-',
         'Apellido y Nombre': `${s.apellido}, ${s.nombre}`,
         'Categoría': s.categoria || '-',
-        'DNI': s.dni || '-',
         'Teléfono': s.telefono || '-',
         'Email': s.email || '-',
       }))
@@ -970,7 +968,7 @@ export default function ComisionDirectivaPage() {
                       <td className="py-2 px-3">
                         {al.esSocio ? (
                           <Badge className="bg-sky-500/15 text-sky-400 border-sky-500/30 text-[10px]">
-                            Socio N° {al.numeroSocio || '-'}
+                            Socio {al.dni ? `(DNI ${al.dni})` : ''}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="border-[#333] text-[#888] text-[10px]">
@@ -1068,11 +1066,11 @@ export default function ComisionDirectivaPage() {
               <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
                 <tr>
                   <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">N° Socio</th>
+                  <th className="py-2.5 px-3">DNI</th>
                   <th className="py-2.5 px-3">Apellido y Nombre</th>
                   <th className="py-2.5 px-3">Categoría</th>
-                  <th className="py-2.5 px-3">DNI</th>
                   <th className="py-2.5 px-3">Teléfono</th>
+                  <th className="py-2.5 px-3">Email</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1D1D20]">
@@ -1087,7 +1085,7 @@ export default function ComisionDirectivaPage() {
                     <tr key={s.id} className="hover:bg-white/[0.02]">
                       <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
                       <td className="py-2 px-3 font-mono font-bold text-sky-400">
-                        {s.numeroSocio ? `#${s.numeroSocio}` : '-'}
+                        {s.dni || '-'}
                       </td>
                       <td className="py-2 px-3 font-semibold text-white">
                         {s.apellido}, {s.nombre}
@@ -1097,8 +1095,8 @@ export default function ComisionDirectivaPage() {
                           {s.categoria || '-'}
                         </Badge>
                       </td>
-                      <td className="py-2 px-3 font-mono text-[#888]">{s.dni || '-'}</td>
                       <td className="py-2 px-3 text-[#888]">{s.telefono || '-'}</td>
+                      <td className="py-2 px-3 text-[#888] text-[11px] font-mono">{s.email || '-'}</td>
                     </tr>
                   ))
                 )}

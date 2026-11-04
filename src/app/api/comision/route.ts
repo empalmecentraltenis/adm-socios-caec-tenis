@@ -88,7 +88,7 @@ export async function GET(request: Request) {
         socio: {
           select: {
             id: true,
-            numeroSocio: true,
+            dni: true,
             nombre: true,
             apellido: true,
             categoria: true,
@@ -104,7 +104,7 @@ export async function GET(request: Request) {
       key: string;
       nombre: string;
       esSocio: boolean;
-      numeroSocio?: number | null;
+      dni?: string | null;
       categoria?: string | null;
       telefono?: string | null;
       cantidadClases: number;
@@ -126,7 +126,7 @@ export async function GET(request: Request) {
           key,
           nombre,
           esSocio,
-          numeroSocio: socio?.numeroSocio,
+          dni: socio?.dni,
           categoria: socio?.categoria,
           telefono: socio?.telefono,
           cantidadClases: 0,
@@ -152,10 +152,9 @@ export async function GET(request: Request) {
       ],
       select: {
         id: true,
-        numeroSocio: true,
+        dni: true,
         nombre: true,
         apellido: true,
-        dni: true,
         categoria: true,
         telefono: true,
         email: true,
