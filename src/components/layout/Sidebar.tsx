@@ -86,20 +86,22 @@ export default function Sidebar({ activeTab, onNavigate, isOpen, onClose, onOpen
 
         {/* Navigation with scroll */}
         <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto min-h-0 scrollbar-thin">
-          {/* Acceso directo a Secretaría */}
-          <a
-            href="/secretaria"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400/20 to-amber-500/10 border border-amber-400/40 text-amber-300 hover:from-amber-400 hover:to-amber-500 hover:text-black transition-all mb-1.5 shadow-sm group"
-            title="Abrir mostrador de cobro de Secretaría en nueva pestaña"
-          >
-            <div className="flex items-center gap-2.5">
-              <Receipt className="h-4 w-4 text-amber-400 group-hover:text-black" />
-              <span>Secretaría (Mostrador)</span>
-            </div>
-            <ExternalLink className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:text-black" />
-          </a>
+          {/* Acceso directo a Secretaría (Oculto en modo Solo Lectura para evitar cobros indebidos) */}
+          {!isReadOnly && (
+            <a
+              href="/secretaria"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400/20 to-amber-500/10 border border-amber-400/40 text-amber-300 hover:from-amber-400 hover:to-amber-500 hover:text-black transition-all mb-1.5 shadow-sm group"
+              title="Abrir mostrador de cobro de Secretaría en nueva pestaña"
+            >
+              <div className="flex items-center gap-2.5">
+                <Receipt className="h-4 w-4 text-amber-400 group-hover:text-black" />
+                <span>Secretaría (Mostrador)</span>
+              </div>
+              <ExternalLink className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:text-black" />
+            </a>
+          )}
 
           {/* Acceso directo a Portería */}
           <a
