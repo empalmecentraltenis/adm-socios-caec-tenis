@@ -19,6 +19,7 @@ import {
   Filter,
   Users,
   Check,
+  CheckCheck,
   AlertCircle,
   Clock,
   Trash2,
@@ -153,6 +154,15 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
   const [anularModalOpen, setAnularModalOpen] = useState(false);
   const [alumnoParaAnular, setAlumnoParaAnular] = useState<AlumnoPagoItem | null>(null);
   const [anulando, setAnulando] = useState(false);
+
+  // Modal para cobro masivo
+  const [masivoModalOpen, setMasivoModalOpen] = useState(false);
+  const [selectedAlumnoIds, setSelectedAlumnoIds] = useState<string[]>([]);
+  const [masivoGrupoFiltro, setMasivoGrupoFiltro] = useState<string>('todos');
+  const [masivoFechaPago, setMasivoFechaPago] = useState<string>(getTodayStr());
+  const [masivoMetodoPago, setMasivoMetodoPago] = useState<string>('efectivo');
+  const [masivoObservaciones, setMasivoObservaciones] = useState<string>('');
+  const [savingMasivo, setSavingMasivo] = useState(false);
 
   // Cargar datos
   const fetchPagos = useCallback(async () => {
@@ -310,6 +320,110 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
       });
     } finally {
       setAnulando(false);
+    }
+  };
+
+  // Alumnos pendientes para el cobro masivo (filtrados por masivoGrupoFiltro)
+  const alumnosPendientes = useMemo(() => {
+    return alumnos.filter((al) => !al.pagado);
+  }, [alumnos]);
+
+  const alumnosPendientesEnModal = useMemo(() => {
+    if (masivoGrupoFiltro === 'todos') return alumnosPendientes;
+    return alumnosPendientes.filter((al) => al.grupo === masivoGrupoFiltro);
+  }, [alumnosPendientes, masivoGrupoFiltro]);
+
+  // Abrir modal de cobro masivo
+  const handleOpenMasivo = () => {
+    const ids = alumnosPendientes.map((al) => al.id);
+    setSelectedAlumnoIds(ids);
+    setMasivoGrupoFiltro(grupoFiltro !== 'todos' ? grupoFiltro : 'todos');
+    setMasivoFechaPago(getTodayStr());
+    setMasivoMetodoPago('efectivo');
+    setMasivoObservaciones('');
+    setMasivoModalOpen(true);
+  };
+
+  const toggleSelectAlumno = (id: string) => {
+    setSelectedAlumnoIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllPendientesEnModal = () => {
+    const idsEnVista = alumnosPendientesEnModal.map((al) => al.id);
+    setSelectedAlumnoIds((prev) => Array.from(new Set([...prev, ...idsEnVista])));
+  };
+
+  const deselectAllPendientesEnModal = () => {
+    const idsEnVista = new Set(alumnosPendientesEnModal.map((al) => al.id));
+    setSelectedAlumnoIds((prev) => prev.filter((id) => !idsEnVista.has(id)));
+  };
+
+  // Calcular total a cobrar masivo de los seleccionados
+  const totalMontoMasivoSeleccionado = useMemo(() => {
+    const mapPrecios = new Map(alumnos.map((al) => [al.id, al.montoSugerido]));
+    return selectedAlumnoIds.reduce((acc, id) => acc + (mapPrecios.get(id) || 0), 0);
+  }, [selectedAlumnoIds, alumnos]);
+
+  // Ejecutar cobro masivo
+  const handleEjecutarCobroMasivo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedAlumnoIds.length === 0) {
+      toast({
+        title: 'Ningún alumno seleccionado',
+        description: 'Elegí al menos un alumno para registrar el cobro.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSavingMasivo(true);
+    try {
+      const items = selectedAlumnoIds.map((id) => {
+        const al = alumnos.find((a) => a.id === id);
+        return {
+          alumnoId: id,
+          monto: al ? al.montoSugerido : undefined,
+        };
+      });
+
+      const res = await fetch('/api/pagos-escuela', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          masivo: true,
+          mes: mesSeleccionado,
+          fechaPago: masivoFechaPago,
+          metodoPago: masivoMetodoPago,
+          observaciones: masivoObservaciones,
+          items,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({
+          title: 'Cobro masivo registrado',
+          description: `Se cobraron ${data.guardadosCount} cuotas por un total de $${data.totalMontoCobrado?.toLocaleString('es-AR')}.`,
+        });
+        setMasivoModalOpen(false);
+        fetchPagos();
+      } else {
+        toast({
+          title: 'Error al registrar cobro masivo',
+          description: data.error || 'No se pudo completar el cobro masivo.',
+          variant: 'destructive',
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Error de conexión',
+        description: 'No se pudo conectar con el servidor',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingMasivo(false);
     }
   };
 
@@ -598,6 +712,24 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
               className="pl-8 h-8 text-xs bg-[#121212] border-[#2A2A2A] text-white"
             />
           </div>
+
+          {!readOnly && (
+            <Button
+              size="sm"
+              onClick={handleOpenMasivo}
+              disabled={loading || alumnosPendientes.length === 0}
+              className="h-8 bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs gap-1.5 shadow-sm"
+              title="Cobrar a múltiples o todos los alumnos de una sola vez"
+            >
+              <CheckCheck size={14} />
+              <span>Cobro Masivo</span>
+              {alumnosPendientes.length > 0 && (
+                <span className="bg-black/20 text-black text-[10px] px-1.5 py-0.2 rounded-full font-extrabold">
+                  {alumnosPendientes.length}
+                </span>
+              )}
+            </Button>
+          )}
 
           <Button
             size="sm"
@@ -958,6 +1090,220 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
               >
                 {savingCobro && <Loader2 size={13} className="animate-spin" />}
                 <span>Guardar Cobro</span>
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL COBRO MASIVO */}
+      <Dialog open={masivoModalOpen} onOpenChange={setMasivoModalOpen}>
+        <DialogContent className="bg-[#181818] border-[#2A2A2A] text-white max-w-xl max-h-[90vh] flex flex-col p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-white flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <CheckCheck size={18} className="text-emerald-400" />
+                <span>Cobro Masivo de Cuotas</span>
+              </span>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                {labelMesActual}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#888888] pt-1">
+              Seleccioná los alumnos que abonaron para registrar sus pagos simultáneamente con un solo clic.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEjecutarCobroMasivo} className="space-y-4 flex-1 overflow-hidden flex flex-col pt-2">
+            {/* Filtros por Grupo dentro del Modal */}
+            <div className="flex items-center justify-between gap-2 border-b border-[#2A2A2A] pb-3">
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={masivoGrupoFiltro === 'todos' ? 'default' : 'outline'}
+                  onClick={() => setMasivoGrupoFiltro('todos')}
+                  className={`text-[11px] h-6 px-2 ${masivoGrupoFiltro === 'todos' ? 'bg-primary text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
+                >
+                  Todos ({alumnosPendientes.length})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={masivoGrupoFiltro === 'Escuelita' ? 'default' : 'outline'}
+                  onClick={() => setMasivoGrupoFiltro('Escuelita')}
+                  className={`text-[11px] h-6 px-2 ${masivoGrupoFiltro === 'Escuelita' ? 'bg-emerald-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
+                >
+                  Escuelita
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={masivoGrupoFiltro === 'Minitenis' ? 'default' : 'outline'}
+                  onClick={() => setMasivoGrupoFiltro('Minitenis')}
+                  className={`text-[11px] h-6 px-2 ${masivoGrupoFiltro === 'Minitenis' ? 'bg-sky-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
+                >
+                  Minitenis
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={masivoGrupoFiltro === 'Grupo Entrenamiento' ? 'default' : 'outline'}
+                  onClick={() => setMasivoGrupoFiltro('Grupo Entrenamiento')}
+                  className={`text-[11px] h-6 px-2 ${masivoGrupoFiltro === 'Grupo Entrenamiento' ? 'bg-amber-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
+                >
+                  Competencia
+                </Button>
+              </div>
+
+              {/* Botones Seleccionar Todos / Deseleccionar */}
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAllPendientesEnModal}
+                  className="text-[11px] h-6 px-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                >
+                  Marcar todos
+                </Button>
+                <span className="text-[#444444] text-xs">|</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={deselectAllPendientesEnModal}
+                  className="text-[11px] h-6 px-2 text-[#888888] hover:text-white"
+                >
+                  Desmarcar
+                </Button>
+              </div>
+            </div>
+
+            {/* Lista scrollable de alumnos pendientes con checkboxes */}
+            <div className="flex-1 overflow-y-auto max-h-56 pr-1 space-y-1.5 divide-y divide-[#222222]">
+              {alumnosPendientesEnModal.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[#666666]">
+                  No hay alumnos pendientes de pago en este grupo para {labelMesActual}.
+                </div>
+              ) : (
+                alumnosPendientesEnModal.map((al) => {
+                  const isChecked = selectedAlumnoIds.includes(al.id);
+                  const conf = GRUPO_CONFIG[al.grupo] || {
+                    color: 'text-zinc-400',
+                    bg: 'bg-zinc-500/10',
+                    border: 'border-zinc-500/20',
+                  };
+
+                  return (
+                    <label
+                      key={al.id}
+                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors pt-2 ${
+                        isChecked ? 'bg-[#1e1e1e] border border-emerald-500/30' : 'hover:bg-white/[0.02] border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleSelectAlumno(al.id)}
+                          className="w-4 h-4 rounded border-[#3A3A3A] text-emerald-500 focus:ring-emerald-500 bg-[#121212] cursor-pointer"
+                        />
+                        <div>
+                          <div className="text-xs font-semibold text-white">{al.nombre}</div>
+                          <div className="text-[10px] text-[#888888] flex items-center gap-1.5">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] border font-medium ${conf.bg} ${conf.color} ${conf.border}`}>
+                              {al.grupo === 'Grupo Entrenamiento' ? 'Entrenamiento' : al.grupo}
+                            </span>
+                            {al.tutor && <span>• Resp: {al.tutor}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-xs font-mono font-bold text-white">
+                          ${al.montoSugerido.toLocaleString('es-AR')}
+                        </div>
+                        <div className="text-[10px] text-[#888888]">cuota</div>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Datos compartidos del cobro: Fecha, Medio de Pago y Observaciones */}
+            <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-3 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-[#AAAAAA]">Fecha de Cobro</Label>
+                  <Input
+                    type="date"
+                    value={masivoFechaPago}
+                    onChange={(e) => setMasivoFechaPago(e.target.value)}
+                    required
+                    className="bg-[#181818] border-[#2A2A2A] text-white text-xs h-8"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs text-[#AAAAAA]">Medio de Pago</Label>
+                  <Select value={masivoMetodoPago} onValueChange={setMasivoMetodoPago}>
+                    <SelectTrigger className="bg-[#181818] border-[#2A2A2A] text-white text-xs h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#181818] border-[#2A2A2A] text-white">
+                      <SelectItem value="efectivo">Efectivo</SelectItem>
+                      <SelectItem value="transferencia">Transferencia Bancaria</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-[#AAAAAA]">Nota / Observación general (Opcional)</Label>
+                <Input
+                  type="text"
+                  placeholder="Ej: Cobro en cancha clase sábado"
+                  value={masivoObservaciones}
+                  onChange={(e) => setMasivoObservaciones(e.target.value)}
+                  className="bg-[#181818] border-[#2A2A2A] text-white text-xs h-8"
+                />
+              </div>
+            </div>
+
+            {/* Resumen del cobro a realizar */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+              <div>
+                <div className="text-xs text-emerald-300 font-medium">Alumnos seleccionados:</div>
+                <div className="text-sm font-bold text-white">
+                  {selectedAlumnoIds.length} de {alumnosPendientes.length} pendientes
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-emerald-300 font-medium">Total a registrar:</div>
+                <div className="text-base font-black text-emerald-400 font-mono">
+                  ${totalMontoMasivoSeleccionado.toLocaleString('es-AR')}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setMasivoModalOpen(false)}
+                className="border-[#2A2A2A] text-white hover:bg-white/5 text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingMasivo || selectedAlumnoIds.length === 0}
+                className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs gap-1.5 shadow-md"
+              >
+                {savingMasivo && <Loader2 size={13} className="animate-spin" />}
+                <span>Registrar Cobro Masivo ({selectedAlumnoIds.length})</span>
               </Button>
             </DialogFooter>
           </form>

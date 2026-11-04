@@ -113,10 +113,80 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Registrar pago de cuota de un alumno
+// POST: Registrar pago de cuota de uno o varios alumnos (individual o masivo)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // CASO A: PAGO MASIVO (lista de alumnos o IDs)
+    if (body.masivo && Array.isArray(body.items)) {
+      const { items, mes, fechaPago, metodoPago, observaciones } = body;
+
+      if (!mes || !/^\d{4}-\d{2}$/.test(mes)) {
+        return NextResponse.json({ error: 'Mes inválido (formato YYYY-MM)' }, { status: 400 });
+      }
+
+      if (items.length === 0) {
+        return NextResponse.json({ error: 'No se seleccionaron alumnos para el cobro' }, { status: 400 });
+      }
+
+      const fechaPagoFinal = fechaPago || new Date().toISOString().split('T')[0];
+      const metodoFinal = metodoPago || 'efectivo';
+
+      let guardadosCount = 0;
+      let totalMontoCobrado = 0;
+
+      for (const item of items) {
+        const alumnoId = typeof item === 'string' ? item : item.alumnoId;
+        if (!alumnoId) continue;
+
+        const alumno = await db.alumnoEscuela.findUnique({
+          where: { id: alumnoId },
+        });
+        if (!alumno) continue;
+
+        const montoFinal = typeof item.monto === 'number' && item.monto >= 0 
+          ? item.monto 
+          : getValorCuotaPorGrupo(alumno.grupo);
+
+        await db.pagoCuotaEscuela.upsert({
+          where: {
+            alumnoId_mes: {
+              alumnoId,
+              mes,
+            },
+          },
+          update: {
+            monto: montoFinal,
+            fechaPago: fechaPagoFinal,
+            metodoPago: metodoFinal,
+            observaciones: item.observaciones || observaciones || undefined,
+            grupo: alumno.grupo,
+          },
+          create: {
+            alumnoId,
+            mes,
+            monto: montoFinal,
+            fechaPago: fechaPagoFinal,
+            metodoPago: metodoFinal,
+            observaciones: item.observaciones || observaciones || null,
+            grupo: alumno.grupo,
+          },
+        });
+
+        guardadosCount++;
+        totalMontoCobrado += montoFinal;
+      }
+
+      return NextResponse.json({
+        success: true,
+        guardadosCount,
+        totalMontoCobrado,
+        message: `Se registraron exitosamente los pagos de ${guardadosCount} alumnos por un total de $${totalMontoCobrado.toLocaleString('es-AR')}.`,
+      });
+    }
+
+    // CASO B: PAGO INDIVIDUAL
     const { alumnoId, mes, monto, fechaPago, metodoPago, observaciones } = body;
 
     if (!alumnoId) {
