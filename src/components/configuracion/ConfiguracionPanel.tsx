@@ -24,6 +24,7 @@ import {
   Check,
   ExternalLink,
   Link as LinkIcon,
+  Building2,
 } from 'lucide-react';
 import { formatCurrency, parseCurrency, formatInputCurrency } from '@/lib/formatters';
 
@@ -191,6 +192,17 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
           },
         ]
       : []),
+    {
+      key: 'comision',
+      label: 'Comisión Directiva (Portal Ejecutivo)',
+      path: '/comision',
+      icon: Building2,
+      color: 'text-amber-400',
+      bgColor: 'bg-amber-400/10',
+      borderColor: 'border-amber-400/30',
+      badge: 'Reportes Mensuales y Padrón',
+      descripcion: 'Informe mensual unificado para Comisión Directiva: Escuela de tenis y cuotas, clases particulares, padrón completo de socios y balance del mes. Incluye descarga en ZIP.',
+    },
     {
       key: 'porteria',
       label: 'Portería (Control de Canchas)',
