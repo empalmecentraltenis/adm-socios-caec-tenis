@@ -8,80 +8,86 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const mesParam = searchParams.get('mes'); // YYYY-MM
+    const anioParam = searchParams.get('anio'); // YYYY
 
     const now = new Date();
     const curYear = now.getFullYear();
     const curMonth = String(now.getMonth() + 1).padStart(2, '0');
     const mes = mesParam || `${curYear}-${curMonth}`;
+    const anio = anioParam ? parseInt(anioParam, 10) : parseInt(mes.substring(0, 4), 10);
 
     const [anioStr, mesNumStr] = mes.split('-');
-    const anio = parseInt(anioStr, 10);
     const mesNum = parseInt(mesNumStr, 10);
 
-    // 1. ESCUELA DE TENIS Y PAGOS
+    // =========================================================================
+    // 1. ESCUELA DE TENIS: Resumen por grupos, listado simple y visor mes por mes
+    // =========================================================================
     const alumnosEscuela = await db.alumnoEscuela.findMany({
       where: { activo: true },
       orderBy: [{ grupo: 'asc' }, { nombre: 'asc' }],
+      select: {
+        id: true,
+        nombre: true,
+        grupo: true,
+      },
     });
 
-    const pagosMesEscuela = await db.pagoCuotaEscuela.findMany({
-      where: { mes },
-    });
-
-    const pagosEscuelaMap = new Map<string, any>();
-    for (const p of pagosMesEscuela) {
-      pagosEscuelaMap.set(p.alumnoId, p);
+    const conteoPorGrupo: Record<string, number> = {
+      Escuelita: 0,
+      Minitenis: 0,
+      'Grupo Entrenamiento': 0,
+    };
+    for (const al of alumnosEscuela) {
+      conteoPorGrupo[al.grupo] = (conteoPorGrupo[al.grupo] || 0) + 1;
     }
 
-    let escuelaTotalEsperado = 0;
-    let escuelaTotalRecaudado = 0;
-    let escuelaCantidadPagados = 0;
-    let escuelaCantidadPendientes = 0;
+    // Todos los pagos del año para el visor mensual de recaudación de escuela
+    const pagosEscuelaAnio = await db.pagoCuotaEscuela.findMany({
+      where: {
+        mes: {
+          startsWith: String(anio),
+        },
+      },
+      select: {
+        mes: true,
+        monto: true,
+      },
+    });
 
-    const escuelaLista = alumnosEscuela.map((al) => {
-      const pago = pagosEscuelaMap.get(al.id);
-      const montoSugerido = getValorCuotaPorGrupo(al.grupo);
-      escuelaTotalEsperado += montoSugerido;
-
-      const pagado = Boolean(pago);
-      if (pagado) {
-        escuelaTotalRecaudado += pago.monto;
-        escuelaCantidadPagados++;
-      } else {
-        escuelaCantidadPendientes++;
+    const escuelaMesesMap: Record<string, { totalRecaudado: number; cantidadPagos: number }> = {};
+    for (const p of pagosEscuelaAnio) {
+      if (!escuelaMesesMap[p.mes]) {
+        escuelaMesesMap[p.mes] = { totalRecaudado: 0, cantidadPagos: 0 };
       }
+      escuelaMesesMap[p.mes].totalRecaudado += p.monto;
+      escuelaMesesMap[p.mes].cantidadPagos += 1;
+    }
 
+    const escuelaMeses = Array.from({ length: 12 }, (_, i) => {
+      const mStr = `${anio}-${String(i + 1).padStart(2, '0')}`;
+      const datos = escuelaMesesMap[mStr] || { totalRecaudado: 0, cantidadPagos: 0 };
       return {
-        id: al.id,
-        nombre: al.nombre,
-        grupo: al.grupo,
-        edad: al.edad,
-        tutor: al.tutor,
-        telefono: al.telefono,
-        montoSugerido,
-        pagado,
-        pago: pago
-          ? {
-              id: pago.id,
-              monto: pago.monto,
-              fechaPago: pago.fechaPago,
-              metodoPago: pago.metodoPago,
-              observaciones: pago.observaciones,
-            }
-          : null,
+        mes: mStr,
+        numeroMes: i + 1,
+        totalRecaudado: datos.totalRecaudado,
+        cantidadPagos: datos.cantidadPagos,
       };
     });
 
-    // 2. PARTICULARES CON EL PROFESOR (Clases y Asistencias del mes)
-    const lastDayOfMonth = new Date(anio, mesNum, 0).getDate();
-    const startOfMonth = new Date(`${anio}-${mesNumStr}-01T00:00:00.000-03:00`);
-    const endOfMonth = new Date(`${anio}-${mesNumStr}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59.999-03:00`);
+    const escuelaRecaudadoMesActual = escuelaMesesMap[mes]?.totalRecaudado || 0;
 
-    const asistenciasParticulares = await db.asistenciaClase.findMany({
+    // =========================================================================
+    // 2. CLASES PARTICULARES: Alumnos por mes, clases asistidas y visor mensual
+    // =========================================================================
+    // Asistencias de todo el año para armar el visor mes a mes
+    const startOfYear = new Date(`${anio}-01-01T00:00:00.000-03:00`);
+    const endOfYear = new Date(`${anio}-12-31T23:59:59.999-03:00`);
+
+    const asistenciasAnio = await db.asistenciaClase.findMany({
       where: {
         fecha: {
-          gte: startOfMonth,
-          lte: endOfMonth,
+          gte: startOfYear,
+          lte: endOfYear,
         },
       },
       include: {
@@ -92,58 +98,110 @@ export async function GET(request: Request) {
             nombre: true,
             apellido: true,
             categoria: true,
-            telefono: true,
           },
         },
       },
       orderBy: { fecha: 'asc' },
     });
 
-    // Agrupamos asistencias por alumno (socio o no socio)
-    const particularesMap = new Map<string, {
-      key: string;
+    // Mapeo por mes de particulares
+    const particularesMesesMap: Record<string, Map<string, {
+      id: string;
       nombre: string;
       esSocio: boolean;
       dni?: string | null;
-      categoria?: string | null;
-      telefono?: string | null;
       cantidadClases: number;
-      fechas: string[];
-    }>();
+    }>> = {};
 
-    for (const asis of asistenciasParticulares) {
+    for (const asis of asistenciasAnio) {
+      const fechaIso = asis.fecha.toISOString();
+      const mKey = fechaIso.substring(0, 7); // YYYY-MM
+      if (!particularesMesesMap[mKey]) {
+        particularesMesesMap[mKey] = new Map();
+      }
+
+      const mapMes = particularesMesesMap[mKey];
       const socio = asis.socio;
+      const keyAlumno = socio ? socio.id : `asis_${asis.id}`;
+      const nombre = socio ? `${socio.apellido}, ${socio.nombre}` : 'Alumno';
       const esSocio = Boolean(socio && socio.categoria !== 'alumno');
-      const key = socio ? `socio_${socio.id}` : `asistencia_${asis.id}`;
-      const nombre = socio
-        ? `${socio.apellido}, ${socio.nombre}`
-        : 'Alumno';
 
-      const fechaStr = asis.fecha.toISOString().split('T')[0];
-
-      if (!particularesMap.has(key)) {
-        particularesMap.set(key, {
-          key,
+      if (!mapMes.has(keyAlumno)) {
+        mapMes.set(keyAlumno, {
+          id: keyAlumno,
           nombre,
           esSocio,
           dni: socio?.dni,
-          categoria: socio?.categoria,
-          telefono: socio?.telefono,
           cantidadClases: 0,
-          fechas: [],
         });
       }
 
-      const item = particularesMap.get(key)!;
-      item.cantidadClases++;
-      item.fechas.push(fechaStr);
+      mapMes.get(keyAlumno)!.cantidadClases += 1;
     }
 
-    const particularesLista = Array.from(particularesMap.values()).sort((a, b) =>
-      b.cantidadClases - a.cantidadClases || a.nombre.localeCompare(b.nombre)
-    );
+    const particularesMeses = Array.from({ length: 12 }, (_, i) => {
+      const mStr = `${anio}-${String(i + 1).padStart(2, '0')}`;
+      const mapMes = particularesMesesMap[mStr];
+      const totalAlumnos = mapMes ? mapMes.size : 0;
+      let totalClases = 0;
+      if (mapMes) {
+        for (const item of mapMes.values()) {
+          totalClases += item.cantidadClases;
+        }
+      }
+      return {
+        mes: mStr,
+        numeroMes: i + 1,
+        totalAlumnos,
+        totalClases,
+      };
+    });
 
-    // 3. PADRÓN COMPLETO DE SOCIOS ACTIVOS (Sin importar deuda)
+    const particularesAlumnosMesActual = particularesMesesMap[mes]
+      ? Array.from(particularesMesesMap[mes].values()).sort((a, b) =>
+          b.cantidadClases - a.cantidadClases || a.nombre.localeCompare(b.nombre)
+        )
+      : [];
+
+    // =========================================================================
+    // 3. CLASES PROFESOR: Registros de clases cargados por el profesor en /profe
+    // =========================================================================
+    const registrosProfesorMes = await db.registroClaseProfesor.findMany({
+      where: {
+        fecha: {
+          gte: new Date(Date.UTC(anio, mesNum - 1, 1, 0, 0, 0, 0)),
+          lte: new Date(Date.UTC(anio, mesNum, 0, 23, 59, 59, 999)),
+        },
+      },
+      orderBy: [
+        { fecha: 'desc' },
+        { createdAt: 'desc' },
+      ],
+    });
+
+    const registrosProfesorFormatted = registrosProfesorMes.map((r) => {
+      const fechaStr = r.fecha instanceof Date
+        ? r.fecha.toISOString().split('T')[0]
+        : String(r.fecha).split('T')[0];
+      return {
+        id: r.id,
+        fecha: fechaStr,
+        cantidadClases: r.cantidadClases,
+        cantidadAlumnos: r.cantidadAlumnos,
+        precioTotal: r.precioTotal,
+        profesor: r.profesor || 'Profesor',
+        turno: r.turno || '-',
+        observaciones: r.observaciones || '',
+      };
+    });
+
+    const totalClasesProfesorMes = registrosProfesorFormatted.reduce((acc, r) => acc + r.cantidadClases, 0);
+    const totalAlumnosProfesorMes = registrosProfesorFormatted.reduce((acc, r) => acc + r.cantidadAlumnos, 0);
+    const totalMontoProfesorMes = registrosProfesorFormatted.reduce((acc, r) => acc + r.precioTotal, 0);
+
+    // =========================================================================
+    // 4. PADRÓN GENERAL DE SOCIOS: Sin categorías ("todos"), limpio
+    // =========================================================================
     const socios = await db.socio.findMany({
       where: { activo: true },
       orderBy: [
@@ -155,97 +213,139 @@ export async function GET(request: Request) {
         dni: true,
         nombre: true,
         apellido: true,
-        categoria: true,
         telefono: true,
         email: true,
       },
     });
 
-    // Conteo por categorías
-    const categoriasConteo: Record<string, number> = {};
-    for (const s of socios) {
-      const cat = s.categoria || 'Sin Categoría';
-      categoriasConteo[cat] = (categoriasConteo[cat] || 0) + 1;
-    }
+    // =========================================================================
+    // 5. BALANCE MENSUAL: Histórico mes a mes con saldos finales y saldo actual
+    // =========================================================================
+    const configSaldo = await db.configuracion.findUnique({
+      where: { clave: 'saldo_inicial_enero_2026' },
+    });
+    const saldoBaseInicial = parseFloat(configSaldo?.valor || '0');
 
-    // 4. BALANCE MENSUAL DE LA SUBCOMISIÓN
-    const startBalance = new Date(`${mes}-01T00:00:00Z`);
-    const endBalance = new Date(startBalance);
-    endBalance.setMonth(endBalance.getMonth() + 1);
-
-    const movimientos = await db.movimiento.findMany({
-      where: {
-        fecha: {
-          gte: startBalance,
-          lt: endBalance,
-        },
-      },
+    // Traer todos los movimientos históricos para calcular saldos finales de cada mes
+    const todosMovimientos = await db.movimiento.findMany({
       orderBy: { fecha: 'asc' },
     });
 
-    let totalIngresos = 0;
-    let totalEgresos = 0;
+    let runningBalance = saldoBaseInicial;
+    const movimientosPorMesMap: Record<string, {
+      ingresos: number;
+      egresos: number;
+      movimientos: any[];
+    }> = {};
 
-    const movimientosFormatted = movimientos.map((m) => {
-      if (m.tipo === 'ingreso') {
-        totalIngresos += m.monto;
-      } else {
-        totalEgresos += m.monto;
+    for (const m of todosMovimientos) {
+      const fechaStr = m.fecha.toISOString().split('T')[0];
+      const mKey = fechaStr.substring(0, 7);
+      if (!movimientosPorMesMap[mKey]) {
+        movimientosPorMesMap[mKey] = { ingresos: 0, egresos: 0, movimientos: [] };
       }
-      return {
+      if (m.tipo === 'ingreso') {
+        movimientosPorMesMap[mKey].ingresos += m.monto;
+      } else {
+        movimientosPorMesMap[mKey].egresos += m.monto;
+      }
+      movimientosPorMesMap[mKey].movimientos.push({
         id: m.id,
-        fecha: m.fecha.toISOString().split('T')[0],
+        fecha: fechaStr,
         descripcion: m.descripcion,
         responsable: m.responsable,
         tipo: m.tipo,
         monto: m.monto,
+      });
+    }
+
+    // Calcular saldo acumulado mes por mes de los 12 meses del año solicitado
+    // Primero acumulamos los movimientos anteriores a enero del año solicitado
+    const startOfAnioDate = new Date(`${anio}-01-01T00:00:00Z`);
+    let saldoAlInicioDelAnio = saldoBaseInicial;
+    for (const m of todosMovimientos) {
+      if (m.fecha < startOfAnioDate) {
+        saldoAlInicioDelAnio += (m.tipo === 'ingreso' ? m.monto : -m.monto);
+      }
+    }
+
+    let saldoAcumulado = saldoAlInicioDelAnio;
+    const balanceMeses = Array.from({ length: 12 }, (_, i) => {
+      const mStr = `${anio}-${String(i + 1).padStart(2, '0')}`;
+      const datos = movimientosPorMesMap[mStr] || { ingresos: 0, egresos: 0, movimientos: [] };
+      const saldoInicialMes = saldoAcumulado;
+      const resultadoMes = datos.ingresos - datos.egresos;
+      saldoAcumulado += resultadoMes;
+      const saldoFinalMes = saldoAcumulado;
+
+      return {
+        mes: mStr,
+        numeroMes: i + 1,
+        saldoInicial: saldoInicialMes,
+        ingresos: datos.ingresos,
+        egresos: datos.egresos,
+        resultadoNeto: resultadoMes,
+        saldoFinal: saldoFinalMes,
+        cantidadMovimientos: datos.movimientos.length,
       };
     });
 
-    const resultadoNeto = totalIngresos - totalEgresos;
+    // Saldo actual total en tiempo real (sumando todos los movimientos de la historia)
+    const saldoActualTotal = todosMovimientos.reduce((acc, m) => {
+      return acc + (m.tipo === 'ingreso' ? m.monto : -m.monto);
+    }, saldoBaseInicial);
+
+    // Movimientos del mes seleccionado
+    const datosMesActualBalance = balanceMeses.find((b) => b.mes === mes) || {
+      mes,
+      saldoInicial: 0,
+      ingresos: 0,
+      egresos: 0,
+      resultadoNeto: 0,
+      saldoFinal: 0,
+    };
+    const movimientosMesSeleccionado = movimientosPorMesMap[mes]?.movimientos || [];
 
     return NextResponse.json({
       success: true,
       mes,
-      resumenGlobal: {
-        totalSocios: socios.length,
-        totalAlumnosEscuela: alumnosEscuela.length,
-        totalParticulares: particularesLista.length,
-        totalAsistenciasParticulares: asistenciasParticulares.length,
-        escuelaRecaudado: escuelaTotalRecaudado,
-        escuelaEsperado: escuelaTotalEsperado,
-        escuelaPorcentajeCobrado: escuelaTotalEsperado > 0 ? Math.round((escuelaTotalRecaudado / escuelaTotalEsperado) * 100) : 0,
-        balanceIngresos: totalIngresos,
-        balanceEgresos: totalEgresos,
-        balanceResultadoNeto: resultadoNeto,
-      },
+      anio,
+      // 1. Escuela
       escuela: {
-        totalEsperado: escuelaTotalEsperado,
-        totalRecaudado: escuelaTotalRecaudado,
-        cantidadPagados: escuelaCantidadPagados,
-        cantidadPendientes: escuelaCantidadPendientes,
-        alumnos: escuelaLista,
+        totalAlumnos: alumnosEscuela.length,
+        porGrupo: conteoPorGrupo,
+        recaudadoMesActual: escuelaRecaudadoMesActual,
+        meses: escuelaMeses,
+        alumnos: alumnosEscuela,
       },
+      // 2. Particulares
       particulares: {
-        totalAlumnos: particularesLista.length,
-        totalAsistencias: asistenciasParticulares.length,
-        alumnos: particularesLista,
+        meses: particularesMeses,
+        totalAlumnosMesActual: particularesAlumnosMesActual.length,
+        alumnos: particularesAlumnosMesActual,
       },
+      // 3. Clases Profesor
+      clasesProfesor: {
+        registros: registrosProfesorFormatted,
+        totalClases: totalClasesProfesorMes,
+        totalAlumnos: totalAlumnosProfesorMes,
+        totalMonto: totalMontoProfesorMes,
+      },
+      // 4. Padrón Socios
       socios: {
         total: socios.length,
-        porCategoria: categoriasConteo,
         lista: socios,
       },
+      // 5. Balance
       balance: {
-        totalIngresos,
-        totalEgresos,
-        resultadoNeto,
-        movimientos: movimientosFormatted,
+        saldoActualTotal,
+        meses: balanceMeses,
+        mesActual: datosMesActualBalance,
+        movimientos: movimientosMesSeleccionado,
       },
     });
   } catch (err: any) {
     console.error('Error en /api/comision:', err);
-    return NextResponse.json({ error: err.message || 'Error al obtener datos ejecutivos de comisión' }, { status: 500 });
+    return NextResponse.json({ error: err.message || 'Error al obtener datos de comisión' }, { status: 500 });
   }
 }
-

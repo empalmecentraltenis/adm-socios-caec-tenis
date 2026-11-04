@@ -27,11 +27,12 @@ import {
   Printer,
   ChevronLeft,
   ChevronRight,
+  Wallet,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/formatters';
 import * as XLSX from 'xlsx';
@@ -58,21 +59,26 @@ export default function ComisionDirectivaPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [data, setData] = useState<any>(null);
 
-  // Estados de búsqueda / filtros locales en los bloques
+  // Estados de búsqueda / filtros locales
   const [searchEscuela, setSearchEscuela] = useState('');
+  const [filtroGrupoEscuela, setFiltroGrupoEscuela] = useState<string>('todos');
   const [searchParticulares, setSearchParticulares] = useState('');
   const [searchSocios, setSearchSocios] = useState('');
-  const [filtroCategoriaSocio, setFiltroCategoriaSocio] = useState<string>('todos');
-  const [filtroGrupoEscuela, setFiltroGrupoEscuela] = useState<string>('todos');
+  const [searchProfesor, setSearchProfesor] = useState('');
 
   // Estado de descarga de paquete ZIP
   const [downloadingZip, setDownloadingZip] = useState(false);
+
+  // Año actual
+  const anioActual = useMemo(() => {
+    return mesSeleccionado.split('-')[0] || String(new Date().getFullYear());
+  }, [mesSeleccionado]);
 
   // Cargar datos consolidados
   const fetchDatosComision = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/comision?mes=${mesSeleccionado}`);
+      const res = await fetch(`/api/comision?mes=${mesSeleccionado}&anio=${anioActual}`);
       const json = await res.json();
       if (res.ok && json.success) {
         setData(json);
@@ -92,7 +98,7 @@ export default function ComisionDirectivaPage() {
     } finally {
       setLoading(false);
     }
-  }, [mesSeleccionado, toast]);
+  }, [mesSeleccionado, anioActual, toast]);
 
   useEffect(() => {
     fetchDatosComision();
@@ -121,9 +127,7 @@ export default function ComisionDirectivaPage() {
       if (filtroGrupoEscuela !== 'todos' && al.grupo !== filtroGrupoEscuela) return false;
       if (searchEscuela.trim()) {
         const term = searchEscuela.toLowerCase();
-        const nom = al.nombre.toLowerCase();
-        const tut = (al.tutor || '').toLowerCase();
-        return nom.includes(term) || tut.includes(term);
+        return al.nombre.toLowerCase().includes(term);
       }
       return true;
     });
@@ -140,10 +144,20 @@ export default function ComisionDirectivaPage() {
     });
   }, [data?.particulares?.alumnos, searchParticulares]);
 
+  const profesorFiltrados = useMemo(() => {
+    if (!data?.clasesProfesor?.registros) return [];
+    return data.clasesProfesor.registros.filter((r: any) => {
+      if (searchProfesor.trim()) {
+        const term = searchProfesor.toLowerCase();
+        return r.fecha.includes(term) || (r.observaciones || '').toLowerCase().includes(term) || (r.turno || '').toLowerCase().includes(term);
+      }
+      return true;
+    });
+  }, [data?.clasesProfesor?.registros, searchProfesor]);
+
   const sociosFiltrados = useMemo(() => {
     if (!data?.socios?.lista) return [];
     return data.socios.lista.filter((s: any) => {
-      if (filtroCategoriaSocio !== 'todos' && s.categoria !== filtroCategoriaSocio) return false;
       if (searchSocios.trim()) {
         const term = searchSocios.toLowerCase();
         const fullName = `${s.apellido} ${s.nombre}`.toLowerCase();
@@ -152,224 +166,13 @@ export default function ComisionDirectivaPage() {
       }
       return true;
     });
-  }, [data?.socios?.lista, filtroCategoriaSocio, searchSocios]);
+  }, [data?.socios?.lista, searchSocios]);
 
   // ==========================================
-  // GENERADORES INDIVIDUALES DE REPORTES (PDF Y EXCEL)
+  // GENERADORES DE REPORTES PDF Y EXCEL
   // ==========================================
 
-  // 1. PDF Oficial Escuela y Pagos
-  const generarPdfEscuela = (returnBlob = false) => {
-    if (!data?.escuela?.alumnos) return null;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    // Cabecera institucional
-    doc.setFillColor(26, 26, 26);
-    doc.rect(10, 10, 190, 14, 'F');
-    doc.setTextColor(255, 204, 0);
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CLUB EMPALME CENTRAL — SUBCOMISIÓN DE TENIS', 105, 19, { align: 'center' });
-
-    doc.setFillColor(255, 204, 0);
-    doc.rect(10, 24, 190, 8, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.text(`REPORTE MENSUAL DE CUOTAS ESCUELA DE TENIS — ${labelMesActual}`, 105, 29.5, { align: 'center' });
-
-    const yStart = 37;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(40, 40, 40);
-    doc.setDrawColor(200, 200, 200);
-    doc.setFillColor(248, 248, 248);
-    doc.rect(10, yStart, 190, 22, 'FD');
-
-    doc.text(`Total Alumnos: ${data.escuela.alumnos.length}`, 15, yStart + 6);
-    doc.text(`Alumnos Cobrados: ${data.escuela.cantidadPagados}`, 15, yStart + 12);
-    doc.text(`Alumnos Pendientes: ${data.escuela.cantidadPendientes}`, 15, yStart + 18);
-
-    doc.text(`Total Estimado: ${formatCurrency(data.escuela.totalEsperado)}`, 110, yStart + 6);
-    doc.setTextColor(0, 128, 0);
-    doc.setFontSize(11);
-    doc.text(`TOTAL RECAUDADO: ${formatCurrency(data.escuela.totalRecaudado)}`, 110, yStart + 14);
-
-    const tableData = data.escuela.alumnos.map((al: any, idx: number) => [
-      idx + 1,
-      al.nombre,
-      al.grupo,
-      al.tutor || '-',
-      formatCurrency(al.montoSugerido),
-      al.pagado ? `SÍ (${formatCurrency(al.pago?.monto || 0)})` : 'PENDIENTE',
-      al.pago ? al.pago.fechaPago : '-',
-      al.pago ? al.pago.metodoPago.toUpperCase() : '-',
-    ]);
-
-    autoTable(doc, {
-      startY: yStart + 26,
-      head: [['#', 'Alumno', 'Grupo', 'Responsable', 'Valor', 'Cobrado', 'Fecha', 'Medio']],
-      body: tableData,
-      theme: 'striped',
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [26, 26, 26], textColor: [255, 204, 0], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 248, 248] },
-    });
-
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(120, 120, 120);
-      doc.text(
-        `Documento emitido el ${new Date().toLocaleDateString('es-AR')} - Subcomisión de Tenis CAEC - Página ${i} de ${pageCount}`,
-        105,
-        290,
-        { align: 'center' }
-      );
-    }
-
-    if (returnBlob) return doc.output('blob');
-    doc.save(`1_Cuotas_Escuela_Tenis_${mesSeleccionado}.pdf`);
-  };
-
-  // 2. PDF Oficial Particulares
-  const generarPdfParticulares = (returnBlob = false) => {
-    if (!data?.particulares?.alumnos) return null;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    doc.setFillColor(26, 26, 26);
-    doc.rect(10, 10, 190, 14, 'F');
-    doc.setTextColor(255, 204, 0);
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CLUB EMPALME CENTRAL — SUBCOMISIÓN DE TENIS', 105, 19, { align: 'center' });
-
-    doc.setFillColor(255, 204, 0);
-    doc.rect(10, 24, 190, 8, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.text(`REPORTE DE ALUMNOS DE CLASES PARTICULARES — ${labelMesActual}`, 105, 29.5, { align: 'center' });
-
-    const yStart = 37;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(40, 40, 40);
-    doc.setDrawColor(200, 200, 200);
-    doc.setFillColor(248, 248, 248);
-    doc.rect(10, yStart, 190, 16, 'FD');
-
-    doc.text(`Total Alumnos Particulares: ${data.particulares.totalAlumnos}`, 15, yStart + 6);
-    doc.text(`Total Asistencias Registradas: ${data.particulares.totalAsistencias}`, 110, yStart + 6);
-
-    const tableData = data.particulares.alumnos.map((al: any, idx: number) => [
-      idx + 1,
-      al.nombre,
-      al.esSocio ? 'Socio' : 'No Socio',
-      al.categoria || '-',
-      `${al.cantidadClases} clase(s)`,
-      al.fechas.join(', '),
-    ]);
-
-    autoTable(doc, {
-      startY: yStart + 20,
-      head: [['#', 'Alumno', 'Condición', 'Categoría', 'Total Clases', 'Fechas']],
-      body: tableData,
-      theme: 'striped',
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [26, 26, 26], textColor: [255, 204, 0], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 248, 248] },
-    });
-
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(120, 120, 120);
-      doc.text(
-        `Documento emitido el ${new Date().toLocaleDateString('es-AR')} - Subcomisión de Tenis CAEC - Página ${i} de ${pageCount}`,
-        105,
-        290,
-        { align: 'center' }
-      );
-    }
-
-    if (returnBlob) return doc.output('blob');
-    doc.save(`2_Alumnos_Particulares_${mesSeleccionado}.pdf`);
-  };
-
-  // 3. PDF Padrón General de Socios
-  const generarPdfSocios = (returnBlob = false) => {
-    if (!data?.socios?.lista) return null;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    doc.setFillColor(26, 26, 26);
-    doc.rect(10, 10, 190, 14, 'F');
-    doc.setTextColor(255, 204, 0);
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CLUB EMPALME CENTRAL — SUBCOMISIÓN DE TENIS', 105, 19, { align: 'center' });
-
-    doc.setFillColor(255, 204, 0);
-    doc.rect(10, 24, 190, 8, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.text(`PADRÓN COMPLETO DE SOCIOS ACTIVOS — ${labelMesActual}`, 105, 29.5, { align: 'center' });
-
-    const yStart = 37;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(40, 40, 40);
-    doc.setDrawColor(200, 200, 200);
-    doc.setFillColor(248, 248, 248);
-    doc.rect(10, yStart, 190, 16, 'FD');
-
-    doc.text(`Total Socios Activos: ${data.socios.total}`, 15, yStart + 6);
-    const catResumen = Object.entries(data.socios.porCategoria || {})
-      .map(([cat, cant]) => `${cat}: ${cant}`)
-      .join(' | ');
-    doc.setFontSize(8);
-    doc.text(`Distribución: ${catResumen}`, 15, yStart + 12);
-
-    const tableData = data.socios.lista.map((s: any, idx: number) => [
-      idx + 1,
-      s.dni || '-',
-      `${s.apellido}, ${s.nombre}`,
-      s.categoria || '-',
-      s.telefono || '-',
-      s.email || '-',
-    ]);
-
-    autoTable(doc, {
-      startY: yStart + 20,
-      head: [['#', 'DNI', 'Apellido y Nombre', 'Categoría', 'Teléfono', 'Email']],
-      body: tableData,
-      theme: 'striped',
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [26, 26, 26], textColor: [255, 204, 0], fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 248, 248] },
-    });
-
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(120, 120, 120);
-      doc.text(
-        `Documento emitido el ${new Date().toLocaleDateString('es-AR')} - Subcomisión de Tenis CAEC - Página ${i} de ${pageCount}`,
-        105,
-        290,
-        { align: 'center' }
-      );
-    }
-
-    if (returnBlob) return doc.output('blob');
-    doc.save(`3_Padron_Socios_CAEC_${mesSeleccionado}.pdf`);
-  };
-
-  // 4. PDF Balance Mensual
+  // 1. PDF Balance Mensual
   const generarPdfBalance = (returnBlob = false) => {
     if (!data?.balance?.movimientos) return null;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -385,7 +188,7 @@ export default function ComisionDirectivaPage() {
     doc.rect(10, 24, 190, 8, 'F');
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
-    doc.text(`BALANCE FINANCIERO MENSUAL — ${labelMesActual}`, 105, 29.5, { align: 'center' });
+    doc.text(`CUENTA CORRIENTE Y BALANCE MENSUAL — ${labelMesActual}`, 105, 29.5, { align: 'center' });
 
     const yStart = 37;
     doc.setFontSize(9);
@@ -393,19 +196,16 @@ export default function ComisionDirectivaPage() {
     doc.setTextColor(40, 40, 40);
     doc.setDrawColor(200, 200, 200);
     doc.setFillColor(248, 248, 248);
-    doc.rect(10, yStart, 190, 20, 'FD');
+    doc.rect(10, yStart, 190, 24, 'FD');
 
-    doc.text(`Ingresos del Período: ${formatCurrency(data.balance.totalIngresos)}`, 15, yStart + 7);
-    doc.text(`Egresos del Período: ${formatCurrency(data.balance.totalEgresos)}`, 15, yStart + 14);
+    const mActual = data.balance.mesActual || {};
+    doc.text(`Saldo Inicial del Mes: ${formatCurrency(mActual.saldoInicial || 0)}`, 15, yStart + 6);
+    doc.text(`Total Ingresos: ${formatCurrency(mActual.ingresos || 0)}`, 15, yStart + 12);
+    doc.text(`Total Egresos: ${formatCurrency(mActual.egresos || 0)}`, 15, yStart + 18);
 
-    const esSuperavit = data.balance.resultadoNeto >= 0;
-    doc.setTextColor(esSuperavit ? 0 : 200, esSuperavit ? 128 : 0, 0);
+    doc.setTextColor(0, 128, 0);
     doc.setFontSize(11);
-    doc.text(
-      `RESULTADO NETO: ${formatCurrency(data.balance.resultadoNeto)} (${esSuperavit ? 'SUPERÁVIT' : 'DÉFICIT'})`,
-      100,
-      yStart + 11
-    );
+    doc.text(`SALDO FINAL DE CIERRE: ${formatCurrency(mActual.saldoFinal || 0)}`, 105, yStart + 12);
 
     const tableData = data.balance.movimientos.map((m: any, idx: number) => [
       idx + 1,
@@ -417,7 +217,7 @@ export default function ComisionDirectivaPage() {
     ]);
 
     autoTable(doc, {
-      startY: yStart + 24,
+      startY: yStart + 28,
       head: [['#', 'Fecha', 'Concepto / Descripción', 'Responsable', 'Tipo', 'Monto']],
       body: tableData,
       theme: 'striped',
@@ -441,122 +241,235 @@ export default function ComisionDirectivaPage() {
     }
 
     if (returnBlob) return doc.output('blob');
-    doc.save(`4_Balance_Mensual_${mesSeleccionado}.pdf`);
+    doc.save(`Balance_Mensual_CAEC_${mesSeleccionado}.pdf`);
   };
 
-  // 5. Excel Integral de Comisión Directiva (Todas las solapas en 1 solo libro)
-  const generarExcelConsolidado = (returnBlob = false) => {
-    if (!data) return null;
+  // 2. PDF Oficial Escuela
+  const generarPdfEscuela = (returnBlob = false) => {
+    if (!data?.escuela?.alumnos) return null;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    const wb = XLSX.utils.book_new();
+    doc.setFillColor(26, 26, 26);
+    doc.rect(10, 10, 190, 14, 'F');
+    doc.setTextColor(255, 204, 0);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLUB EMPALME CENTRAL — SUBCOMISIÓN DE TENIS', 105, 19, { align: 'center' });
 
-    // Solapa 1: Resumen
-    const wsResumen = XLSX.utils.json_to_sheet([
-      { Concepto: 'Período', Valor: labelMesActual },
-      { Concepto: 'Total Socios Activos', Valor: data.resumenGlobal.totalSocios },
-      { Concepto: 'Total Alumnos Escuela', Valor: data.resumenGlobal.totalAlumnosEscuela },
-      { Concepto: 'Cuotas Escuela Cobradas', Valor: data.resumenGlobal.escuelaRecaudado },
-      { Concepto: 'Alumnos en Particulares', Valor: data.resumenGlobal.totalParticulares },
-      { Concepto: 'Total Asistencias Particulares', Valor: data.resumenGlobal.totalAsistenciasParticulares },
-      { Concepto: 'Ingresos Balance', Valor: data.resumenGlobal.balanceIngresos },
-      { Concepto: 'Egresos Balance', Valor: data.resumenGlobal.balanceEgresos },
-      { Concepto: 'Resultado Neto Período', Valor: data.resumenGlobal.balanceResultadoNeto },
+    doc.setFillColor(255, 204, 0);
+    doc.rect(10, 24, 190, 8, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.text(`ALUMNOS DE ESCUELA DE TENIS Y RECAUDACIÓN — ${labelMesActual}`, 105, 29.5, { align: 'center' });
+
+    const yStart = 37;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 40, 40);
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(248, 248, 248);
+    doc.rect(10, yStart, 190, 18, 'FD');
+
+    doc.text(`Total Alumnos: ${data.escuela.totalAlumnos}`, 15, yStart + 6);
+    doc.text(`Escuelita: ${data.escuela.porGrupo?.Escuelita || 0} | Minitenis: ${data.escuela.porGrupo?.Minitenis || 0} | Competencia: ${data.escuela.porGrupo?.['Grupo Entrenamiento'] || 0}`, 15, yStart + 12);
+    doc.setTextColor(0, 128, 0);
+    doc.text(`Total Recaudado Cuotas: ${formatCurrency(data.escuela.recaudadoMesActual)}`, 110, yStart + 9);
+
+    const tableData = data.escuela.alumnos.map((al: any, idx: number) => [
+      idx + 1,
+      al.nombre,
+      al.grupo === 'Grupo Entrenamiento' ? 'Competencia' : al.grupo,
     ]);
-    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Ejecutivo');
 
-    // Solapa 2: Escuela y Pagos
-    const wsEscuela = XLSX.utils.json_to_sheet(
-      data.escuela.alumnos.map((al: any, idx: number) => ({
-        'N°': idx + 1,
-        'Alumno': al.nombre,
-        'Grupo': al.grupo,
-        'Edad': al.edad || '-',
-        'Tutor': al.tutor || '-',
-        'Teléfono': al.telefono || '-',
-        'Valor Cuota': al.montoSugerido,
-        'Estado': al.pagado ? 'COBRADO' : 'PENDIENTE',
-        'Monto Cobrado': al.pago?.monto || 0,
-        'Fecha Pago': al.pago?.fechaPago || '-',
-        'Medio de Pago': al.pago?.metodoPago || '-',
-        'Observaciones': al.pago?.observaciones || '-',
-      }))
-    );
-    XLSX.utils.book_append_sheet(wb, wsEscuela, 'Escuela y Cuotas');
+    autoTable(doc, {
+      startY: yStart + 22,
+      head: [['#', 'Nombre del Alumno', 'Grupo']],
+      body: tableData,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [26, 26, 26], textColor: [255, 204, 0], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+    });
 
-    // Solapa 3: Particulares
-    const wsParticulares = XLSX.utils.json_to_sheet(
-      data.particulares.alumnos.map((al: any, idx: number) => ({
-        'N°': idx + 1,
-        'Alumno': al.nombre,
-        'Condición': al.esSocio ? 'Socio' : 'No Socio',
-        'DNI': al.dni || '-',
-        'Categoría': al.categoria || '-',
-        'Teléfono': al.telefono || '-',
-        'Clases en el Mes': al.cantidadClases,
-        'Fechas': al.fechas.join(', '),
-      }))
-    );
-    XLSX.utils.book_append_sheet(wb, wsParticulares, 'Clases Particulares');
-
-    // Solapa 4: Socios
-    const wsSocios = XLSX.utils.json_to_sheet(
-      data.socios.lista.map((s: any, idx: number) => ({
-        'N°': idx + 1,
-        'DNI': s.dni || '-',
-        'Apellido y Nombre': `${s.apellido}, ${s.nombre}`,
-        'Categoría': s.categoria || '-',
-        'Teléfono': s.telefono || '-',
-        'Email': s.email || '-',
-      }))
-    );
-    XLSX.utils.book_append_sheet(wb, wsSocios, 'Padrón Socios');
-
-    // Solapa 5: Balance
-    const wsBalance = XLSX.utils.json_to_sheet(
-      data.balance.movimientos.map((m: any, idx: number) => ({
-        'N°': idx + 1,
-        'Fecha': m.fecha,
-        'Concepto': m.descripcion,
-        'Responsable': m.responsable || '-',
-        'Tipo': m.tipo.toUpperCase(),
-        'Monto': m.monto,
-      }))
-    );
-    XLSX.utils.book_append_sheet(wb, wsBalance, 'Movimientos Balance');
-
-    if (returnBlob) {
-      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    }
-
-    XLSX.writeFile(wb, `Reporte_Consolidado_Comision_CAEC_${mesSeleccionado}.xlsx`);
+    if (returnBlob) return doc.output('blob');
+    doc.save(`Alumnos_Escuela_${mesSeleccionado}.pdf`);
   };
 
-  // 6. Descargar Paquete Mensual Completo en formato ZIP
+  // 3. PDF Particulares
+  const generarPdfParticulares = (returnBlob = false) => {
+    if (!data?.particulares?.alumnos) return null;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    doc.setFillColor(26, 26, 26);
+    doc.rect(10, 10, 190, 14, 'F');
+    doc.setTextColor(255, 204, 0);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLUB EMPALME CENTRAL — SUBCOMISIÓN DE TENIS', 105, 19, { align: 'center' });
+
+    doc.setFillColor(255, 204, 0);
+    doc.rect(10, 24, 190, 8, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.text(`ALUMNOS DE CLASES PARTICULARES — ${labelMesActual}`, 105, 29.5, { align: 'center' });
+
+    const yStart = 37;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 40, 40);
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(248, 248, 248);
+    doc.rect(10, yStart, 190, 14, 'FD');
+
+    doc.text(`Total Alumnos en el Mes: ${data.particulares.totalAlumnosMesActual}`, 15, yStart + 8);
+
+    const tableData = data.particulares.alumnos.map((al: any, idx: number) => [
+      idx + 1,
+      al.nombre,
+      al.esSocio ? 'Socio' : 'No Socio',
+      `${al.cantidadClases} clase(s) asistida(s)`,
+    ]);
+
+    autoTable(doc, {
+      startY: yStart + 18,
+      head: [['#', 'Alumno', 'Condición', 'Clases Asistidas']],
+      body: tableData,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [26, 26, 26], textColor: [255, 204, 0], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+    });
+
+    if (returnBlob) return doc.output('blob');
+    doc.save(`Particulares_${mesSeleccionado}.pdf`);
+  };
+
+  // 4. PDF Clases Profesor
+  const generarPdfProfesor = (returnBlob = false) => {
+    if (!data?.clasesProfesor?.registros) return null;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    doc.setFillColor(26, 26, 26);
+    doc.rect(10, 10, 190, 14, 'F');
+    doc.setTextColor(255, 204, 0);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLUB EMPALME CENTRAL — SUBCOMISIÓN DE TENIS', 105, 19, { align: 'center' });
+
+    doc.setFillColor(255, 204, 0);
+    doc.rect(10, 24, 190, 8, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.text(`REGISTRO DE CLASES DEL PROFESOR — ${labelMesActual}`, 105, 29.5, { align: 'center' });
+
+    const yStart = 37;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 40, 40);
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(248, 248, 248);
+    doc.rect(10, yStart, 190, 16, 'FD');
+
+    doc.text(`Total Clases Dadas: ${data.clasesProfesor.totalClases}`, 15, yStart + 6);
+    doc.text(`Total Alumnos Atendidos: ${data.clasesProfesor.totalAlumnos}`, 15, yStart + 12);
+    doc.text(`Monto Total Clases: ${formatCurrency(data.clasesProfesor.totalMonto)}`, 110, yStart + 9);
+
+    const tableData = data.clasesProfesor.registros.map((r: any, idx: number) => [
+      idx + 1,
+      r.fecha,
+      r.turno,
+      r.cantidadClases,
+      r.cantidadAlumnos,
+      formatCurrency(r.precioTotal),
+      r.observaciones || '-',
+    ]);
+
+    autoTable(doc, {
+      startY: yStart + 20,
+      head: [['#', 'Fecha', 'Turno', 'Clases', 'Alumnos', 'Monto', 'Observaciones']],
+      body: tableData,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [26, 26, 26], textColor: [255, 204, 0], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+    });
+
+    if (returnBlob) return doc.output('blob');
+    doc.save(`Clases_Profesor_${mesSeleccionado}.pdf`);
+  };
+
+  // 5. PDF Padrón General Socios
+  const generarPdfSocios = (returnBlob = false) => {
+    if (!data?.socios?.lista) return null;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    doc.setFillColor(26, 26, 26);
+    doc.rect(10, 10, 190, 14, 'F');
+    doc.setTextColor(255, 204, 0);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLUB EMPALME CENTRAL — SUBCOMISIÓN DE TENIS', 105, 19, { align: 'center' });
+
+    doc.setFillColor(255, 204, 0);
+    doc.rect(10, 24, 190, 8, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.text(`PADRÓN GENERAL COMPLETO DE SOCIOS — ${labelMesActual}`, 105, 29.5, { align: 'center' });
+
+    const yStart = 37;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 40, 40);
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(248, 248, 248);
+    doc.rect(10, yStart, 190, 12, 'FD');
+
+    doc.text(`Total Socios Activos Registrados: ${data.socios.total}`, 15, yStart + 7);
+
+    const tableData = data.socios.lista.map((s: any, idx: number) => [
+      idx + 1,
+      s.dni || '-',
+      `${s.apellido}, ${s.nombre}`,
+      s.telefono || '-',
+      s.email || '-',
+    ]);
+
+    autoTable(doc, {
+      startY: yStart + 16,
+      head: [['#', 'DNI', 'Apellido y Nombre', 'Teléfono', 'Email']],
+      body: tableData,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [26, 26, 26], textColor: [255, 204, 0], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+    });
+
+    if (returnBlob) return doc.output('blob');
+    doc.save(`Padron_Socios_CAEC_${mesSeleccionado}.pdf`);
+  };
+
+  // Descargar paquete ZIP con todos los PDFs y planillas
   const handleDescargarPaqueteZip = async () => {
     if (!data) return;
     setDownloadingZip(true);
     try {
       const zip = new JSZip();
-      const folderName = `Informe_Comision_Directiva_${mesSeleccionado}`;
-      const folder = zip.folder(folderName);
+      const folder = zip.folder(`Informe_Comision_Directiva_${mesSeleccionado}`);
 
-      // Agregar los 4 PDFs
-      const pdfEscuelaBlob = generarPdfEscuela(true);
-      if (pdfEscuelaBlob) folder?.file(`1_Cuotas_Escuela_Tenis_${mesSeleccionado}.pdf`, pdfEscuelaBlob);
+      const bBalance = generarPdfBalance(true);
+      if (bBalance) folder?.file(`1_Balance_Mensual_${mesSeleccionado}.pdf`, bBalance);
 
-      const pdfParticularesBlob = generarPdfParticulares(true);
-      if (pdfParticularesBlob) folder?.file(`2_Alumnos_Particulares_${mesSeleccionado}.pdf`, pdfParticularesBlob);
+      const bEscuela = generarPdfEscuela(true);
+      if (bEscuela) folder?.file(`2_Escuela_Tenis_${mesSeleccionado}.pdf`, bEscuela);
 
-      const pdfSociosBlob = generarPdfSocios(true);
-      if (pdfSociosBlob) folder?.file(`3_Padron_Socios_CAEC_${mesSeleccionado}.pdf`, pdfSociosBlob);
+      const bPart = generarPdfParticulares(true);
+      if (bPart) folder?.file(`3_Particulares_${mesSeleccionado}.pdf`, bPart);
 
-      const pdfBalanceBlob = generarPdfBalance(true);
-      if (pdfBalanceBlob) folder?.file(`4_Balance_Mensual_${mesSeleccionado}.pdf`, pdfBalanceBlob);
+      const bProfe = generarPdfProfesor(true);
+      if (bProfe) folder?.file(`4_Clases_Profesor_${mesSeleccionado}.pdf`, bProfe);
 
-      // Agregar el Excel Completo con todas las solapas
-      const excelConsolidadoBlob = generarExcelConsolidado(true);
-      if (excelConsolidadoBlob) folder?.file(`Planilla_Consolidada_Comision_${mesSeleccionado}.xlsx`, excelConsolidadoBlob);
+      const bSocios = generarPdfSocios(true);
+      if (bSocios) folder?.file(`5_Padron_Socios_${mesSeleccionado}.pdf`, bSocios);
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const downloadUrl = URL.createObjectURL(zipBlob);
@@ -570,13 +483,13 @@ export default function ComisionDirectivaPage() {
 
       toast({
         title: 'Paquete ZIP descargado',
-        description: 'Se descargaron los 4 informes PDF y la planilla Excel del mes.',
+        description: 'Se descargaron los 5 informes oficiales de Comisión Directiva.',
       });
     } catch (err: any) {
       console.error('Error al generar ZIP:', err);
       toast({
         title: 'Error al generar paquete',
-        description: 'No se pudo compilar el archivo ZIP.',
+        description: 'No se pudo generar el archivo ZIP.',
         variant: 'destructive',
       });
     } finally {
@@ -610,7 +523,6 @@ export default function ComisionDirectivaPage() {
 
           {/* Selector de Mes Centralizado y Descarga de Paquete */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-            {/* Navegador de Mes */}
             <div className="flex items-center bg-[#18181A] border border-[#2C2C32] rounded-xl px-1.5 py-1 shadow-sm">
               <Button
                 type="button"
@@ -645,7 +557,6 @@ export default function ComisionDirectivaPage() {
               </Button>
             </div>
 
-            {/* Botón Refrescar */}
             <Button
               size="sm"
               variant="outline"
@@ -657,7 +568,6 @@ export default function ComisionDirectivaPage() {
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </Button>
 
-            {/* Botón Descargar Paquete ZIP */}
             <Button
               size="sm"
               onClick={handleDescargarPaqueteZip}
@@ -678,9 +588,8 @@ export default function ComisionDirectivaPage() {
 
       {/* 2. Cuerpo Principal */}
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* KPI Cards Superiores */}
+        {/* KPI Cards Superiores (Sin resultado del mes, con Saldo Actual Total) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* Card 1: Socios */}
           <div className="bg-[#141416] border border-[#242428] rounded-2xl p-4 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between text-[#888888]">
               <span className="text-[11px] font-bold uppercase tracking-wider">Padrón de Socios</span>
@@ -688,13 +597,12 @@ export default function ComisionDirectivaPage() {
             </div>
             <div className="mt-2">
               <div className="text-2xl sm:text-3xl font-black text-white">
-                {data?.resumenGlobal?.totalSocios ?? 0}
+                {data?.socios?.total ?? 0}
               </div>
               <div className="text-[11px] text-[#888888] mt-0.5">Socios activos del club</div>
             </div>
           </div>
 
-          {/* Card 2: Escuela */}
           <div className="bg-[#141416] border border-emerald-500/20 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between text-emerald-400">
               <span className="text-[11px] font-bold uppercase tracking-wider">Alumnos Escuela</span>
@@ -702,486 +610,152 @@ export default function ComisionDirectivaPage() {
             </div>
             <div className="mt-2">
               <div className="text-2xl sm:text-3xl font-black text-white">
-                {data?.resumenGlobal?.totalAlumnosEscuela ?? 0}
+                {data?.escuela?.totalAlumnos ?? 0}
               </div>
               <div className="text-[11px] text-emerald-300 font-semibold mt-0.5">
-                {data?.escuela?.cantidadPagados ?? 0} cuotas cobradas ({data?.resumenGlobal?.escuelaPorcentajeCobrado ?? 0}%)
+                Recaudado: {formatCurrency(data?.escuela?.recaudadoMesActual ?? 0)}
               </div>
             </div>
           </div>
 
-          {/* Card 3: Particulares */}
           <div className="bg-[#141416] border border-purple-500/20 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between text-purple-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Clases Particulares</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider">Particulares del Mes</span>
               <Sparkles size={18} />
             </div>
             <div className="mt-2">
               <div className="text-2xl sm:text-3xl font-black text-white">
-                {data?.resumenGlobal?.totalParticulares ?? 0}
+                {data?.particulares?.totalAlumnosMesActual ?? 0}
               </div>
               <div className="text-[11px] text-purple-300 font-semibold mt-0.5">
-                {data?.resumenGlobal?.totalAsistenciasParticulares ?? 0} asistencias registradas
+                Alumnos activos en {labelMesActual}
               </div>
             </div>
           </div>
 
-          {/* Card 4: Balance del Mes */}
-          <div className={`border rounded-2xl p-4 shadow-sm flex flex-col justify-between ${
-            (data?.resumenGlobal?.balanceResultadoNeto ?? 0) >= 0
-              ? 'bg-[#141416] border-emerald-500/30'
-              : 'bg-[#141416] border-red-500/30'
-          }`}>
-            <div className="flex items-center justify-between text-[#888888]">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Resultado del Mes</span>
-              {(data?.resumenGlobal?.balanceResultadoNeto ?? 0) >= 0 ? (
-                <TrendingUp size={18} className="text-emerald-400" />
-              ) : (
-                <TrendingDown size={18} className="text-red-400" />
-              )}
+          <div className="bg-[#141416] border border-amber-500/30 rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between text-amber-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider">Saldo Final del Mes</span>
+              <Wallet size={18} className="text-amber-400" />
             </div>
             <div className="mt-2">
-              <div className={`text-2xl sm:text-3xl font-black font-mono ${
-                (data?.resumenGlobal?.balanceResultadoNeto ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
-              }`}>
-                {formatCurrency(data?.resumenGlobal?.balanceResultadoNeto ?? 0)}
+              <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400">
+                {formatCurrency(data?.balance?.mesActual?.saldoFinal ?? 0)}
               </div>
               <div className="text-[11px] text-[#888888] mt-0.5">
-                Superávit neto de tenis
+                Saldo Actual General: <strong className="text-white">{formatCurrency(data?.balance?.saldoActualTotal ?? 0)}</strong>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 3. BLOQUE 1: ESCUELA DE TENIS Y PAGOS DE CUOTAS */}
-        <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
-          <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                <GraduationCap size={18} />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                  1. Escuela de Tenis — Cuotas Mensuales del Profesor
-                </h2>
-                <p className="text-xs text-[#888888]">
-                  Cobros registrados del mes {labelMesActual} por categoría ($20.000 Escuelita/Minitenis - $35.000 Competencia)
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => generarPdfEscuela(false)}
-                className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1 font-semibold"
-              >
-                <FileDown size={14} />
-                <span>PDF Oficial</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Métricas del Bloque */}
-          <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#111113] border-b border-[#242428]">
-            <div className="bg-[#161619] border border-[#25252A] p-2.5 rounded-xl">
-              <div className="text-[10px] text-[#888888] font-bold uppercase">Total Inscriptos</div>
-              <div className="text-base font-black text-white">{data?.escuela?.alumnos?.length || 0} alumnos</div>
-            </div>
-            <div className="bg-[#161619] border border-[#25252A] p-2.5 rounded-xl">
-              <div className="text-[10px] text-emerald-400 font-bold uppercase">Cuotas Cobradas</div>
-              <div className="text-base font-black text-emerald-400">{data?.escuela?.cantidadPagados || 0}</div>
-            </div>
-            <div className="bg-[#161619] border border-[#25252A] p-2.5 rounded-xl">
-              <div className="text-[10px] text-amber-400 font-bold uppercase">Cuotas Pendientes</div>
-              <div className="text-base font-black text-amber-400">{data?.escuela?.cantidadPendientes || 0}</div>
-            </div>
-            <div className="bg-[#161619] border border-emerald-500/30 p-2.5 rounded-xl">
-              <div className="text-[10px] text-emerald-300 font-bold uppercase">Total Recaudado</div>
-              <div className="text-base font-black font-mono text-emerald-400">
-                {formatCurrency(data?.escuela?.totalRecaudado || 0)}
-              </div>
-            </div>
-          </div>
-
-          {/* Filtros locales */}
-          <div className="p-3 border-b border-[#242428] flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
-              {['todos', 'Escuelita', 'Minitenis', 'Grupo Entrenamiento'].map((grp) => (
-                <Button
-                  key={grp}
-                  size="sm"
-                  variant={filtroGrupoEscuela === grp ? 'default' : 'ghost'}
-                  onClick={() => setFiltroGrupoEscuela(grp)}
-                  className={`text-xs h-7 px-2.5 ${filtroGrupoEscuela === grp ? 'bg-primary text-black font-bold' : 'text-[#888888]'}`}
-                >
-                  {grp === 'todos' ? 'Todos' : grp === 'Grupo Entrenamiento' ? 'Competencia' : grp}
-                </Button>
-              ))}
-            </div>
-
-            <div className="relative w-full sm:w-56">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
-              <Input
-                type="text"
-                placeholder="Buscar alumno o tutor..."
-                value={searchEscuela}
-                onChange={(e) => setSearchEscuela(e.target.value)}
-                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
-              />
-            </div>
-          </div>
-
-          {/* Tabla Escuela */}
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
-                <tr>
-                  <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">Alumno</th>
-                  <th className="py-2.5 px-3">Grupo</th>
-                  <th className="py-2.5 px-3">Responsable</th>
-                  <th className="py-2.5 px-3 text-right">Valor Cuota</th>
-                  <th className="py-2.5 px-3 text-center">Estado</th>
-                  <th className="py-2.5 px-3">Fecha Pago</th>
-                  <th className="py-2.5 px-3">Medio</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D1D20]">
-                {escuelaFiltrada.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-center py-6 text-[#666]">
-                      No hay registros de escuela que coincidan con la búsqueda.
-                    </td>
-                  </tr>
-                ) : (
-                  escuelaFiltrada.map((al: any, idx: number) => (
-                    <tr key={al.id} className="hover:bg-white/[0.02]">
-                      <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 font-semibold text-white">{al.nombre}</td>
-                      <td className="py-2 px-3">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#1E1E22] border border-[#2E2E34] text-[#AAA]">
-                          {al.grupo === 'Grupo Entrenamiento' ? 'Competencia' : al.grupo}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-[#888]">{al.tutor || '-'}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-white">
-                        {formatCurrency(al.montoSugerido)}
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        {al.pagado ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
-                            Cobrado (${al.pago?.monto?.toLocaleString('es-AR')})
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] font-bold">
-                            Pendiente
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-2 px-3 text-[#888] font-mono text-[11px]">{al.pago?.fechaPago || '-'}</td>
-                      <td className="py-2 px-3 uppercase text-[10px] text-[#888] font-bold">
-                        {al.pago?.metodoPago || '-'}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* 4. BLOQUE 2: CLASES PARTICULARES CON EL PROFESOR */}
-        <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
-          <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                <Sparkles size={18} />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                  2. Clases Particulares — Alumnos del Profesor
-                </h2>
-                <p className="text-xs text-[#888888]">
-                  Socios y no socios que tomaron clases individuales en el mes {labelMesActual} con cantidad de asistencias
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => generarPdfParticulares(false)}
-                className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1 font-semibold"
-              >
-                <FileDown size={14} />
-                <span>PDF Oficial</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Filtros */}
-          <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2">
-            <span className="text-xs text-[#888888]">
-              Total alumnos registrados en el mes: <strong className="text-white">{data?.particulares?.totalAlumnos || 0}</strong> ({data?.particulares?.totalAsistencias || 0} asistencias)
-            </span>
-
-            <div className="relative w-full sm:w-56">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
-              <Input
-                type="text"
-                placeholder="Buscar alumno particular..."
-                value={searchParticulares}
-                onChange={(e) => setSearchParticulares(e.target.value)}
-                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
-              />
-            </div>
-          </div>
-
-          {/* Tabla Particulares */}
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
-                <tr>
-                  <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">Alumno</th>
-                  <th className="py-2.5 px-3">Condición</th>
-                  <th className="py-2.5 px-3">Categoría</th>
-                  <th className="py-2.5 px-3 text-center">Clases en el Mes</th>
-                  <th className="py-2.5 px-3">Fechas de Asistencia</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D1D20]">
-                {particularesFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-6 text-[#666]">
-                      No hay registros de particulares para el mes seleccionado.
-                    </td>
-                  </tr>
-                ) : (
-                  particularesFiltrados.map((al: any, idx: number) => (
-                    <tr key={al.key} className="hover:bg-white/[0.02]">
-                      <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 font-semibold text-white">{al.nombre}</td>
-                      <td className="py-2 px-3">
-                        {al.esSocio ? (
-                          <Badge className="bg-sky-500/15 text-sky-400 border-sky-500/30 text-[10px]">
-                            Socio {al.dni ? `(DNI ${al.dni})` : ''}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-[#333] text-[#888] text-[10px]">
-                            No Socio
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-2 px-3 text-[#888]">{al.categoria || '-'}</td>
-                      <td className="py-2 px-3 text-center">
-                        <span className="font-mono font-bold text-purple-400 text-xs px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
-                          {al.cantidadClases} clase(s)
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-[11px] text-[#888] font-mono">
-                        {al.fechas.join(', ')}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* 5. BLOQUE 3: PADRÓN GENERAL COMPLETO DE SOCIOS (SIN FILTRO DE DEUDA) */}
-        <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
-          <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400">
-                <Users size={18} />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                  3. Padrón General Completo de Socios
-                </h2>
-                <p className="text-xs text-[#888888]">
-                  Nómina completa de todos los socios activos de tenis sin importar si adeudan o están al día
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => generarPdfSocios(false)}
-                className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1 font-semibold"
-              >
-                <FileDown size={14} />
-                <span>PDF Padrón</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Filtros */}
-          <div className="p-3 border-b border-[#242428] flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs text-[#888888] mr-1">Categoría:</span>
-              <Button
-                size="sm"
-                variant={filtroCategoriaSocio === 'todos' ? 'default' : 'ghost'}
-                onClick={() => setFiltroCategoriaSocio('todos')}
-                className={`text-xs h-7 px-2.5 ${filtroCategoriaSocio === 'todos' ? 'bg-primary text-black font-bold' : 'text-[#888888]'}`}
-              >
-                Todas ({data?.socios?.total || 0})
-              </Button>
-              {Object.entries(data?.socios?.porCategoria || {}).map(([cat, cant]) => (
-                <Button
-                  key={cat}
-                  size="sm"
-                  variant={filtroCategoriaSocio === cat ? 'default' : 'ghost'}
-                  onClick={() => setFiltroCategoriaSocio(cat)}
-                  className={`text-xs h-7 px-2 ${filtroCategoriaSocio === cat ? 'bg-sky-500 text-black font-bold' : 'text-[#888888]'}`}
-                >
-                  {cat} ({String(cant)})
-                </Button>
-              ))}
-            </div>
-
-            <div className="relative w-full sm:w-56">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
-              <Input
-                type="text"
-                placeholder="Buscar por nombre, socio o DNI..."
-                value={searchSocios}
-                onChange={(e) => setSearchSocios(e.target.value)}
-                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
-              />
-            </div>
-          </div>
-
-          {/* Tabla Socios */}
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
-                <tr>
-                  <th className="py-2.5 px-3">#</th>
-                  <th className="py-2.5 px-3">DNI</th>
-                  <th className="py-2.5 px-3">Apellido y Nombre</th>
-                  <th className="py-2.5 px-3">Categoría</th>
-                  <th className="py-2.5 px-3">Teléfono</th>
-                  <th className="py-2.5 px-3">Email</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1D1D20]">
-                {sociosFiltrados.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-6 text-[#666]">
-                      No se encontraron socios con los filtros actuales.
-                    </td>
-                  </tr>
-                ) : (
-                  sociosFiltrados.map((s: any, idx: number) => (
-                    <tr key={s.id} className="hover:bg-white/[0.02]">
-                      <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 font-mono font-bold text-sky-400">
-                        {s.dni || '-'}
-                      </td>
-                      <td className="py-2 px-3 font-semibold text-white">
-                        {s.apellido}, {s.nombre}
-                      </td>
-                      <td className="py-2 px-3">
-                        <Badge variant="outline" className="border-[#2E2E34] text-[#AAA] text-[10px]">
-                          {s.categoria || '-'}
-                        </Badge>
-                      </td>
-                      <td className="py-2 px-3 text-[#888]">{s.telefono || '-'}</td>
-                      <td className="py-2 px-3 text-[#888] text-[11px] font-mono">{s.email || '-'}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* 6. BLOQUE 4: BALANCE FINANCIERO MENSUAL */}
+        {/* =========================================================================
+            SECCIÓN 1: BALANCE FINANCIERO MENSUAL (CON SALDOS MES A MES Y DESCARGA)
+            ========================================================================= */}
         <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
           <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
-                <DollarSign size={18} />
+                <Wallet size={18} />
               </div>
               <div>
                 <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                  4. Balance Financiero Mensual de Tenis
+                  1. Balance Financiero — Saldo Mes a Mes y Resumen Oficial
                 </h2>
                 <p className="text-xs text-[#888888]">
-                  Ingresos, egresos y resultado económico neto registrado para el período {labelMesActual}
+                  Saldo final mes por mes del año {anioActual} y detalle de movimientos de {labelMesActual}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => generarPdfBalance(false)}
-                className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1 font-semibold"
-              >
-                <FileDown size={14} />
-                <span>PDF Balance</span>
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => generarPdfBalance(false)}
+              className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1.5 font-semibold"
+            >
+              <FileDown size={14} />
+              <span>Descargar PDF Balance ({labelMesActual})</span>
+            </Button>
           </div>
 
-          {/* Resumen Financiero */}
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#111113] border-b border-[#242428]">
-            <div className="bg-[#161619] border border-emerald-500/20 p-3 rounded-xl flex items-center justify-between">
-              <div>
-                <div className="text-[10px] text-[#888] font-bold uppercase">Total Ingresos</div>
-                <div className="text-lg font-black font-mono text-emerald-400">
-                  {formatCurrency(data?.balance?.totalIngresos || 0)}
-                </div>
-              </div>
-              <ArrowUpRight size={24} className="text-emerald-400/50" />
-            </div>
-
-            <div className="bg-[#161619] border border-red-500/20 p-3 rounded-xl flex items-center justify-between">
-              <div>
-                <div className="text-[10px] text-[#888] font-bold uppercase">Total Egresos</div>
-                <div className="text-lg font-black font-mono text-red-400">
-                  {formatCurrency(data?.balance?.totalEgresos || 0)}
-                </div>
-              </div>
-              <TrendingDown size={24} className="text-red-400/50" />
-            </div>
-
-            <div className={`p-3 rounded-xl border flex items-center justify-between ${
-              (data?.balance?.resultadoNeto || 0) >= 0
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                : 'bg-red-500/10 border-red-500/30 text-red-400'
-            }`}>
-              <div>
-                <div className="text-[10px] font-bold uppercase">Resultado Neto</div>
-                <div className="text-lg font-black font-mono">
-                  {formatCurrency(data?.balance?.resultadoNeto || 0)}
-                </div>
-              </div>
-              <span className="text-xs font-bold uppercase">
-                {(data?.balance?.resultadoNeto || 0) >= 0 ? 'Superávit' : 'Déficit'}
+          {/* Visor Mes a Mes con Saldos Finales */}
+          <div className="p-4 bg-[#111113] border-b border-[#242428]">
+            <div className="text-[11px] font-bold uppercase text-[#888] mb-2 flex items-center justify-between">
+              <span>Saldos Finales Mes a Mes ({anioActual}):</span>
+              <span className="text-xs text-amber-400">
+                Saldo Actual Total en Caja: <strong>{formatCurrency(data?.balance?.saldoActualTotal ?? 0)}</strong>
               </span>
             </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5">
+              {MESES_NOMBRES.map((nombreMes, idx) => {
+                const mKey = `${anioActual}-${String(idx + 1).padStart(2, '0')}`;
+                const bMes = data?.balance?.meses?.find((m: any) => m.mes === mKey) || { saldoFinal: 0, ingresos: 0, egresos: 0 };
+                const isSelected = mesSeleccionado === mKey;
+                const tieneMovimientos = bMes.ingresos > 0 || bMes.egresos > 0;
+
+                return (
+                  <button
+                    key={mKey}
+                    type="button"
+                    onClick={() => setMesSeleccionado(mKey)}
+                    className={`p-2 rounded-lg text-left transition-all border ${
+                      isSelected
+                        ? 'bg-amber-400 text-black border-amber-400 font-bold shadow-md'
+                        : tieneMovimientos
+                        ? 'bg-[#18181A] border-[#2E2E34] hover:border-amber-400/50 text-white'
+                        : 'bg-[#141416] border-[#222226] text-[#666]'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold">{nombreMes.slice(0, 3)}</div>
+                    <div className={`text-[10px] font-mono mt-1 ${isSelected ? 'text-black font-extrabold' : 'text-emerald-400'}`}>
+                      {formatCurrency(bMes.saldoFinal)}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Tabla Movimientos */}
+          {/* Resumen del mes activo */}
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-4 gap-3 bg-[#131315] border-b border-[#242428]">
+            <div className="bg-[#18181B] border border-[#28282E] p-3 rounded-xl">
+              <div className="text-[10px] text-[#888] font-bold uppercase">Saldo Inicial ({labelMesActual})</div>
+              <div className="text-base font-black font-mono text-white">
+                {formatCurrency(data?.balance?.mesActual?.saldoInicial ?? 0)}
+              </div>
+            </div>
+
+            <div className="bg-[#18181B] border border-emerald-500/20 p-3 rounded-xl">
+              <div className="text-[10px] text-emerald-400 font-bold uppercase">Ingresos del Mes</div>
+              <div className="text-base font-black font-mono text-emerald-400">
+                +{formatCurrency(data?.balance?.mesActual?.ingresos ?? 0)}
+              </div>
+            </div>
+
+            <div className="bg-[#18181B] border border-red-500/20 p-3 rounded-xl">
+              <div className="text-[10px] text-red-400 font-bold uppercase">Egresos del Mes</div>
+              <div className="text-base font-black font-mono text-red-400">
+                -{formatCurrency(data?.balance?.mesActual?.egresos ?? 0)}
+              </div>
+            </div>
+
+            <div className="bg-[#18181B] border border-amber-500/30 p-3 rounded-xl">
+              <div className="text-[10px] text-amber-400 font-bold uppercase">Saldo Final ({labelMesActual})</div>
+              <div className="text-base font-black font-mono text-amber-400">
+                {formatCurrency(data?.balance?.mesActual?.saldoFinal ?? 0)}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla de Movimientos del Mes */}
           <div className="overflow-x-auto max-h-72 overflow-y-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
                 <tr>
                   <th className="py-2.5 px-3">#</th>
                   <th className="py-2.5 px-3">Fecha</th>
-                  <th className="py-2.5 px-3">Concepto / Descripción</th>
+                  <th className="py-2.5 px-3">Concepto / Detalle</th>
                   <th className="py-2.5 px-3">Responsable</th>
                   <th className="py-2.5 px-3">Tipo</th>
                   <th className="py-2.5 px-3 text-right">Monto</th>
@@ -1191,7 +765,7 @@ export default function ComisionDirectivaPage() {
                 {!data?.balance?.movimientos || data.balance.movimientos.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-6 text-[#666]">
-                      No hay movimientos asentados para el mes de {labelMesActual}.
+                      No hay movimientos asentados en {labelMesActual}.
                     </td>
                   </tr>
                 ) : (
@@ -1222,9 +796,491 @@ export default function ComisionDirectivaPage() {
             </table>
           </div>
         </section>
+
+        {/* =========================================================================
+            SECCIÓN 2: ESCUELA DE TENIS (TOTALES POR GRUPO, RECAUDADO Y LISTADO LIMPIO)
+            ========================================================================= */}
+        <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <GraduationCap size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  2. Escuela de Tenis — Alumnos y Recaudación Mensual
+                </h2>
+                <p className="text-xs text-[#888888]">
+                  Total de alumnos divididos por grupos, recaudación mes a mes y padrón nominal
+                </p>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => generarPdfEscuela(false)}
+              className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1.5 font-semibold"
+            >
+              <FileDown size={14} />
+              <span>PDF Escuela</span>
+            </Button>
+          </div>
+
+          {/* Visor Mes a Mes de Recaudación de Cuotas */}
+          <div className="p-4 bg-[#111113] border-b border-[#242428]">
+            <div className="text-[11px] font-bold uppercase text-[#888] mb-2">
+              Recaudación de Cuotas Escuela Mes por Mes ({anioActual}):
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5">
+              {MESES_NOMBRES.map((nombreMes, idx) => {
+                const mKey = `${anioActual}-${String(idx + 1).padStart(2, '0')}`;
+                const mData = data?.escuela?.meses?.find((m: any) => m.mes === mKey) || { totalRecaudado: 0, cantidadPagos: 0 };
+                const isSelected = mesSeleccionado === mKey;
+                const tieneRecaudacion = mData.totalRecaudado > 0;
+
+                return (
+                  <button
+                    key={mKey}
+                    type="button"
+                    onClick={() => setMesSeleccionado(mKey)}
+                    className={`p-2 rounded-lg text-left transition-all border ${
+                      isSelected
+                        ? 'bg-emerald-500 text-black border-emerald-500 font-bold shadow-md'
+                        : tieneRecaudacion
+                        ? 'bg-[#18181A] border-emerald-500/30 text-white hover:border-emerald-500/60'
+                        : 'bg-[#141416] border-[#222226] text-[#666]'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold flex items-center justify-between">
+                      <span>{nombreMes.slice(0, 3)}</span>
+                      {mData.cantidadPagos > 0 && (
+                        <span className={`text-[9px] px-1 rounded ${isSelected ? 'bg-black text-white' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                          {mData.cantidadPagos}
+                        </span>
+                      )}
+                    </div>
+                    <div className={`text-[10px] font-mono mt-1 ${isSelected ? 'text-black font-extrabold' : 'text-emerald-400 font-bold'}`}>
+                      {formatCurrency(mData.totalRecaudado)}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Resumen por Grupos y Recaudado del Mes */}
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#131315] border-b border-[#242428]">
+            <div className="bg-[#18181B] border border-emerald-500/30 p-3 rounded-xl">
+              <div className="text-[10px] text-emerald-400 font-bold uppercase">Total Inscriptos</div>
+              <div className="text-xl font-black text-white">{data?.escuela?.totalAlumnos || 0} alumnos</div>
+            </div>
+
+            <div className="bg-[#18181B] border border-[#28282E] p-3 rounded-xl">
+              <div className="text-[10px] text-emerald-400 font-bold uppercase">Escuelita</div>
+              <div className="text-xl font-black text-white">{data?.escuela?.porGrupo?.Escuelita || 0} chicos</div>
+            </div>
+
+            <div className="bg-[#18181B] border border-[#28282E] p-3 rounded-xl">
+              <div className="text-[10px] text-sky-400 font-bold uppercase">Minitenis</div>
+              <div className="text-xl font-black text-white">{data?.escuela?.porGrupo?.Minitenis || 0} chicos</div>
+            </div>
+
+            <div className="bg-[#18181B] border border-[#28282E] p-3 rounded-xl">
+              <div className="text-[10px] text-amber-400 font-bold uppercase">Grupo Entrenamiento</div>
+              <div className="text-xl font-black text-white">{data?.escuela?.porGrupo?.['Grupo Entrenamiento'] || 0} juveniles</div>
+            </div>
+          </div>
+
+          {/* Filtro y Búsqueda */}
+          <div className="p-3 border-b border-[#242428] flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              {['todos', 'Escuelita', 'Minitenis', 'Grupo Entrenamiento'].map((grp) => (
+                <Button
+                  key={grp}
+                  size="sm"
+                  variant={filtroGrupoEscuela === grp ? 'default' : 'ghost'}
+                  onClick={() => setFiltroGrupoEscuela(grp)}
+                  className={`text-xs h-7 px-2.5 ${filtroGrupoEscuela === grp ? 'bg-primary text-black font-bold' : 'text-[#888888]'}`}
+                >
+                  {grp === 'todos' ? 'Todos' : grp === 'Grupo Entrenamiento' ? 'Competencia' : grp}
+                </Button>
+              ))}
+            </div>
+
+            <div className="relative w-full sm:w-56">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
+              <Input
+                type="text"
+                placeholder="Buscar alumno..."
+                value={searchEscuela}
+                onChange={(e) => setSearchEscuela(e.target.value)}
+                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
+              />
+            </div>
+          </div>
+
+          {/* Tabla Limpia: Solo Nombres y Grupo */}
+          <div className="overflow-x-auto max-h-72 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
+                <tr>
+                  <th className="py-2.5 px-4 w-16">#</th>
+                  <th className="py-2.5 px-4">Nombre y Apellido del Alumno</th>
+                  <th className="py-2.5 px-4 text-right">Grupo Asignado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1D1D20]">
+                {escuelaFiltrada.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="text-center py-6 text-[#666]">
+                      No hay alumnos que coincidan con la búsqueda.
+                    </td>
+                  </tr>
+                ) : (
+                  escuelaFiltrada.map((al: any, idx: number) => (
+                    <tr key={al.id} className="hover:bg-white/[0.02]">
+                      <td className="py-2.5 px-4 text-[#666] font-mono">{idx + 1}</td>
+                      <td className="py-2.5 px-4 font-semibold text-white">{al.nombre}</td>
+                      <td className="py-2.5 px-4 text-right">
+                        <Badge variant="outline" className={`text-[10px] font-bold ${
+                          al.grupo === 'Escuelita'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : al.grupo === 'Minitenis'
+                            ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        }`}>
+                          {al.grupo === 'Grupo Entrenamiento' ? 'Competencia' : al.grupo}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            SECCIÓN 3: CLASES PARTICULARES (VISOR MES POR MES Y ASISTENCIAS)
+            ========================================================================= */}
+        <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  3. Clases Particulares — Alumnos y Asistencias Mensuales
+                </h2>
+                <p className="text-xs text-[#888888]">
+                  Total de alumnos particulares por mes y cantidad de clases asistidas
+                </p>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => generarPdfParticulares(false)}
+              className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1.5 font-semibold"
+            >
+              <FileDown size={14} />
+              <span>PDF Particulares</span>
+            </Button>
+          </div>
+
+          {/* Visor Mes por Mes de Particulares */}
+          <div className="p-4 bg-[#111113] border-b border-[#242428]">
+            <div className="text-[11px] font-bold uppercase text-[#888] mb-2">
+              Cantidad de Alumnos Particulares por Mes ({anioActual}):
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5">
+              {MESES_NOMBRES.map((nombreMes, idx) => {
+                const mKey = `${anioActual}-${String(idx + 1).padStart(2, '0')}`;
+                const mData = data?.particulares?.meses?.find((m: any) => m.mes === mKey) || { totalAlumnos: 0, totalClases: 0 };
+                const isSelected = mesSeleccionado === mKey;
+                const tieneAlumnos = mData.totalAlumnos > 0;
+
+                return (
+                  <button
+                    key={mKey}
+                    type="button"
+                    onClick={() => setMesSeleccionado(mKey)}
+                    className={`p-2 rounded-lg text-left transition-all border ${
+                      isSelected
+                        ? 'bg-purple-500 text-white border-purple-500 font-bold shadow-md'
+                        : tieneAlumnos
+                        ? 'bg-[#18181A] border-purple-500/30 text-white hover:border-purple-500/60'
+                        : 'bg-[#141416] border-[#222226] text-[#666]'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase font-bold">{nombreMes.slice(0, 3)}</div>
+                    <div className={`text-[10px] font-mono mt-1 ${isSelected ? 'text-white font-extrabold' : 'text-purple-400 font-bold'}`}>
+                      {mData.totalAlumnos} alum.
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Filtros */}
+          <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2">
+            <span className="text-xs text-[#888888]">
+              Alumnos con clases en {labelMesActual}: <strong className="text-white">{data?.particulares?.totalAlumnosMesActual || 0}</strong>
+            </span>
+
+            <div className="relative w-full sm:w-56">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
+              <Input
+                type="text"
+                placeholder="Buscar alumno..."
+                value={searchParticulares}
+                onChange={(e) => setSearchParticulares(e.target.value)}
+                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
+              />
+            </div>
+          </div>
+
+          {/* Tabla Particulares */}
+          <div className="overflow-x-auto max-h-72 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
+                <tr>
+                  <th className="py-2.5 px-4 w-16">#</th>
+                  <th className="py-2.5 px-4">Alumno</th>
+                  <th className="py-2.5 px-4">Condición</th>
+                  <th className="py-2.5 px-4 text-right">Clases Asistidas ({labelMesActual})</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1D1D20]">
+                {particularesFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-6 text-[#666]">
+                      No hay registros de particulares para {labelMesActual}.
+                    </td>
+                  </tr>
+                ) : (
+                  particularesFiltrados.map((al: any, idx: number) => (
+                    <tr key={al.id} className="hover:bg-white/[0.02]">
+                      <td className="py-2.5 px-4 text-[#666] font-mono">{idx + 1}</td>
+                      <td className="py-2.5 px-4 font-semibold text-white">{al.nombre}</td>
+                      <td className="py-2.5 px-4">
+                        <Badge variant="outline" className={`text-[10px] ${
+                          al.esSocio ? 'border-sky-500/30 text-sky-400 bg-sky-500/10' : 'border-[#333] text-[#888]'
+                        }`}>
+                          {al.esSocio ? 'Socio' : 'No Socio'}
+                        </Badge>
+                      </td>
+                      <td className="py-2.5 px-4 text-right">
+                        <span className="font-mono font-bold text-purple-400 text-xs px-2.5 py-1 rounded bg-purple-500/10 border border-purple-500/20">
+                          {al.cantidadClases} clase(s)
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            SECCIÓN 4: CLASES PROFESOR (REGISTRADAS POR EL PROFESOR EN /PROFE)
+            ========================================================================= */}
+        <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400">
+                <BookOpen size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  4. Planilla de Clases del Profesor
+                </h2>
+                <p className="text-xs text-[#888888]">
+                  Registros asentados por el profesor en {labelMesActual} (clases, cantidad de alumnos y liquidación)
+                </p>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => generarPdfProfesor(false)}
+              className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1.5 font-semibold"
+            >
+              <FileDown size={14} />
+              <span>PDF Clases Profesor</span>
+            </Button>
+          </div>
+
+          {/* Resumen */}
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#111113] border-b border-[#242428]">
+            <div className="bg-[#161619] border border-[#25252A] p-2.5 rounded-xl">
+              <div className="text-[10px] text-[#888] font-bold uppercase">Total Clases Dadas</div>
+              <div className="text-lg font-black text-white">{data?.clasesProfesor?.totalClases || 0}</div>
+            </div>
+
+            <div className="bg-[#161619] border border-[#25252A] p-2.5 rounded-xl">
+              <div className="text-[10px] text-sky-400 font-bold uppercase">Total Alumnos Atendidos</div>
+              <div className="text-lg font-black text-sky-400">{data?.clasesProfesor?.totalAlumnos || 0}</div>
+            </div>
+
+            <div className="bg-[#161619] border border-emerald-500/30 p-2.5 rounded-xl">
+              <div className="text-[10px] text-emerald-300 font-bold uppercase">Monto Total Liquidado</div>
+              <div className="text-lg font-black font-mono text-emerald-400">
+                {formatCurrency(data?.clasesProfesor?.totalMonto || 0)}
+              </div>
+            </div>
+          </div>
+
+          {/* Filtro */}
+          <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2">
+            <span className="text-xs text-[#888]">
+              Registros del mes: <strong className="text-white">{data?.clasesProfesor?.registros?.length || 0}</strong>
+            </span>
+
+            <div className="relative w-full sm:w-56">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
+              <Input
+                type="text"
+                placeholder="Buscar fecha u observación..."
+                value={searchProfesor}
+                onChange={(e) => setSearchProfesor(e.target.value)}
+                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
+              />
+            </div>
+          </div>
+
+          {/* Tabla Registros Profesor */}
+          <div className="overflow-x-auto max-h-72 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
+                <tr>
+                  <th className="py-2.5 px-3">#</th>
+                  <th className="py-2.5 px-3">Fecha</th>
+                  <th className="py-2.5 px-3">Turno</th>
+                  <th className="py-2.5 px-3 text-center">Clases</th>
+                  <th className="py-2.5 px-3 text-center">Alumnos</th>
+                  <th className="py-2.5 px-3 text-right">Monto</th>
+                  <th className="py-2.5 px-3">Observaciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1D1D20]">
+                {profesorFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-6 text-[#666]">
+                      No hay registros de clases para el mes de {labelMesActual}.
+                    </td>
+                  </tr>
+                ) : (
+                  profesorFiltrados.map((r: any, idx: number) => (
+                    <tr key={r.id} className="hover:bg-white/[0.02]">
+                      <td className="py-2 px-3 text-[#666] font-mono">{idx + 1}</td>
+                      <td className="py-2 px-3 font-mono text-white font-semibold">{r.fecha}</td>
+                      <td className="py-2 px-3 text-[#888]">{r.turno || '-'}</td>
+                      <td className="py-2 px-3 text-center font-bold text-white">{r.cantidadClases}</td>
+                      <td className="py-2 px-3 text-center text-sky-400 font-bold">{r.cantidadAlumnos}</td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
+                        {formatCurrency(r.precioTotal)}
+                      </td>
+                      <td className="py-2 px-3 text-[#888] text-[11px]">{r.observaciones || '-'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            SECCIÓN 5: PADRÓN GENERAL DE SOCIOS (TODOS JUNTOS SIN CATEGORÍAS)
+            ========================================================================= */}
+        <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <Users size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  5. Padrón General de Socios
+                </h2>
+                <p className="text-xs text-[#888888]">
+                  Nómina completa de todos los socios activos de tenis ({data?.socios?.total || 0} socios)
+                </p>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => generarPdfSocios(false)}
+              className="h-8 border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs gap-1.5 font-semibold"
+            >
+              <FileDown size={14} />
+              <span>PDF Padrón</span>
+            </Button>
+          </div>
+
+          {/* Búsqueda */}
+          <div className="p-3 border-b border-[#242428] flex items-center justify-between gap-2">
+            <span className="text-xs text-[#888888]">
+              Total socios registrados: <strong className="text-white">{data?.socios?.total || 0}</strong>
+            </span>
+
+            <div className="relative w-full sm:w-64">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#777]" />
+              <Input
+                type="text"
+                placeholder="Buscar por nombre o DNI..."
+                value={searchSocios}
+                onChange={(e) => setSearchSocios(e.target.value)}
+                className="pl-7 h-7 text-xs bg-[#111113] border-[#25252A] text-white"
+              />
+            </div>
+          </div>
+
+          {/* Tabla Socios: Sin categorías */}
+          <div className="overflow-x-auto max-h-72 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#18181B] text-[#888888] font-bold border-b border-[#242428] sticky top-0">
+                <tr>
+                  <th className="py-2.5 px-4 w-16">#</th>
+                  <th className="py-2.5 px-4">DNI</th>
+                  <th className="py-2.5 px-4">Apellido y Nombre</th>
+                  <th className="py-2.5 px-4">Teléfono</th>
+                  <th className="py-2.5 px-4">Email</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1D1D20]">
+                {sociosFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-6 text-[#666]">
+                      No se encontraron socios con los filtros actuales.
+                    </td>
+                  </tr>
+                ) : (
+                  sociosFiltrados.map((s: any, idx: number) => (
+                    <tr key={s.id} className="hover:bg-white/[0.02]">
+                      <td className="py-2 px-4 text-[#666] font-mono">{idx + 1}</td>
+                      <td className="py-2 px-4 font-mono font-bold text-sky-400">{s.dni || '-'}</td>
+                      <td className="py-2 px-4 font-semibold text-white">{s.apellido}, {s.nombre}</td>
+                      <td className="py-2 px-4 text-[#888]">{s.telefono || '-'}</td>
+                      <td className="py-2 px-4 text-[#888] text-[11px] font-mono">{s.email || '-'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
 
-      {/* 7. Pie de Página Oficial */}
+      {/* Pie de Página Oficial */}
       <footer className="border-t border-[#222225] py-6 text-center text-xs text-[#666666] bg-[#101012]">
         <p>Club Empalme Central — Sistema Integral de Tenis</p>
         <p className="text-[11px] mt-1 text-[#444444]">
@@ -1234,4 +1290,3 @@ export default function ComisionDirectivaPage() {
     </div>
   );
 }
-
