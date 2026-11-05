@@ -124,7 +124,14 @@ export async function GET(request: Request) {
       fechaPago: string | null;
     }> = [];
 
+    // Fecha a partir de la cual se cobra la luz (anteriormente bonificada)
+    const FECHA_INICIO_COBRO_LUZ = '2026-11-16';
+
     for (const t of turnosAnio) {
+      const fechaStr = extractDate(t.fecha);
+      // Turnos anteriores al 16/11/2026 quedan bonificados/libres de cobro
+      if (fechaStr < FECHA_INICIO_COBRO_LUZ) continue;
+
       const horaStr = extractTime(t.horaInicio);
       if (horaStr < '19:00') continue;
       if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
@@ -167,7 +174,6 @@ export async function GET(request: Request) {
       const tipoPartido = uniqueSocios.length > 2 ? (uniqueSocios.length === 4 ? 'Dobles' : `${uniqueSocios.length} Jugadores`) : 'Single';
 
       const pago = pagosLuzMap.get(t.id);
-      const fechaStr = extractDate(t.fecha);
       const horaFinStr = extractTime(t.horaFin);
 
       turnosLuz.push({
