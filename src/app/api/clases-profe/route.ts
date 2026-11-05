@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     const parsedClases = parseInt(String(cantidadClases ?? 1), 10);
-    const validClases = isNaN(parsedClases) || parsedClases < 1 ? 1 : parsedClases;
+    const validClases = isNaN(parsedClases) || parsedClases < 0 ? 0 : parsedClases;
 
     const parsedAlumnos = parseInt(String(cantidadAlumnos), 10);
     if (isNaN(parsedAlumnos) || parsedAlumnos < 0) {
@@ -195,8 +195,8 @@ export async function PUT(request: Request) {
 
     if (cantidadClases !== undefined) {
       const parsedClases = parseInt(String(cantidadClases), 10);
-      if (isNaN(parsedClases) || parsedClases < 1) {
-        return NextResponse.json({ error: 'Cantidad de clases inválida (debe ser al menos 1)' }, { status: 400 });
+      if (isNaN(parsedClases) || parsedClases < 0) {
+        return NextResponse.json({ error: 'Cantidad de clases inválida (debe ser igual o mayor a 0)' }, { status: 400 });
       }
       updateData.cantidadClases = parsedClases;
     }

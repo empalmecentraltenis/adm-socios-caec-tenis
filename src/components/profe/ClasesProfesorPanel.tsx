@@ -47,7 +47,8 @@ import {
   CalendarDays,
   FileDown,
   Download,
-  GraduationCap
+  GraduationCap,
+  CloudRain
 } from 'lucide-react';
 import { exportSemanaPDF, exportMesPDF, exportMesExcel } from '@/lib/clases-profe-export';
 import { 
@@ -270,8 +271,8 @@ export default function ClasesProfesorPanel({ readOnly = false }: { readOnly?: b
     const alumnosNum = parseInt(formAlumnos, 10);
     const precioNum = parseFloat(formPrecio.replace(/\./g, '').replace(',', '.'));
 
-    if (isNaN(clasesNum) || clasesNum < 1) {
-      toast({ title: 'Error', description: 'Cantidad de clases inválida (mínimo 1)', variant: 'destructive' });
+    if (isNaN(clasesNum) || clasesNum < 0) {
+      toast({ title: 'Error', description: 'Cantidad de clases inválida (mínimo 0)', variant: 'destructive' });
       return;
     }
     if (isNaN(alumnosNum) || alumnosNum < 0) {
@@ -561,21 +562,29 @@ export default function ClasesProfesorPanel({ readOnly = false }: { readOnly?: b
               <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-xs font-bold text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-0.5 rounded border border-[#FFCC00]/20">
-                      {selectedDayRecord.cantidadClases ?? 1} {(selectedDayRecord.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
-                    </span>
-                    <span className="text-2xl font-extrabold text-white">
-                      {selectedDayRecord.cantidadAlumnos} <span className="text-xs font-normal text-[#888888]">alumnos</span>
-                    </span>
+                    {selectedDayRecord.cantidadClases === 0 ? (
+                      <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/30 flex items-center gap-1">
+                        <CloudRain className="w-3.5 h-3.5" /> Suspendido Lluvia
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-xs font-bold text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-0.5 rounded border border-[#FFCC00]/20">
+                          {selectedDayRecord.cantidadClases ?? 1} {(selectedDayRecord.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
+                        </span>
+                        <span className="text-2xl font-extrabold text-white">
+                          {selectedDayRecord.cantidadAlumnos} <span className="text-xs font-normal text-[#888888]">alumnos</span>
+                        </span>
+                      </>
+                    )}
                   </div>
-                  <span className="text-xl font-extrabold text-emerald-400">
+                  <span className={`text-xl font-extrabold ${selectedDayRecord.cantidadClases === 0 ? 'text-[#888]' : 'text-emerald-400'}`}>
                     $ {selectedDayRecord.precioTotal.toLocaleString('es-AR')}
                   </span>
                 </div>
                 <div className="text-[11px] text-[#888888] flex items-center justify-between pt-1 border-t border-[#2C2C2C]">
-                  <span>Total de clases:</span>
-                  <span className="font-semibold text-[#FFCC00]">
-                    {selectedDayRecord.cantidadClases ?? 1} {(selectedDayRecord.cantidadClases ?? 1) === 1 ? 'clase dictada' : 'clases dictadas'}
+                  <span>{selectedDayRecord.cantidadClases === 0 ? 'Motivo:' : 'Total de clases:'}</span>
+                  <span className="font-semibold text-white">
+                    {selectedDayRecord.observaciones || (selectedDayRecord.cantidadClases === 0 ? 'Suspendido por mal tiempo' : `${selectedDayRecord.cantidadClases ?? 1} clases dictadas`)}
                   </span>
                 </div>
               </div>
@@ -772,19 +781,28 @@ export default function ClasesProfesorPanel({ readOnly = false }: { readOnly?: b
                   </div>
 
                   {reg ? (
-                    <div className="my-1.5 space-y-0.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-[#FFCC00]">
-                          {reg.cantidadClases ?? 1} {(reg.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
+                    reg.cantidadClases === 0 ? (
+                      <div className="my-1.5 py-1 px-1.5 rounded bg-sky-500/10 border border-sky-500/20 text-center">
+                        <span className="text-[10px] font-bold text-sky-400 flex items-center justify-center gap-1">
+                          <CloudRain className="w-3 h-3" /> Lluvia
                         </span>
-                        <span className="text-xs font-semibold text-white">
-                          {reg.cantidadAlumnos} al.
-                        </span>
+                        <span className="text-[10px] text-[#777] block leading-tight">Suspendido</span>
                       </div>
-                      <div className="text-sm font-bold text-emerald-400">
-                        $ {reg.precioTotal.toLocaleString('es-AR')}
+                    ) : (
+                      <div className="my-1.5 space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-[#FFCC00]">
+                            {reg.cantidadClases ?? 1} {(reg.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
+                          </span>
+                          <span className="text-xs font-semibold text-white">
+                            {reg.cantidadAlumnos} al.
+                          </span>
+                        </div>
+                        <div className="text-sm font-bold text-emerald-400">
+                          $ {reg.precioTotal.toLocaleString('es-AR')}
+                        </div>
                       </div>
-                    </div>
+                    )
                   ) : (
                     <div className="my-2.5 text-center">
                       <span className="text-[11px] text-[#555555] italic">Sin clase</span>
@@ -921,20 +939,26 @@ export default function ClasesProfesorPanel({ readOnly = false }: { readOnly?: b
 
                       {/* Cantidad Clases */}
                       <TableCell className="text-center py-2.5">
-                        <span className="font-bold text-white text-xs bg-[#2A2A2A] px-2 py-0.5 rounded border border-[#3A3A3A]">
-                          {registro.cantidadClases ?? 1}
-                        </span>
+                        {registro.cantidadClases === 0 ? (
+                          <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30 text-[10px] font-bold px-1.5 py-0">
+                            Lluvia
+                          </Badge>
+                        ) : (
+                          <span className="font-bold text-white text-xs bg-[#2A2A2A] px-2 py-0.5 rounded border border-[#3A3A3A]">
+                            {registro.cantidadClases ?? 1}
+                          </span>
+                        )}
                       </TableCell>
 
                       {/* Cantidad Alumnos */}
                       <TableCell className="text-center py-2.5">
-                        <span className="font-extrabold text-[#FFCC00] text-sm">
+                        <span className={`font-extrabold text-sm ${registro.cantidadClases === 0 ? 'text-[#666]' : 'text-[#FFCC00]'}`}>
                           {registro.cantidadAlumnos}
                         </span>
                       </TableCell>
 
                       {/* Precio Total del Día */}
-                      <TableCell className="text-right py-2.5 font-mono font-bold text-emerald-400 text-sm">
+                      <TableCell className={`text-right py-2.5 font-mono font-bold text-sm ${registro.cantidadClases === 0 ? 'text-[#666]' : 'text-emerald-400'}`}>
                         $ {registro.precioTotal.toLocaleString('es-AR')}
                       </TableCell>
 

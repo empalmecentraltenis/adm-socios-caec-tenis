@@ -20,6 +20,7 @@ import {
   CheckSquare,
   FileSpreadsheet,
   CreditCard,
+  CloudRain,
 } from 'lucide-react';
 import TomarAsistenciaEscuela from '@/components/escuela/TomarAsistenciaEscuela';
 import PagosCuotaEscuelaPanel from '@/components/escuela/PagosCuotaEscuelaPanel';
@@ -132,9 +133,9 @@ export default function ProfePage() {
     }
 
     const clasesNum = parseInt(cantidadClases, 10);
-    if (isNaN(clasesNum) || clasesNum < 1) {
+    if (isNaN(clasesNum) || clasesNum < 0) {
       setStatus('error');
-      setMessage('Ingresá una cantidad de clases válida (al menos 1).');
+      setMessage('Ingresá una cantidad de clases válida (0 o más).');
       return;
     }
 
@@ -184,6 +185,55 @@ export default function ProfePage() {
       console.error(err);
       setStatus('error');
       setMessage('Error de conexión. Verificá tu señal e intentá de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegistrarLluvia = async () => {
+    if (!fecha) {
+      setStatus('error');
+      setMessage('Por favor, seleccioná la fecha.');
+      return;
+    }
+
+    const fechaFormateada = format(parseLocalDate(fecha), 'EEEE dd/MM', { locale: es });
+    if (!confirm(`¿Confirmás registrar el día ${fechaFormateada} como suspendido por LLUVIA / MAL TIEMPO? (0 clases, 0 alumnos, $0)`)) {
+      return;
+    }
+
+    setLoading(true);
+    setStatus('idle');
+    setMessage('');
+
+    try {
+      const res = await fetch('/api/clases-profe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fecha,
+          cantidadClases: 0,
+          cantidadAlumnos: 0,
+          precioTotal: 0,
+          observaciones: 'Clases suspendidas por mal tiempo',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatus('error');
+        setMessage(data.error || 'Ocurrió un error al registrar.');
+      } else {
+        setStatus('success');
+        setMessage('¡Día registrado como suspendido por lluvia!');
+        setLastSaved(data.registro);
+        fetchRecientes();
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('error');
+      setMessage('Error de conexión al registrar lluvia.');
     } finally {
       setLoading(false);
     }
@@ -482,12 +532,12 @@ export default function ProfePage() {
                   />
                 </div>
 
-                {/* Botón Submit */}
-                <div className="pt-2">
+                {/* Botón Submit & Botón Lluvia */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
                   <Button
                     type="submit"
                     disabled={loading || !cantidadAlumnos || !precioTotal}
-                    className="w-full h-12 text-base font-bold bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] transition-colors shadow-lg shadow-[#FFCC00]/10"
+                    className="flex-1 h-12 text-base font-bold bg-[#FFCC00] text-[#121212] hover:bg-[#E6B800] transition-colors shadow-lg shadow-[#FFCC00]/10"
                   >
                     {loading ? (
                       <>
@@ -496,10 +546,22 @@ export default function ProfePage() {
                       </>
                     ) : (
                       <>
-                        {existingRecord ? 'Actualizar Planilla del Día' : 'Guardar Planilla del Día'}
+                        {existingRecord ? 'Actualizar Planilla' : 'Guardar Planilla del Día'}
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </>
                     )}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    onClick={handleRegistrarLluvia}
+                    disabled={loading}
+                    variant="outline"
+                    className="h-12 border-sky-500/40 bg-sky-950/30 text-sky-300 hover:bg-sky-900/50 hover:text-sky-100 hover:border-sky-400 font-bold px-4 gap-2 transition-all"
+                    title="Registrar 0 clases por suspensión por lluvia / mal tiempo"
+                  >
+                    <CloudRain className="w-5 h-5 text-sky-400" />
+                    <span>Lluvia</span>
                   </Button>
                 </div>
               </form>
@@ -544,12 +606,20 @@ export default function ProfePage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-0.5 rounded border border-[#FFCC00]/20">
-                          {reg.cantidadClases ?? 1} {(reg.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
-                        </span>
-                        <span className="text-sm font-semibold text-white">
-                          {reg.cantidadAlumnos} alumno{reg.cantidadAlumnos !== 1 ? 's' : ''}
-                        </span>
+                        {reg.cantidadClases === 0 ? (
+                          <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/30 flex items-center gap-1">
+                            <CloudRain className="w-3 h-3" /> Suspendido Lluvia
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-xs font-bold text-[#FFCC00] bg-[#FFCC00]/10 px-2 py-0.5 rounded border border-[#FFCC00]/20">
+                              {reg.cantidadClases ?? 1} {(reg.cantidadClases ?? 1) === 1 ? 'clase' : 'clases'}
+                            </span>
+                            <span className="text-sm font-semibold text-white">
+                              {reg.cantidadAlumnos} alumno{reg.cantidadAlumnos !== 1 ? 's' : ''}
+                            </span>
+                          </>
+                        )}
                       </div>
                       <p className="text-[11px] text-[#777777] capitalize mt-0.5">
                         {format(parseLocalDate(reg.fecha), 'EEEE', { locale: es })}
