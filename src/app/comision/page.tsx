@@ -29,6 +29,7 @@ import {
   ChevronRight,
   Wallet,
   BookOpen,
+  Landmark,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +69,7 @@ export default function ComisionDirectivaPage() {
 
   // Estados de acordeón desplegable por sección (por defecto cerrados para una vista ejecutiva compacta y prolija)
   const [showDetalleBalance, setShowDetalleBalance] = useState(false);
+  const [showDetalleInversiones, setShowDetalleInversiones] = useState(false);
   const [showDetalleEscuela, setShowDetalleEscuela] = useState(false);
   const [showDetalleParticulares, setShowDetalleParticulares] = useState(false);
   const [showDetalleProfesor, setShowDetalleProfesor] = useState(false);
@@ -731,6 +733,161 @@ export default function ComisionDirectivaPage() {
                 {formatCurrency(data?.balance?.mesActual?.saldoFinal ?? 0)}
               </div>
             </div>
+          </div>
+
+          {/* Sub-bloque: Inversiones y Ahorros de la Subcomisión */}
+          <div className="p-4 bg-[#141417] border-b border-[#242428]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
+                  <Landmark size={15} />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold text-white">Inversiones, Ahorros y Patrimonio Total</h3>
+                  <p className="text-[11px] text-[#777]">Plazos fijos activos, reservas en dólares y total disponible</p>
+                </div>
+              </div>
+
+              {data?.balance?.inversiones?.plazosFijos?.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDetalleInversiones((prev) => !prev)}
+                  className="text-xs h-7 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 gap-1 font-bold"
+                >
+                  <span>{showDetalleInversiones ? 'Ocultar plazos fijos' : 'Ver plazos fijos'}</span>
+                  {showDetalleInversiones ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </Button>
+              )}
+            </div>
+
+            {/* 4 Cards de Resumen Patrimonial */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Saldo en Caja */}
+              <div className="bg-[#18181C] border border-[#2A2A30] p-3 rounded-xl flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-blue-500/10 text-blue-400">
+                  <Wallet size={18} />
+                </div>
+                <div>
+                  <div className="text-[10px] text-[#888] font-bold uppercase tracking-wider">Saldo en Caja (Pesos)</div>
+                  <div className="text-sm sm:text-base font-black font-mono text-white mt-0.5">
+                    {formatCurrency(data?.balance?.saldoActualTotal ?? 0)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Capital en Plazos Fijos */}
+              <div className="bg-[#18181C] border border-[#2A2A30] p-3 rounded-xl flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Landmark size={18} />
+                </div>
+                <div>
+                  <div className="text-[10px] text-[#888] font-bold uppercase tracking-wider">Capital Plazos Fijos</div>
+                  <div className="text-sm sm:text-base font-black font-mono text-emerald-400 mt-0.5">
+                    {formatCurrency(data?.balance?.inversiones?.capitalPlazosActivos ?? 0)}
+                  </div>
+                  <div className="text-[10px] text-[#666]">
+                    {data?.balance?.inversiones?.plazosFijos?.filter((p: any) => p.estado === 'activo')?.length || 0} activos
+                  </div>
+                </div>
+              </div>
+
+              {/* Ahorro en Dólares */}
+              <div className="bg-[#18181C] border border-[#2A2A30] p-3 rounded-xl flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <DollarSign size={18} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10px] text-[#888] font-bold uppercase tracking-wider">Ahorro en Dólares</div>
+                  <div className="text-sm sm:text-base font-black font-mono text-emerald-400 mt-0.5">
+                    U$S {formatCurrency(data?.balance?.inversiones?.ahorrosDolares ?? 0).replace('$', '').trim()}
+                  </div>
+                  <div className="text-[10px] text-[#888] flex items-center justify-between">
+                    <span>1 U$S = {formatCurrency(data?.balance?.inversiones?.cotizacionDolar ?? 1000)}</span>
+                    <span className="text-amber-400 font-semibold">{formatCurrency(data?.balance?.inversiones?.ahorrosDolaresEnPesos ?? 0)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Patrimonio Total Disponible */}
+              <div className="bg-[#18181C] border border-amber-500/30 p-3 rounded-xl flex items-center gap-3 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-0.5 bg-amber-400" />
+                <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-400">
+                  <TrendingUp size={18} />
+                </div>
+                <div>
+                  <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Patrimonio Total Disp.</div>
+                  <div className="text-sm sm:text-base font-black font-mono text-amber-300 mt-0.5">
+                    {formatCurrency(data?.balance?.inversiones?.totalPatrimonioDisponible ?? 0)}
+                  </div>
+                  <div className="text-[10px] text-[#666]">Caja + Plazos Fijos + USD</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Cartera de Plazos Fijos (Desplegable) */}
+            {showDetalleInversiones && (
+              <div className="mt-3 bg-[#111113] border border-[#242428] rounded-xl overflow-hidden animate-in fade-in duration-200">
+                <div className="px-3 py-2 bg-[#18181B] border-b border-[#242428] text-xs font-bold text-white flex items-center justify-between">
+                  <span>Cartera y Certificados de Plazo Fijo</span>
+                  <span className="text-[11px] text-[#888]">
+                    Total certificados: {data?.balance?.inversiones?.plazosFijos?.length || 0}
+                  </span>
+                </div>
+                <div className="overflow-x-auto max-h-60 overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#141416] text-[#888] font-bold border-b border-[#242428] sticky top-0">
+                      <tr>
+                        <th className="py-2 px-3 text-center w-10">#</th>
+                        <th className="py-2 px-3">Banco / Entidad</th>
+                        <th className="py-2 px-3">Constitución</th>
+                        <th className="py-2 px-3">Vencimiento</th>
+                        <th className="py-2 px-3 text-right">Capital Invertido</th>
+                        <th className="py-2 px-3 text-right">Interés Estimado</th>
+                        <th className="py-2 px-3 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1D1D20]">
+                      {!data?.balance?.inversiones?.plazosFijos || data.balance.inversiones.plazosFijos.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-5 text-[#666]">
+                            No hay plazos fijos cargados en el sistema.
+                          </td>
+                        </tr>
+                      ) : (
+                        data.balance.inversiones.plazosFijos.map((p: any, idx: number) => {
+                          const isActivo = p.estado === 'activo';
+                          return (
+                            <tr key={p.id || idx} className="hover:bg-white/[0.02]">
+                              <td className="py-2 px-3 text-center text-[#666] font-mono">{idx + 1}</td>
+                              <td className="py-2 px-3 font-semibold text-white">{p.banco}</td>
+                              <td className="py-2 px-3 font-mono text-[11px] text-[#888]">{p.fechaConstitucion}</td>
+                              <td className="py-2 px-3 font-mono text-[11px] text-[#888]">{p.fechaVencimiento}</td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
+                                {formatCurrency(p.montoInvertido)}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono text-[#AAA]">
+                                {p.interesGenerado ? formatCurrency(p.interesGenerado) : '-'}
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <Badge className={`text-[10px] uppercase font-bold ${
+                                  isActivo
+                                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                    : 'bg-[#2A2A30] text-[#888] border-[#3A3A40]'
+                                }`}>
+                                  {p.estado}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Botón desplegable / ocultable de Movimientos */}

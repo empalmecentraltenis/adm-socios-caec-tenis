@@ -219,12 +219,32 @@ export async function GET(request: Request) {
     });
 
     // =========================================================================
-    // 5. BALANCE MENSUAL: Histórico mes a mes con saldos finales y saldo actual
+    // 5. BALANCE MENSUAL E INVERSIONES / AHORROS
     // =========================================================================
-    const configSaldo = await db.configuracion.findUnique({
-      where: { clave: 'saldo_inicial_enero_2026' },
+    const configs = await db.configuracion.findMany();
+    const configMap: Record<string, string> = {};
+    for (const c of configs) {
+      configMap[c.clave] = c.valor;
+    }
+
+    const saldoBaseInicial = parseFloat(configMap['saldo_inicial_enero_2026'] || '0');
+    const ahorrosDolaresNum = parseFloat(configMap['ahorros_dolares'] || '0');
+    const cotizacionDolarNum = parseFloat(configMap['cotizacion_dolar'] || '1000');
+    const ahorrosDolaresEnPesos = ahorrosDolaresNum * cotizacionDolarNum;
+
+    // Plazos Fijos
+    const plazosFijos = await db.plazoFijo.findMany({
+      orderBy: { createdAt: 'desc' },
     });
-    const saldoBaseInicial = parseFloat(configSaldo?.valor || '0');
+
+    const plazosFijosFormatted = plazosFijos.map((p) => ({
+      ...p,
+      fechaConstitucion: p.fechaConstitucion.toISOString().split('T')[0],
+      fechaVencimiento: p.fechaVencimiento.toISOString().split('T')[0],
+    }));
+
+    const plazosActivos = plazosFijos.filter((p) => p.estado === 'activo');
+    const capitalPlazosActivos = plazosActivos.reduce((acc, p) => acc + p.montoInvertido, 0);
 
     // Traer todos los movimientos históricos para calcular saldos finales de cada mes
     const todosMovimientos = await db.movimiento.findMany({
@@ -336,12 +356,21 @@ export async function GET(request: Request) {
         total: socios.length,
         lista: socios,
       },
-      // 5. Balance
+      // 5. Balance e Inversiones
       balance: {
         saldoActualTotal,
         meses: balanceMeses,
         mesActual: datosMesActualBalance,
         movimientos: movimientosMesSeleccionado,
+        // Inversiones y Ahorros
+        inversiones: {
+          capitalPlazosActivos,
+          ahorrosDolares: ahorrosDolaresNum,
+          cotizacionDolar: cotizacionDolarNum,
+          ahorrosDolaresEnPesos,
+          totalPatrimonioDisponible: saldoActualTotal + capitalPlazosActivos + ahorrosDolaresEnPesos,
+          plazosFijos: plazosFijosFormatted,
+        },
       },
     });
   } catch (err: any) {
