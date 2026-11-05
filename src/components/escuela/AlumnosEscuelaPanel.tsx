@@ -82,14 +82,22 @@ const GRUPO_STYLES: Record<string, { badge: string; border: string; icon: any; d
   },
 };
 
-export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: boolean }) {
+export default function AlumnosEscuelaPanel({ 
+  readOnly = false,
+  hideSubNav = false,
+  initialVista = 'padron'
+}: { 
+  readOnly?: boolean;
+  hideSubNav?: boolean;
+  initialVista?: 'padron' | 'asistencia' | 'reportes' | 'pagos';
+} = {}) {
   const { toast } = useToast();
 
   const [alumnos, setAlumnos] = useState<AlumnoEscuela[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedGrupo, setSelectedGrupo] = useState<string>('todos');
-  const [vistaActiva, setVistaActiva] = useState<'padron' | 'asistencia' | 'reportes' | 'pagos'>('padron');
+  const [vistaActiva, setVistaActiva] = useState<'padron' | 'asistencia' | 'reportes' | 'pagos'>(initialVista);
 
   // Modales
   const [modalOpen, setModalOpen] = useState(false);
@@ -349,65 +357,67 @@ export default function AlumnosEscuelaPanel({ readOnly = false }: { readOnly?: b
   return (
     <div className="space-y-5">
       {/* Selector de Pestaña Principal: Padrón vs Tomar Asistencia */}
-      <div className="flex items-center gap-2 border-b border-[#2A2A2A] pb-2">
-        <button
-          type="button"
-          onClick={() => setVistaActiva('padron')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
-            vistaActiva === 'padron'
-              ? 'bg-primary text-black shadow-md'
-              : 'bg-[#1C1C1C] text-[#AAAAAA] hover:text-white border border-[#2E2E2E]'
-          }`}
-        >
-          <ListOrdered className="h-4 w-4" />
-          <span>Padrón de Alumnos</span>
-          <Badge className={`text-[10px] px-1.5 py-0 ${vistaActiva === 'padron' ? 'bg-black text-primary' : 'bg-[#2A2A2A] text-[#888]'}`}>
-            {stats.total}
-          </Badge>
-        </button>
-
-        {/* Pestaña Tomar Asistencia: solo visible para administradores y profesores (oculto en modo solo lectura) */}
-        {!readOnly && (
+      {!hideSubNav && (
+        <div className="flex items-center gap-2 border-b border-[#2A2A2A] pb-2">
           <button
             type="button"
-            onClick={() => setVistaActiva('asistencia')}
+            onClick={() => setVistaActiva('padron')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
-              vistaActiva === 'asistencia'
-                ? 'bg-emerald-500 text-black shadow-md'
-                : 'bg-[#1C1C1C] text-emerald-400 hover:text-white border border-emerald-500/30'
+              vistaActiva === 'padron'
+                ? 'bg-primary text-black shadow-md'
+                : 'bg-[#1C1C1C] text-[#AAAAAA] hover:text-white border border-[#2E2E2E]'
             }`}
           >
-            <CheckSquare className="h-4 w-4" />
-            <span>⚡ Tomar Asistencia (Pase de Lista)</span>
+            <ListOrdered className="h-4 w-4" />
+            <span>Padrón de Alumnos</span>
+            <Badge className={`text-[10px] px-1.5 py-0 ${vistaActiva === 'padron' ? 'bg-black text-primary' : 'bg-[#2A2A2A] text-[#888]'}`}>
+              {stats.total}
+            </Badge>
           </button>
-        )}
 
-        <button
-          type="button"
-          onClick={() => setVistaActiva('reportes')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
-            vistaActiva === 'reportes'
-              ? 'bg-amber-400 text-black shadow-md'
-              : 'bg-[#1C1C1C] text-amber-400 hover:text-white border border-amber-400/30'
-          }`}
-        >
-          <BarChart3 className="h-4 w-4" />
-          <span>📊 Reportes Asistencia</span>
-        </button>
+          {/* Pestaña Tomar Asistencia: solo visible para administradores y profesores (oculto en modo solo lectura) */}
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => setVistaActiva('asistencia')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                vistaActiva === 'asistencia'
+                  ? 'bg-emerald-500 text-black shadow-md'
+                  : 'bg-[#1C1C1C] text-emerald-400 hover:text-white border border-emerald-500/30'
+              }`}
+            >
+              <CheckSquare className="h-4 w-4" />
+              <span>⚡ Tomar Asistencia (Pase de Lista)</span>
+            </button>
+          )}
 
-        <button
-          type="button"
-          onClick={() => setVistaActiva('pagos')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
-            vistaActiva === 'pagos'
-              ? 'bg-emerald-400 text-black shadow-md'
-              : 'bg-[#1C1C1C] text-emerald-300 hover:text-white border border-emerald-500/40'
-          }`}
-        >
-          <DollarSign className="h-4 w-4" />
-          <span>💵 Cuotas y Pagos (Comisión Directiva)</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setVistaActiva('reportes')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+              vistaActiva === 'reportes'
+                ? 'bg-amber-400 text-black shadow-md'
+                : 'bg-[#1C1C1C] text-amber-400 hover:text-white border border-amber-400/30'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>📊 Reportes Asistencia</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setVistaActiva('pagos')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+              vistaActiva === 'pagos'
+                ? 'bg-emerald-400 text-black shadow-md'
+                : 'bg-[#1C1C1C] text-emerald-300 hover:text-white border border-emerald-500/40'
+            }`}
+          >
+            <DollarSign className="h-4 w-4" />
+            <span>💵 Cuotas y Pagos (Comisión Directiva)</span>
+          </button>
+        </div>
+      )}
 
       {/* VISTA 1: COBRO DE CUOTAS Y REPORTES PARA COMISIÓN DIRECTIVA */}
       {vistaActiva === 'pagos' && (

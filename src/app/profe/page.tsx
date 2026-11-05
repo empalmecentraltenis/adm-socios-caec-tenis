@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import TomarAsistenciaEscuela from '@/components/escuela/TomarAsistenciaEscuela';
 import PagosCuotaEscuelaPanel from '@/components/escuela/PagosCuotaEscuelaPanel';
+import AlumnosEscuelaPanel from '@/components/escuela/AlumnosEscuelaPanel';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { parseLocalDate } from '@/lib/utils';
@@ -64,7 +65,7 @@ export default function ProfePage() {
 
   const [recientes, setRecientes] = useState<Registro[]>([]);
   const [loadingRecientes, setLoadingRecientes] = useState<boolean>(false);
-  const [vistaProfe, setVistaProfe] = useState<'planilla' | 'asistencia' | 'cuotas'>('planilla');
+  const [vistaProfe, setVistaProfe] = useState<'planilla' | 'alumnos' | 'asistencia' | 'cuotas'>('planilla');
 
   // Consultar si ya hay una carga para la fecha seleccionada
   const checkDateRecord = useCallback(async (dateStr: string) => {
@@ -271,12 +272,12 @@ export default function ProfePage() {
           </p>
         </div>
 
-        {/* Selector de Modo en Celular: Planilla de Clases vs Tomar Asistencia vs Cuotas Escuela */}
-        <div className="grid grid-cols-3 gap-1.5 bg-[#1E1E1E] p-1 rounded-xl border border-[#2E2E2E]">
+        {/* Selector de Modo en Celular: Clases vs Alumnos vs Asistencia vs Cuotas */}
+        <div className="grid grid-cols-4 gap-1 bg-[#1E1E1E] p-1 rounded-xl border border-[#2E2E2E]">
           <button
             type="button"
             onClick={() => setVistaProfe('planilla')}
-            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
               vistaProfe === 'planilla'
                 ? 'bg-[#FFCC00] text-black shadow-md'
                 : 'text-[#AAAAAA] hover:text-white'
@@ -287,8 +288,20 @@ export default function ProfePage() {
           </button>
           <button
             type="button"
+            onClick={() => setVistaProfe('alumnos')}
+            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
+              vistaProfe === 'alumnos'
+                ? 'bg-primary text-black shadow-md'
+                : 'text-primary/80 hover:text-white'
+            }`}
+          >
+            <Users size={14} />
+            <span className="truncate">Alumnos</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setVistaProfe('asistencia')}
-            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
               vistaProfe === 'asistencia'
                 ? 'bg-emerald-500 text-black shadow-md'
                 : 'text-emerald-400 hover:text-white'
@@ -300,7 +313,7 @@ export default function ProfePage() {
           <button
             type="button"
             onClick={() => setVistaProfe('cuotas')}
-            className={`py-2 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1 ${
               vistaProfe === 'cuotas'
                 ? 'bg-emerald-400 text-black shadow-md'
                 : 'text-emerald-300 hover:text-white'
@@ -311,7 +324,14 @@ export default function ProfePage() {
           </button>
         </div>
 
-        {/* VISTA 1: CUOTAS Y PAGOS ESCUELA */}
+        {/* VISTA: ADMINISTRACIÓN DE ALUMNOS */}
+        {vistaProfe === 'alumnos' && (
+          <div className="space-y-4">
+            <AlumnosEscuelaPanel readOnly={false} hideSubNav={true} initialVista="padron" />
+          </div>
+        )}
+
+        {/* VISTA: CUOTAS Y PAGOS ESCUELA */}
         {vistaProfe === 'cuotas' && (
           <div className="space-y-4">
             <PagosCuotaEscuelaPanel readOnly={false} />
