@@ -288,6 +288,9 @@ export default function AbmSocioModal({
                 <SelectItem value="socio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white border-0">
                   👤 Socio (Acceso estándar)
                 </SelectItem>
+                <SelectItem value="profesor" className="text-amber-400 focus:bg-[#2A2A2A] focus:text-amber-300 border-0">
+                  🎾 Profesor (Turnos clases/torneo, noticias, luz)
+                </SelectItem>
                 <SelectItem value="admin" className="text-purple-400 focus:bg-[#2A2A2A] focus:text-purple-300 border-0">
                   🛡️ Administrador (Acceso total)
                 </SelectItem>

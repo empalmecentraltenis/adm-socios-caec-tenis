@@ -562,6 +562,11 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                           Admin
                         </Badge>
                       )}
+                      {socio.rol === 'profesor' && (
+                        <Badge variant="outline" className="ml-2 bg-amber-500/15 text-amber-400 border-amber-500/30 text-[9px] px-1 py-0 h-4">
+                          Profesor
+                        </Badge>
+                      )}
                       {socio.estado === 'inactivo' && (
                         <Badge variant="outline" className="ml-2 bg-red-500/15 text-red-400 border-red-500/20 text-[9px] px-1 py-0 h-4">
                           Inactivo

@@ -58,14 +58,16 @@ export async function GET(request: Request) {
 
     // 1. Configuraciones de precio
     const configs = await db.configuracion.findMany({
-      where: { clave: { in: ['precio_luz_turno', 'precio_invitado_extra'] } },
+      where: { clave: { in: ['precio_luz_turno', 'precio_luz_profe', 'precio_invitado_extra'] } },
     });
     let precioLuzTurno = 6000;
+    let precioLuzProfe = 3000;
     let precioInvitadoExtra = 10000;
     for (const c of configs) {
       const val = parseFloat(c.valor);
       if (!isNaN(val) && val > 0) {
         if (c.clave === 'precio_luz_turno') precioLuzTurno = val;
+        if (c.clave === 'precio_luz_profe') precioLuzProfe = val;
         if (c.clave === 'precio_invitado_extra') precioInvitadoExtra = val;
       }
     }
@@ -76,14 +78,27 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Socio no encontrado' }, { status: 404 });
     }
 
+    const esRolProfesor = socio.rol === 'profesor';
     const allSocios = await db.socio.findMany({ select: { dni: true, nombre: true, apellido: true } });
 
-    // 3. Turnos del año donde el socio participó (como titular o acompañante)
+    // 3. Turnos del año
+    // Para profesor: turnos 'bloqueado' asignados a su DNI + turnos 'ocupado'
+    // Para socio común: turnos 'ocupado'
+    const whereTurnos: any = {
+      fecha: { gte: startOfYear, lte: endOfYear },
+    };
+
+    if (esRolProfesor) {
+      whereTurnos.OR = [
+        { estado: 'ocupado' },
+        { estado: 'bloqueado', socioDni: dni }
+      ];
+    } else {
+      whereTurnos.estado = 'ocupado';
+    }
+
     const turnosAnio = await db.turno.findMany({
-      where: {
-        fecha: { gte: startOfYear, lte: endOfYear },
-        estado: 'ocupado',
-      },
+      where: whereTurnos,
       include: { cancha: { select: { id: true, nombre: true } } },
       orderBy: [{ fecha: 'desc' }, { horaInicio: 'desc' }],
     });
@@ -135,6 +150,28 @@ export async function GET(request: Request) {
       const horaStr = extractTime(t.horaInicio);
       if (horaStr < '19:00') continue;
       if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
+
+      // Caso Turno Bloqueado por Clases del Profesor
+      if (t.estado === 'bloqueado') {
+        if (esRolProfesor && t.socioDni === dni) {
+          const pago = pagosLuzMap.get(t.id);
+          const horaFinStr = extractTime(t.horaFin);
+          turnosLuz.push({
+            turnoId: t.id,
+            fecha: fechaStr,
+            horario: `${horaStr} - ${horaFinStr}`,
+            cancha: t.cancha?.nombre || `Cancha ${t.canchaId}`,
+            tipoPartido: 'Clases Profesor',
+            esTitular: true,
+            sociosCount: 1,
+            montoTotal: precioLuzProfe,
+            montoPorSocio: precioLuzProfe,
+            pagado: !!pago,
+            fechaPago: pago ? extractDate(pago.fechaRegistro) : null,
+          });
+        }
+        continue;
+      }
 
       const titularDni = t.socioDni || '';
       const dnisAcomps = (t.participantesDnis || []).filter((d) => d && d !== titularDni);
