@@ -5,6 +5,34 @@ import { db } from "@/lib/db";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const checkDni = searchParams.get("checkDni");
+
+    // Endpoint rápido para consultar si un DNI ya existe registrado
+    if (checkDni) {
+      const socioExistente = await db.socio.findUnique({
+        where: { dni: checkDni.trim() },
+        select: {
+          id: true,
+          dni: true,
+          nombre: true,
+          apellido: true,
+          telefono: true,
+          categoria: true,
+          estado: true,
+        },
+      });
+
+      const esNoRegistrado = !socioExistente || 
+        socioExistente.apellido === "No Registrado" || 
+        (socioExistente.nombre === "Alumno" && socioExistente.apellido === "No Registrado");
+
+      return NextResponse.json({
+        existe: Boolean(socioExistente && !esNoRegistrado),
+        socio: socioExistente,
+        esNoRegistrado,
+      });
+    }
+
     const dateStr = searchParams.get("fecha");
     const monthStr = searchParams.get("mes");
     const yearStr = searchParams.get("anio");
@@ -159,7 +187,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { dni } = body;
+    const { dni, nombre, apellido, telefono } = body;
 
     if (!dni || typeof dni !== "string") {
       return NextResponse.json(
@@ -168,9 +196,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const cleanDni = dni.trim();
+    const cleanNombre = typeof nombre === "string" ? nombre.trim() : "";
+    const cleanApellido = typeof apellido === "string" ? apellido.trim() : "";
+    const cleanTelefono = typeof telefono === "string" ? telefono.trim() : "";
+
     // Buscar al socio
     let socio = await db.socio.findUnique({
-      where: { dni: dni.trim() },
+      where: { dni: cleanDni },
       include: {
         cuotas: true,
         pagos: true,
@@ -179,25 +212,67 @@ export async function POST(request: Request) {
 
     let esNoRegistrado = false;
 
-    // Si no existe, lo creamos automáticamente como Alumno No Registrado para que siempre quede asentado
+    // Si no existe, lo creamos
     if (!socio) {
-      esNoRegistrado = true;
-      socio = await db.socio.create({
-        data: {
-          dni: dni.trim(),
-          nombre: "Alumno",
-          apellido: "No Registrado",
-          categoria: "alumno",
-          estado: "inactivo",
-          activo: false,
-          telefono: "",
-          email: null,
-        },
-        include: {
-          cuotas: true,
-          pagos: true,
-        },
-      });
+      if (cleanNombre && cleanApellido) {
+        // Se recibieron nombre y apellido completos
+        socio = await db.socio.create({
+          data: {
+            dni: cleanDni,
+            nombre: cleanNombre,
+            apellido: cleanApellido,
+            telefono: cleanTelefono,
+            categoria: "alumno",
+            estado: "activo",
+            activo: true,
+            email: null,
+          },
+          include: {
+            cuotas: true,
+            pagos: true,
+          },
+        });
+      } else {
+        esNoRegistrado = true;
+        socio = await db.socio.create({
+          data: {
+            dni: cleanDni,
+            nombre: cleanNombre || "Alumno",
+            apellido: cleanApellido || "No Registrado",
+            categoria: "alumno",
+            estado: "inactivo",
+            activo: false,
+            telefono: cleanTelefono,
+            email: null,
+          },
+          include: {
+            cuotas: true,
+            pagos: true,
+          },
+        });
+      }
+    } else {
+      // Si el socio ya existía pero figuraba como "Alumno No Registrado" y ahora envía datos reales:
+      const estabaComoNoRegistrado = socio.apellido === "No Registrado" || (socio.nombre === "Alumno" && socio.apellido === "No Registrado");
+      if (estabaComoNoRegistrado && cleanNombre && cleanApellido) {
+        socio = await db.socio.update({
+          where: { id: socio.id },
+          data: {
+            nombre: cleanNombre,
+            apellido: cleanApellido,
+            telefono: cleanTelefono || socio.telefono,
+            categoria: socio.categoria === "alumno" ? "alumno" : socio.categoria,
+            estado: "activo",
+            activo: true,
+          },
+          include: {
+            cuotas: true,
+            pagos: true,
+          },
+        });
+      } else if (estabaComoNoRegistrado && !cleanNombre) {
+        esNoRegistrado = true;
+      }
     }
 
     // Evitar registrar múltiples veces en un rango muy corto (ej. 5 minutos)
