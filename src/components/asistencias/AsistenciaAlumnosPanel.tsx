@@ -134,7 +134,8 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
   // Selectores de fecha para Reportes / Exportación
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
-  const [modoPeriodoReporte, setModoPeriodoReporte] = useState<'mes' | 'semana' | 'anio' | 'personalizado'>('mes');
+  const [modoPeriodoReporte, setModoPeriodoReporte] = useState<'dia' | 'mes' | 'semana' | 'anio' | 'personalizado'>('mes');
+  const [reporteDia, setReporteDia] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [reporteAnio, setReporteAnio] = useState<string>('2026');
   const [reporteFechaDesde, setReporteFechaDesde] = useState<string>('');
   const [reporteFechaHasta, setReporteFechaHasta] = useState<string>('');
@@ -201,12 +202,17 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
     }
   }, []);
 
-  // Fetch asistencias del período configurado (semana, mes, año, rango)
+  // Fetch asistencias del período configurado (día específico, semana, mes, año, rango)
   const fetchAsistenciasPeriodo = useCallback(async () => {
     setLoading(true);
     try {
       let queryParam = '';
-      if (modoPeriodoReporte === 'semana') {
+      if (modoPeriodoReporte === 'dia') {
+        queryParam = `fecha=${reporteDia}`;
+        const [y, m, d] = reporteDia.split('-').map(Number);
+        const fechaObj = new Date(y, m - 1, d);
+        setPeriodoLabel(`Día ${format(fechaObj, "EEEE dd 'de' MMMM yyyy", { locale: es })}`);
+      } else if (modoPeriodoReporte === 'semana') {
         const now = new Date();
         const start = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
         const end = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -238,7 +244,7 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
     } finally {
       setLoading(false);
     }
-  }, [modoPeriodoReporte, selectedMonth, reporteAnio, reporteFechaDesde, reporteFechaHasta]);
+  }, [modoPeriodoReporte, reporteDia, selectedMonth, reporteAnio, reporteFechaDesde, reporteFechaHasta]);
 
   useEffect(() => {
     if (activeTab === 'diaria') {
@@ -954,13 +960,25 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                 </div>
               </div>
 
-              {/* Botonera de Períodos: Semana, Este Mes, Otro Mes, Todo el Año, Fechas */}
+              {/* Botonera de Períodos: Por Día, Semana, Este Mes, Otro Mes, Todo el Año, Fechas */}
               <div className="bg-[#141414] border border-[#2E2E2E] rounded-xl p-3 flex flex-col gap-2.5 print:hidden">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">
                     Período del Reporte:
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setModoPeriodoReporte('dia')}
+                      className={`py-1 px-2.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
+                        modoPeriodoReporte === 'dia'
+                          ? 'bg-[#FFCC00] text-black shadow-sm'
+                          : 'bg-[#242424] text-[#AAAAAA] hover:text-white hover:bg-[#2C2C2C]'
+                      }`}
+                    >
+                      <CalendarIcon className="w-3.5 h-3.5" />
+                      Por Día
+                    </button>
                     <button
                       type="button"
                       onClick={() => setModoPeriodoReporte('semana')}
@@ -1023,6 +1041,39 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                 </div>
 
                 {/* Sub-selector según el modo seleccionado */}
+                {modoPeriodoReporte === 'dia' && (
+                  <div className="pt-2 border-t border-[#262626] flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] text-[#888]">Elegir Día:</span>
+                    <Input
+                      type="date"
+                      value={reporteDia}
+                      onChange={(e) => {
+                        if (e.target.value) setReporteDia(e.target.value);
+                      }}
+                      className="h-7 text-xs bg-[#242424] border-[#383838] text-white w-40"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setReporteDia(format(new Date(), 'yyyy-MM-dd'))}
+                      className="h-7 px-2.5 text-xs bg-[#242424] border-[#383838] text-[#CCCCCC] hover:text-white"
+                    >
+                      Hoy
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - 1);
+                        setReporteDia(format(d, 'yyyy-MM-dd'));
+                      }}
+                      className="h-7 px-2.5 text-xs bg-[#242424] border-[#383838] text-[#CCCCCC] hover:text-white"
+                    >
+                      Ayer
+                    </Button>
+                  </div>
+                )}
                 {modoPeriodoReporte === 'mes' && (
                   <div className="pt-2 border-t border-[#262626] flex items-center gap-2">
                     <span className="text-[11px] text-[#888]">Seleccionar Mes:</span>
