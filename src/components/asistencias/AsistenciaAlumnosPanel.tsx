@@ -270,15 +270,18 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
     };
   }, [activeTab, selectedDate, fetchAsistenciasDiarias]);
 
-  // Detector si un alumno no está registrado
+  // Detector si un alumno no está registrado o es un alumno auto-registrado sin regularizar
   const isAlumnoNoRegistrado = (asistencia: Asistencia) => {
     const ape = (asistencia.socio?.apellido || '').toLowerCase();
     const nom = (asistencia.socio?.nombre || '').toLowerCase();
     const notas = (asistencia.notas || '').toLowerCase();
+    const estado = (asistencia.socio?.estado || '').toLowerCase();
+    const cat = (asistencia.socio?.categoria || '').toLowerCase();
+
     return (
       (ape === 'no registrado' && nom === 'alumno') ||
       notas.includes('no registrado') ||
-      asistencia.socio?.categoria === 'alumno' && ape === 'no registrado'
+      (cat === 'alumno' && (ape === 'no registrado' || estado === 'inactivo'))
     );
   };
 
@@ -286,6 +289,10 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
     const alertas: string[] = [];
     if (socio.apellido?.toLowerCase() === 'no registrado') {
       alertas.push('DNI No Registrado');
+      return alertas;
+    }
+    if (socio.categoria === 'alumno' && socio.estado === 'inactivo') {
+      alertas.push('No Registrado / Sin Alta');
       return alertas;
     }
     if (socio.estado === 'inactivo') alertas.push('Inactivo');
@@ -787,13 +794,21 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                             {/* Alumno */}
                             <TableCell className="text-[#CCCCCC] text-sm py-3">
                               {noRegistrado ? (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[11px] font-bold px-2 py-0.5">
-                                    <AlertTriangle className="w-3 h-3 mr-1 inline" /> Alumno No Registrado
-                                  </Badge>
-                                  <span className="text-xs text-amber-200/80 italic">
-                                    (Escaneó QR · Requiere regularización)
-                                  </span>
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-white">
+                                      {asistencia.socio.apellido === 'No Registrado' ? 'Alumno No Registrado' : `${asistencia.socio.apellido}, ${asistencia.socio.nombre}`}
+                                    </span>
+                                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold px-1.5 py-0.5">
+                                      <AlertTriangle className="w-3 h-3 mr-1 inline" /> Sin Ficha / Inactivo
+                                    </Badge>
+                                  </div>
+                                  <div className="text-[11px] text-[#888888] flex items-center gap-2">
+                                    {asistencia.socio.telefono && (
+                                      <span>Tel: <strong className="text-white font-mono">{asistencia.socio.telefono}</strong></span>
+                                    )}
+                                    <span className="text-amber-300/80 italic">Requiere alta/pago</span>
+                                  </div>
                                 </div>
                               ) : (
                                 <div>
@@ -801,6 +816,11 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                                   {asistencia.socio.categoria && (
                                     <span className="text-[11px] text-[#777777] ml-2 capitalize">
                                       ({asistencia.socio.categoria})
+                                    </span>
+                                  )}
+                                  {asistencia.socio.telefono && (
+                                    <span className="text-[11px] text-[#888888] ml-2 font-mono">
+                                      · {asistencia.socio.telefono}
                                     </span>
                                   )}
                                 </div>
@@ -823,7 +843,7 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                             <TableCell className="text-center py-3">
                               {noRegistrado ? (
                                 <Badge variant="outline" className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px] font-bold">
-                                  <UserX className="h-3 w-3 mr-1" /> Sin ficha en sistema
+                                  <UserX className="h-3 w-3 mr-1" /> No Registrado / Inactivo
                                 </Badge>
                               ) : tieneAlertas ? (
                                 <div className="flex items-center justify-center gap-2">

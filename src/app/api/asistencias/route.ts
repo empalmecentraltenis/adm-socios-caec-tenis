@@ -160,8 +160,9 @@ export async function GET(request: Request) {
 
       const esVitalicio = socio.categoria === "vitalicio";
       const esAdmin = socio.rol === "admin";
+      // Si el socio está inactivo o es categoría alumno no regularizado, NO debe figurar "Al día"
+      const alDia = (esAdmin || esVitalicio || (socio.estado === 'activo' && mesesAdeudadosReales === 0));
       const mesesAdeudados = (esVitalicio || esAdmin) ? 0 : mesesAdeudadosReales;
-      const alDia = esAdmin || esVitalicio || mesesAdeudados === 0;
 
       return {
         ...asistencia,
@@ -215,7 +216,8 @@ export async function POST(request: Request) {
     // Si no existe, lo creamos
     if (!socio) {
       if (cleanNombre && cleanApellido) {
-        // Se recibieron nombre y apellido completos
+        // Se recibieron nombre y apellido completos pero es un alumno nuevo que se auto-registró al escanear
+        // Queda como inactivo (no socio activo) hasta que secretaría/profe regularice su cuota
         socio = await db.socio.create({
           data: {
             dni: cleanDni,
@@ -223,8 +225,8 @@ export async function POST(request: Request) {
             apellido: cleanApellido,
             telefono: cleanTelefono,
             categoria: "alumno",
-            estado: "activo",
-            activo: true,
+            estado: "inactivo",
+            activo: false,
             email: null,
           },
           include: {
@@ -262,8 +264,8 @@ export async function POST(request: Request) {
             apellido: cleanApellido,
             telefono: cleanTelefono || socio.telefono,
             categoria: socio.categoria === "alumno" ? "alumno" : socio.categoria,
-            estado: "activo",
-            activo: true,
+            estado: "inactivo",
+            activo: false,
           },
           include: {
             cuotas: true,
