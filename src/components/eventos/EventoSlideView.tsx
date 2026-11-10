@@ -415,9 +415,9 @@ export default function EventoSlideView({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-[94vw] !w-[94vw] lg:!max-w-[1240px] xl:!max-w-[1340px] bg-[#0c0c0e] border-[#222227] p-0 overflow-hidden text-white shadow-2xl">
+      <DialogContent className="!max-w-[94vw] !w-[94vw] lg:!max-w-[1240px] xl:!max-w-[1340px] max-h-[92vh] flex flex-col bg-[#0c0c0e] border-[#222227] p-0 overflow-hidden text-white shadow-2xl !top-[50%] !translate-y-[-50%]">
         {/* HEADER MODAL */}
-        <DialogHeader className="p-4 sm:p-5 bg-[#141418] border-b border-[#24242c] flex flex-row items-center justify-between">
+        <DialogHeader className="p-4 sm:p-5 bg-[#141418] border-b border-[#24242c] flex flex-row items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400">
               <Trophy className="h-5 w-5" />
@@ -432,7 +432,7 @@ export default function EventoSlideView({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pr-6">
+          <div className="flex items-center gap-2 pr-10">
             <Button
               variant="outline"
               size="sm"
@@ -446,7 +446,7 @@ export default function EventoSlideView({
         </DialogHeader>
 
         {/* SELECTOR DE DIAPOSITIVA */}
-        <div className="px-5 py-3 bg-[#121216] border-b border-[#202028] flex items-center justify-between gap-2 flex-wrap">
+        <div className="px-5 py-3 bg-[#121216] border-b border-[#202028] flex items-center justify-between gap-2 flex-wrap shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#777] mr-1 flex items-center gap-1">
               <Layers className="h-3.5 w-3.5" /> Diapositiva:
