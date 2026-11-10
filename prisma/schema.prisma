@@ -83,6 +83,7 @@ model Turno {
   canceladoAt   DateTime?     @map("cancelado_at") @db.Timestamptz(6)
   participantesDnis String[]  @default([]) @map("participantes_dnis")
   validadosDnis String[]      @default([]) @map("validados_dnis")
+  invitadosDatos Json?        @default("[]") @map("invitados_datos")
   sancionQrAplicada Boolean?  @default(false) @map("sancion_qr_aplicada")
   createdAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime      @default(dbgenerated("timezone('utc'::text, now())")) @map("updated_at") @db.Timestamptz(6)

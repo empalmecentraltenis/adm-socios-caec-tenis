@@ -343,16 +343,25 @@ export async function GET(request: Request) {
         : (titularDni ? [titularDni] : []);
 
       const validadosList: string[] = t.validadosDnis || [];
+      const invitadosDatosArray = Array.isArray(t.invitadosDatos) ? t.invitadosDatos : [];
+      let guestDataIndex = 0;
 
       const participantes = participantesDnis.map((d: string) => {
         if (d === '123987456') {
+          const guestInfo: any = invitadosDatosArray[guestDataIndex] || {};
+          guestDataIndex++;
+          const hasCustomData = Boolean(guestInfo.nombre || guestInfo.dni);
+
           return {
-            dni: '123987456',
-            nombre: 'Invitado Especial',
+            dni: guestInfo.dni || '123987456',
+            nombre: guestInfo.nombre ? `Invitado: ${guestInfo.nombre}` : 'Invitado Especial',
+            nombreInvitadoReal: guestInfo.nombre || null,
+            dniInvitadoReal: guestInfo.dni || null,
             categoria: 'invitado',
             telefono: '',
             esTitular: false,
             esInvitado: true,
+            tieneDatosCompletos: hasCustomData,
             haValidadoQR: validadosList.includes('123987456') || Boolean(t.validado),
           };
         }
@@ -428,6 +437,7 @@ export async function GET(request: Request) {
           categoria: titularSocio?.categoria || t.socio?.categoria || 'socio',
         },
         participantes,
+        invitadosDatos: invitadosDatosArray,
         validadoTotal: Boolean(t.validado),
         validadoAt: t.validadoAt ? t.validadoAt.toISOString() : null,
         validadosDnis: validadosList,

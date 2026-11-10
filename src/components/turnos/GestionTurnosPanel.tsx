@@ -910,6 +910,7 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                                 <div className="flex flex-wrap gap-1.5">
                                   {turno.participantes.map((p, pIdx) => {
                                     if (p.esInvitado) {
+                                      const tieneDatos = Boolean(p.nombreInvitadoReal || p.dniInvitadoReal);
                                       return (
                                         <span
                                           key={pIdx}
@@ -920,7 +921,11 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                                           }`}
                                         >
                                           <Sparkles className="h-3 w-3 text-purple-400" />
-                                          <span>Invitado Especial</span>
+                                          <span>
+                                            {tieneDatos 
+                                              ? `${p.nombreInvitadoReal || 'Invitado'}${p.dniInvitadoReal ? ` (${p.dniInvitadoReal})` : ''}` 
+                                              : 'Invitado Especial'}
+                                          </span>
                                           {p.haValidadoQR ? (
                                             <CheckCircle2 className="h-3 w-3 text-emerald-400 ml-0.5" />
                                           ) : null}

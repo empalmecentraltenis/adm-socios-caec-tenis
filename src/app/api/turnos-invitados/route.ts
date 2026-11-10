@@ -236,7 +236,10 @@ export async function GET(request: Request) {
         }
 
         let invitadosEnTurno = 0;
-        const jugadoresDetalle: Array<{ nombre: string; esInvitado: boolean; esTitular: boolean }> = [
+        const invitadosDatosArray = Array.isArray(t.invitadosDatos) ? t.invitadosDatos : [];
+        let guestDataIndex = 0;
+
+        const jugadoresDetalle: Array<{ nombre: string; esInvitado: boolean; esTitular: boolean; dniInvitado?: string }> = [
           {
             nombre: socioNombre || `DNI ${dni}`,
             esInvitado: false,
@@ -249,12 +252,24 @@ export async function GET(request: Request) {
           for (const d of t.participantesDnis) {
             if (d === dni) continue;
             const esInv = d === '123987456';
-            if (esInv) invitadosEnTurno++;
-            jugadoresDetalle.push({
-              nombre: esInv ? 'Invitado Especial' : `DNI ${d}`,
-              esInvitado: esInv,
-              esTitular: false,
-            });
+            if (esInv) {
+              invitadosEnTurno++;
+              const guestInfo: any = invitadosDatosArray[guestDataIndex] || {};
+              guestDataIndex++;
+              const nomInv = guestInfo.nombre ? `Invitado: ${guestInfo.nombre}` : 'Invitado Especial';
+              jugadoresDetalle.push({
+                nombre: nomInv,
+                dniInvitado: guestInfo.dni || '',
+                esInvitado: true,
+                esTitular: false,
+              });
+            } else {
+              jugadoresDetalle.push({
+                nombre: `DNI ${d}`,
+                esInvitado: false,
+                esTitular: false,
+              });
+            }
           }
         } else {
           for (const item of acompsList) {
@@ -262,12 +277,22 @@ export async function GET(request: Request) {
             const esInv = itemLower.includes('especial') || itemLower.includes('invitado');
             if (esInv) {
               invitadosEnTurno++;
+              const guestInfo: any = invitadosDatosArray[guestDataIndex] || {};
+              guestDataIndex++;
+              const nomInv = guestInfo.nombre ? `Invitado: ${guestInfo.nombre}` : item;
+              jugadoresDetalle.push({
+                nombre: nomInv,
+                dniInvitado: guestInfo.dni || '',
+                esInvitado: true,
+                esTitular: false,
+              });
+            } else {
+              jugadoresDetalle.push({
+                nombre: item,
+                esInvitado: false,
+                esTitular: false,
+              });
             }
-            jugadoresDetalle.push({
-              nombre: esInv ? 'Invitado Especial' : item,
-              esInvitado: esInv,
-              esTitular: false,
-            });
           }
         }
 
