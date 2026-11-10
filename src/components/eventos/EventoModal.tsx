@@ -301,15 +301,19 @@ export default function EventoModal({
             placeholder={placeholderConcepto}
             className="flex-1 bg-[#121215] border-[#2b2b35] text-xs h-9 text-white placeholder:text-[#555]"
           />
-          <div className="relative w-36 sm:w-44">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[#777]">$</span>
-            <Input
-              type="number"
-              step="any"
-              value={item.monto}
-              onChange={(e) => handleItemChange(setter, idx, 'monto', e.target.value)}
+          <div className="relative w-36 sm:w-48">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[#777] font-bold">$</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={item.monto === '' ? '' : item.monto}
+              onChange={(e) => {
+                // Permitir escribir números o decimales libremente sin flechitas
+                const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                handleItemChange(setter, idx, 'monto', val);
+              }}
               placeholder="0"
-              className="pl-6 bg-[#121215] border-[#2b2b35] text-xs h-9 text-white font-mono placeholder:text-[#555]"
+              className="w-full pl-6 pr-2 bg-[#121215] border border-[#2b2b35] rounded-md text-xs h-9 text-white font-mono placeholder:text-[#555] focus:outline-none focus:ring-1 focus:ring-amber-400"
             />
           </div>
           <Button
@@ -340,10 +344,10 @@ export default function EventoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[850px] w-[95vw] bg-[#111114] border-[#26262e] text-white p-0 overflow-hidden shadow-2xl">
-        <form onSubmit={handleSave} className="flex flex-col max-h-[90vh]">
+      <DialogContent className="!max-w-[94vw] !w-[94vw] lg:!max-w-[1240px] xl:!max-w-[1340px] max-h-[92vh] bg-[#111114] border-[#26262e] text-white p-0 overflow-hidden shadow-2xl !top-[50%] !translate-y-[-50%] flex flex-col">
+        <form onSubmit={handleSave} className="flex flex-col h-full max-h-[92vh] overflow-hidden">
           {/* Header */}
-          <DialogHeader className="p-5 bg-[#16161b] border-b border-[#25252f] flex flex-row items-center justify-between">
+          <DialogHeader className="p-4 sm:p-5 bg-[#16161b] border-b border-[#25252f] flex flex-row items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
                 <Trophy className="h-5 w-5" />
