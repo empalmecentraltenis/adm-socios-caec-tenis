@@ -320,33 +320,3 @@ model AsistenciaAlumnoEscuela {
   @@map("asistencias_alumnos_escuela")
 }
 
-model EventoInforme {
-  id               String   @id @default(cuid())
-  titulo           String
-  subtitulo        String?
-  fechaTexto       String   @map("fecha_texto")
-  fechaEvento      DateTime @db.Date @map("fecha_evento")
-  organizador      String?  @default("SubComision de Tenis")
-  estado           String   @default("finalizado")
-
-  ingresosTorneo   Json     @default("[]") @map("ingresos_torneo")
-  egresosTorneo    Json     @default("[]") @map("egresos_torneo")
-
-  ingresosCantina  Json     @default("[]") @map("ingresos_cantina")
-  egresosCantina   Json     @default("[]") @map("egresos_cantina")
-
-  ingresosOtros    Json     @default("[]") @map("ingresos_otros")
-  egresosOtros     Json     @default("[]") @map("egresos_otros")
-
-  totalIngresos    Float    @default(0) @map("total_ingresos")
-  totalEgresos     Float    @default(0) @map("total_egresos")
-  totalNeto        Float    @default(0) @map("total_neto")
-
-  notas            String?
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@index([fechaEvento])
-  @@map("eventos_informes")
-}
-
