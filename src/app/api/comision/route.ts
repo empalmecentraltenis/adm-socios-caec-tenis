@@ -326,6 +326,13 @@ export async function GET(request: Request) {
     };
     const movimientosMesSeleccionado = movimientosPorMesMap[mes]?.movimientos || [];
 
+    // =========================================================================
+    // 6. EVENTOS E INTERCLUBES: Historial de informes para Comisión Directiva
+    // =========================================================================
+    const eventosInformes = await db.eventoInforme.findMany({
+      orderBy: { fechaEvento: 'desc' },
+    });
+
     return NextResponse.json({
       success: true,
       mes,
@@ -372,6 +379,8 @@ export async function GET(request: Request) {
           plazosFijos: plazosFijosFormatted,
         },
       },
+      // 6. Eventos e Interclubes
+      eventos: eventosInformes,
     });
   } catch (err: any) {
     console.error('Error en /api/comision:', err);

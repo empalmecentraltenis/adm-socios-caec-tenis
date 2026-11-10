@@ -18,9 +18,10 @@ import TurnosLuzPanel from '@/components/luz/TurnosLuzPanel';
 import InvitadosPanel from '@/components/invitados/InvitadosPanel';
 import SancionesPanel from '@/components/sanciones/SancionesPanel';
 import GestionTurnosPanel from '@/components/turnos/GestionTurnosPanel';
+import InformesEventosPanel from '@/components/eventos/InformesEventosPanel';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'socios' | 'gestion-turnos' | 'luz' | 'invitados' | 'sanciones' | 'configuracion' | 'balance' | 'inversiones' | 'escuela-alumnos' | 'profe' | 'asistencias';
+type TabType = 'socios' | 'gestion-turnos' | 'eventos' | 'luz' | 'invitados' | 'sanciones' | 'configuracion' | 'balance' | 'inversiones' | 'escuela-alumnos' | 'profe' | 'asistencias';
 
 interface SocioFull {
   id: string;
@@ -162,6 +163,9 @@ export default function Home() {
 
           {/* Gestión Turnos Tab */}
           {activeTab === 'gestion-turnos' && <GestionTurnosPanel readOnly={isReadOnly} />}
+
+          {/* Informes de Eventos Tab */}
+          {activeTab === 'eventos' && <InformesEventosPanel readOnly={isReadOnly} />}
 
           {/* Turnos con Luz Tab */}
           {activeTab === 'luz' && <TurnosLuzPanel readOnly={isReadOnly} />}
