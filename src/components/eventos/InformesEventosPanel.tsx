@@ -123,12 +123,6 @@ export default function InformesEventosPanel({ readOnly = false }: InformesEvent
     }
   };
 
-  // Cálculos de resumen
-  const totalRecaudadoHistorico = eventos.reduce(
-    (acc, ev) => acc + (Number(ev.totalNeto) || 0),
-    0
-  );
-
   return (
     <div className="space-y-6">
       {/* HEADER DEL PANEL */}
@@ -177,30 +171,14 @@ export default function InformesEventosPanel({ readOnly = false }: InformesEvent
         </div>
       </div>
 
-      {/* METRIC CARD RESUMEN */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-[#141418] border border-[#24242d] p-4 rounded-xl flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#777]">Eventos Registrados</span>
-            <p className="text-2xl font-black text-white font-mono mt-0.5">{eventos.length}</p>
-          </div>
-          <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 border border-amber-500/20">
-            <Trophy className="h-5 w-5" />
-          </div>
+      {/* METRIC CARD RESUMEN: SOLO EVENTOS REGISTRADOS */}
+      <div className="bg-[#141418] border border-[#24242d] p-4 rounded-xl flex items-center justify-between max-w-sm">
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#777]">Eventos Registrados</span>
+          <p className="text-2xl font-black text-white font-mono mt-0.5">{eventos.length}</p>
         </div>
-
-        <div className="bg-[#141418] border border-[#24242d] p-4 rounded-xl flex items-center justify-between sm:col-span-2">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#777]">
-              Total Recaudado Acumulado p/ Subcomisión
-            </span>
-            <p className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono mt-0.5">
-              {formatCurrency(totalRecaudadoHistorico)}
-            </p>
-          </div>
-          <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 border border-emerald-500/20">
-            <TrendingUp className="h-6 w-6" />
-          </div>
+        <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 border border-amber-500/20">
+          <Trophy className="h-5 w-5" />
         </div>
       </div>
 
