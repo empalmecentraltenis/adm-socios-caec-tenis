@@ -182,12 +182,17 @@ export async function GET(request: Request) {
         : (titularDni ? [titularDni] : []);
 
       const validadosList: string[] = t.validadosDnis || [];
+      const invitadosDatosArray = Array.isArray(t.invitadosDatos) ? t.invitadosDatos : [];
+      let guestDataIndex = 0;
 
       const participantes = participantesDnis.map((dni: string) => {
         if (dni === '123987456') {
+          const guestInfo: any = invitadosDatosArray[guestDataIndex] || {};
+          guestDataIndex++;
+          const nomInv = guestInfo.nombre ? `Invitado: ${guestInfo.nombre}` : 'Invitado Especial';
           return {
-            dni: '123987456',
-            nombre: 'Invitado Especial',
+            dni: guestInfo.dni || '123987456',
+            nombre: nomInv,
             categoria: 'invitado',
             telefono: '',
             esTitular: false,
@@ -205,6 +210,27 @@ export async function GET(request: Request) {
         };
       });
 
+      // Si tiene acompañante texto con 'Invitado Especial' y se especificó nombre en invitadosDatos
+      let acompTexto = t.acompanante;
+      if (acompTexto && invitadosDatosArray.length > 0) {
+        let gIdx = 0;
+        // Reemplazar ocurrencias de "Invitado Especial" o "Especial, I." con el nombre si existe
+        acompTexto = acompTexto
+          .split('/')
+          .map((part: string) => {
+            const pTrim = part.trim();
+            if (pTrim.toLowerCase().includes('invitado') || pTrim.toLowerCase().includes('especial')) {
+              const gInfo = invitadosDatosArray[gIdx];
+              gIdx++;
+              if (gInfo && gInfo.nombre) {
+                return `Invitado: ${gInfo.nombre}`;
+              }
+            }
+            return pTrim;
+          })
+          .join(' / ');
+      }
+
       return {
         id: t.id,
         canchaId: t.canchaId,
@@ -220,7 +246,7 @@ export async function GET(request: Request) {
         titularNombre,
         titularDni,
         titularTelefono: titularObj?.telefono || t.socio?.telefono || '',
-        acompanante: t.acompanante,
+        acompanante: acompTexto,
         participantes,
         validadoQr: Boolean(t.validado),
         validadosCount: participantes.filter((p: any) => p.haValidadoQR).length,
