@@ -18,9 +18,10 @@ import TurnosLuzPanel from '@/components/luz/TurnosLuzPanel';
 import InvitadosPanel from '@/components/invitados/InvitadosPanel';
 import SancionesPanel from '@/components/sanciones/SancionesPanel';
 import GestionTurnosPanel from '@/components/turnos/GestionTurnosPanel';
+import InformesEventosPanel from '@/components/eventos/InformesEventosPanel';
 import { Loader2 } from 'lucide-react';
 
-type TabType = 'socios' | 'gestion-turnos' | 'luz' | 'invitados' | 'sanciones' | 'configuracion' | 'balance' | 'inversiones' | 'escuela-alumnos' | 'profe' | 'asistencias';
+type TabType = 'socios' | 'gestion-turnos' | 'eventos' | 'luz' | 'invitados' | 'sanciones' | 'configuracion' | 'balance' | 'inversiones' | 'escuela-alumnos' | 'profe' | 'asistencias';
 
 interface SocioFull {
   id: string;
@@ -104,6 +105,7 @@ export default function Home() {
   const pageTitles: Record<TabType, { title: string; subtitle: string }> = {
     socios: { title: 'Socios', subtitle: 'Padrón de socios, estado de cuenta y registro de pagos' },
     'gestion-turnos': { title: 'Gestión Turnos', subtitle: 'Estadísticas de uso de canchas, rankings y control de invitados' },
+    eventos: { title: 'Informes de Eventos', subtitle: 'Balances económicos detallados de torneos, interclubes y cantina' },
     luz: { title: 'Turnos con Luz', subtitle: 'Control y liquidación de uso de luz para Socios y Profesor' },
     invitados: { title: 'Control de Invitados', subtitle: 'Cupos anuales bonificados y facturación de invitados extras' },
     sanciones: { title: 'Control de Sanciones / QR', subtitle: 'Historial de infracciones, socios inhabilitados y reincidentes' },
@@ -162,6 +164,9 @@ export default function Home() {
 
           {/* Gestión Turnos Tab */}
           {activeTab === 'gestion-turnos' && <GestionTurnosPanel readOnly={isReadOnly} />}
+
+          {/* Informes de Eventos Tab */}
+          {activeTab === 'eventos' && <InformesEventosPanel readOnly={isReadOnly} />}
 
           {/* Turnos con Luz Tab */}
           {activeTab === 'luz' && <TurnosLuzPanel readOnly={isReadOnly} />}

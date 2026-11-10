@@ -30,7 +30,9 @@ import {
   Wallet,
   BookOpen,
   Landmark,
+  Eye,
 } from 'lucide-react';
+import EventoSlideView, { EventoInformeData } from '@/components/eventos/EventoSlideView';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +76,11 @@ export default function ComisionDirectivaPage() {
   const [showDetalleParticulares, setShowDetalleParticulares] = useState(false);
   const [showDetalleProfesor, setShowDetalleProfesor] = useState(false);
   const [showDetalleSocios, setShowDetalleSocios] = useState(false);
+  const [showDetalleEventos, setShowDetalleEventos] = useState(true);
+
+  // Modal para ver diapositiva desde comisión directiva
+  const [slideModalOpen, setSlideModalOpen] = useState(false);
+  const [selectedEventoSlide, setSelectedEventoSlide] = useState<EventoInformeData | null>(null);
 
   // Estado de descarga de paquete ZIP
   const [downloadingZip, setDownloadingZip] = useState(false);
@@ -959,6 +966,82 @@ export default function ComisionDirectivaPage() {
         </section>
 
         {/* =========================================================================
+            SECCIÓN EXTRA: INFORMES DE TORNEOS, INTERCLUBES Y EVENTOS
+            ========================================================================= */}
+        <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-[#18181B] border-b border-[#242428] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <Trophy size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  Balances de Torneos, Interclubes y Eventos
+                </h2>
+                <p className="text-xs text-[#888888]">
+                  Informes oficiales de recaudación deportiva, cantina e insumos con diseño institucional
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDetalleEventos((prev) => !prev)}
+              className="text-xs h-8 text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 gap-1.5 font-bold"
+            >
+              <span>{showDetalleEventos ? 'Ocultar informes' : 'Ver informes'}</span>
+              {showDetalleEventos ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </Button>
+          </div>
+
+          {showDetalleEventos && (
+            <div className="p-4 sm:p-5 space-y-4">
+              {!data?.eventos || data.eventos.length === 0 ? (
+                <div className="py-8 text-center text-xs text-[#777] italic">
+                  No se registraron informes de eventos hasta el momento.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {data.eventos.map((ev: any) => (
+                    <div
+                      key={ev.id}
+                      className="bg-[#18181C] border border-[#2A2A30] hover:border-amber-500/40 p-4 rounded-xl flex flex-col justify-between transition-all gap-3"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-black uppercase text-white truncate">{ev.titulo}</span>
+                          <span className="text-xs font-mono font-black text-[#FFCC00]">
+                            {formatCurrency(ev.totalNeto || 0)}
+                          </span>
+                        </div>
+                        {ev.subtitulo && (
+                          <p className="text-[11px] font-semibold text-amber-400/90 uppercase mt-0.5">{ev.subtitulo}</p>
+                        )}
+                        <p className="text-[11px] text-[#888] italic font-serif mt-1">{ev.fechaTexto}</p>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedEventoSlide(ev);
+                          setSlideModalOpen(true);
+                        }}
+                        className="bg-[#222228] hover:bg-amber-500 hover:text-black border border-[#303038] text-white text-xs font-bold h-8 px-3 gap-1.5 w-full transition-all"
+                      >
+                        <Eye size={14} className="text-amber-400" />
+                        <span>Ver Diapositiva / Imprimir</span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* =========================================================================
             SECCIÓN 2: ESCUELA DE TENIS (TOTALES POR GRUPO, RECAUDADO Y LISTADO LIMPIO)
             ========================================================================= */}
         <section className="bg-[#141416] border border-[#242428] rounded-2xl overflow-hidden shadow-lg">
@@ -1528,6 +1611,13 @@ export default function ComisionDirectivaPage() {
           Documentación para uso exclusivo de la Comisión Directiva del Club
         </p>
       </footer>
+
+      {/* Modal Diapositiva para Comisión Directiva */}
+      <EventoSlideView
+        evento={selectedEventoSlide}
+        open={slideModalOpen}
+        onOpenChange={setSlideModalOpen}
+      />
     </div>
   );
 }
