@@ -189,7 +189,10 @@ export async function GET(request: Request) {
         if (dni === '123987456') {
           const guestInfo: any = invitadosDatosArray[guestDataIndex] || {};
           guestDataIndex++;
-          const nomInv = guestInfo.nombre ? `Invitado: ${guestInfo.nombre}` : 'Invitado Especial';
+          let nomInv = guestInfo.nombre ? `Invitado: ${guestInfo.nombre}` : 'Invitado Especial';
+          if (guestInfo.dni) {
+            nomInv += ` (DNI ${guestInfo.dni})`;
+          }
           return {
             dni: guestInfo.dni || '123987456',
             nombre: nomInv,
@@ -214,7 +217,7 @@ export async function GET(request: Request) {
       let acompTexto = t.acompanante;
       if (acompTexto && invitadosDatosArray.length > 0) {
         let gIdx = 0;
-        // Reemplazar ocurrencias de "Invitado Especial" o "Especial, I." con el nombre si existe
+        // Reemplazar ocurrencias de "Invitado Especial" o "Especial, I." con el nombre y DNI si existe
         acompTexto = acompTexto
           .split('/')
           .map((part: string) => {
@@ -223,7 +226,7 @@ export async function GET(request: Request) {
               const gInfo = invitadosDatosArray[gIdx];
               gIdx++;
               if (gInfo && gInfo.nombre) {
-                return `Invitado: ${gInfo.nombre}`;
+                return gInfo.dni ? `Invitado: ${gInfo.nombre} (DNI ${gInfo.dni})` : `Invitado: ${gInfo.nombre}`;
               }
             }
             return pTrim;
