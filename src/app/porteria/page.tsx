@@ -363,17 +363,33 @@ export default function PorteriaPage() {
               /* Turno normal de Socios: SOLO NOMBRES DE JUGADORES (Sin DNI, Sin Teléfono) */
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[15px] font-black text-white truncate tracking-tight">
+                  <span className="text-[15px] font-black text-white tracking-tight">
                     {turno.titularNombre}
                   </span>
                 </div>
 
                 {turno.acompanante ? (
-                  <div className="text-sm font-extrabold text-blue-100 flex items-center gap-1.5 truncate bg-[#1E1E26] px-2.5 py-1 rounded-lg border border-[#353545] shadow-xs">
-                    <Users className="h-4 w-4 text-blue-400 shrink-0" />
-                    <span className="truncate">
-                      + <span className="font-black text-white">{turno.acompanante}</span>
-                    </span>
+                  <div className="text-xs sm:text-[13px] font-medium text-blue-100 flex items-start gap-1.5 bg-[#1E1E26] px-2.5 py-1.5 rounded-lg border border-[#353545] shadow-xs">
+                    <Users className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+                    <div className="flex flex-wrap items-center gap-1.5 leading-snug">
+                      <span className="text-[#888899] font-bold text-xs">+</span>
+                      {turno.acompanante.split('/').map((item, aIdx) => {
+                        const trimmed = item.trim();
+                        const esInvitado = trimmed.toLowerCase().includes('invitado');
+                        return (
+                          <span
+                            key={aIdx}
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
+                              esInvitado
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : 'bg-white/10 text-white border border-white/15'
+                            }`}
+                          >
+                            {trimmed}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : turno.participantes.filter((p) => !p.esTitular).length > 0 ? (
                   <div className="space-y-1">
@@ -382,11 +398,12 @@ export default function PorteriaPage() {
                       .map((p, pIdx) => (
                         <div
                           key={pIdx}
-                          className="text-sm font-extrabold text-blue-100 flex items-center gap-1.5 truncate bg-[#1E1E26] px-2.5 py-1 rounded-lg border border-[#353545] shadow-xs"
+                          className="text-xs sm:text-[13px] font-medium text-blue-100 flex items-center gap-1.5 bg-[#1E1E26] px-2.5 py-1 rounded-lg border border-[#353545] shadow-xs"
                         >
                           <Users className="h-4 w-4 text-blue-400 shrink-0" />
-                          <span className="truncate">
-                            + <span className="font-black text-white">{p.nombre}</span>
+                          <span className="text-[#888899] font-bold text-xs">+</span>
+                          <span className="font-bold text-white bg-white/10 px-2 py-0.5 rounded border border-white/15">
+                            {p.nombre}
                           </span>
                         </div>
                       ))}
@@ -730,15 +747,15 @@ export default function PorteriaPage() {
         <div className="space-y-3 pt-1">
           {/* Encabezado de Columnas (visible en desktop/tablets) */}
           <div className="hidden md:grid md:grid-cols-12 gap-3 px-4 py-2.5 bg-[#111113] border border-[#24242A] rounded-xl text-xs font-black uppercase tracking-wider text-[#888]">
-            <div className="col-span-3 flex items-center gap-1.5">
+            <div className="col-span-2 flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-blue-400" />
-              <span>Horario del Turno</span>
+              <span>Horario</span>
             </div>
-            <div className="col-span-4 lg:col-span-4 flex items-center gap-1.5 text-emerald-400">
+            <div className="col-span-5 flex items-center gap-1.5 text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
               <span>Cancha 1</span>
             </div>
-            <div className="col-span-5 lg:col-span-5 flex items-center gap-1.5 text-blue-400">
+            <div className="col-span-5 flex items-center gap-1.5 text-blue-400">
               <span className="w-2 h-2 rounded-full bg-blue-400"></span>
               <span>Cancha 2</span>
             </div>
@@ -793,8 +810,8 @@ export default function PorteriaPage() {
                     }`}
                   >
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                      {/* COLUMNA 1: HORARIO (3 columnas en desktop) */}
-                      <div className="md:col-span-3 flex md:flex-col items-center md:items-start justify-between md:justify-center border-b md:border-b-0 pb-2 md:pb-0 border-[#26262B]">
+                      {/* COLUMNA 1: HORARIO (2 columnas en desktop) */}
+                      <div className="md:col-span-2 flex md:flex-col items-center md:items-start justify-between md:justify-center border-b md:border-b-0 pb-2 md:pb-0 border-[#26262B]">
                         <div>
                           <span className="text-base sm:text-lg font-black font-mono text-white tracking-tight">
                             {shift.label}
@@ -805,14 +822,14 @@ export default function PorteriaPage() {
                           <div className="pt-1.5">
                             <Badge className="bg-emerald-500 text-black border-emerald-400 text-[10px] font-black px-2 py-0.5 flex items-center gap-1 animate-pulse">
                               <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
-                              EN JUEGO AHORA
+                              EN JUEGO
                             </Badge>
                           </div>
                         )}
                       </div>
 
-                      {/* COLUMNA 2: CANCHA 1 (4 o 5 columnas en desktop) */}
-                      <div className="md:col-span-4 lg:col-span-4">
+                      {/* COLUMNA 2: CANCHA 1 (5 columnas en desktop) */}
+                      <div className="md:col-span-5">
                         <div className="md:hidden text-[10px] font-black uppercase text-emerald-400 mb-1">
                           Cancha 1
                         </div>
@@ -820,7 +837,7 @@ export default function PorteriaPage() {
                       </div>
 
                       {/* COLUMNA 3: CANCHA 2 (5 columnas en desktop) */}
-                      <div className="md:col-span-5 lg:col-span-5">
+                      <div className="md:col-span-5">
                         <div className="md:hidden text-[10px] font-black uppercase text-blue-400 mb-1">
                           Cancha 2
                         </div>
