@@ -23,17 +23,21 @@ export async function GET(request: Request) {
     const mesParam = searchParams.get('mes');
     const anoParam = searchParams.get('ano');
 
-    // 1. Obtener tarifas activas de la configuración
+    // 1. Obtener tarifas activas y fecha de inicio de cobro de la configuración
     const configs = await db.configuracion.findMany({
       where: {
-        clave: { in: ['precio_luz_turno', 'precio_luz_profe'] },
+        clave: { in: ['precio_luz_turno', 'precio_luz_profe', 'fecha_inicio_cobro_luz'] },
       },
     });
 
     let precioLuzTurno = 6000;
     let precioLuzProfe = 3000;
+    let fechaInicioCobroLuz = '2026-11-16';
 
     for (const c of configs) {
+      if (c.clave === 'fecha_inicio_cobro_luz' && c.valor) {
+        fechaInicioCobroLuz = c.valor;
+      }
       if (c.clave === 'precio_luz_turno') {
         const val = parseFloat(c.valor);
         if (!isNaN(val) && val > 0) precioLuzTurno = val;
@@ -194,15 +198,13 @@ export async function GET(request: Request) {
       }>;
     }>();
 
-    const FECHA_INICIO_COBRO_LUZ = '2026-11-16';
-
     for (const t of turnosDb) {
       // El cargo por luz solo se genera cuando el turno ya terminó
       if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
 
       const fechaStr = extractDate(t.fecha);
-      // Turnos anteriores al 16/11/2026 quedan bonificados
-      if (fechaStr < FECHA_INICIO_COBRO_LUZ) continue;
+      // Turnos anteriores a la fecha configurada quedan bonificados
+      if (fechaStr < fechaInicioCobroLuz) continue;
 
       const horaStr = extractTime(t.horaInicio);
       const horaFinStr = extractTime(t.horaFin);

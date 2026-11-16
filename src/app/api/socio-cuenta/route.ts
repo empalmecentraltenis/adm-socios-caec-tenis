@@ -56,14 +56,23 @@ export async function GET(request: Request) {
       return hFinStr <= horaActualStr;
     };
 
-    // 1. Configuraciones de precio
+    // 1. Configuraciones de precio y fechas de inicio
     const configs = await db.configuracion.findMany({
-      where: { clave: { in: ['precio_luz_turno', 'precio_luz_profe', 'precio_invitado_extra'] } },
+      where: { clave: { in: ['precio_luz_turno', 'precio_luz_profe', 'precio_invitado_extra', 'fecha_inicio_cobro_luz', 'fecha_inicio_cobro_invitados'] } },
     });
     let precioLuzTurno = 6000;
     let precioLuzProfe = 3000;
     let precioInvitadoExtra = 10000;
+    let fechaInicioCobroLuz = '2026-11-16';
+    let fechaInicioCobroInvitados = '2026-11-16';
+
     for (const c of configs) {
+      if (c.clave === 'fecha_inicio_cobro_luz' && c.valor) {
+        fechaInicioCobroLuz = c.valor;
+      }
+      if (c.clave === 'fecha_inicio_cobro_invitados' && c.valor) {
+        fechaInicioCobroInvitados = c.valor;
+      }
       const val = parseFloat(c.valor);
       if (!isNaN(val) && val > 0) {
         if (c.clave === 'precio_luz_turno') precioLuzTurno = val;
@@ -139,13 +148,10 @@ export async function GET(request: Request) {
       fechaPago: string | null;
     }> = [];
 
-    // Fecha a partir de la cual se cobra la luz (anteriormente bonificada)
-    const FECHA_INICIO_COBRO_LUZ = '2026-11-16';
-
     for (const t of turnosAnio) {
       const fechaStr = extractDate(t.fecha);
-      // Turnos anteriores al 16/11/2026 quedan bonificados/libres de cobro
-      if (fechaStr < FECHA_INICIO_COBRO_LUZ) continue;
+      // Turnos anteriores a la fecha configurada quedan bonificados/libres de cobro
+      if (fechaStr < fechaInicioCobroLuz) continue;
 
       const horaStr = extractTime(t.horaInicio);
       if (horaStr < '19:00') continue;

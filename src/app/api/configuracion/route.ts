@@ -32,8 +32,10 @@ export async function GET() {
       cotizacion_dolar: "1000",
       precio_luz_turno: "6000",
       precio_luz_profe: "3000",
+      fecha_inicio_cobro_luz: "2026-11-16",
       precio_invitado_extra: "10000",
-      cupo_invitados_anual: "4"
+      cupo_invitados_anual: "4",
+      fecha_inicio_cobro_invitados: "2026-11-16"
     };
 
     for (const c of configs) {
@@ -62,8 +64,10 @@ export async function PUT(request: Request) {
       "cotizacion_dolar",
       "precio_luz_turno",
       "precio_luz_profe",
+      "fecha_inicio_cobro_luz",
       "precio_invitado_extra",
-      "cupo_invitados_anual"
+      "cupo_invitados_anual",
+      "fecha_inicio_cobro_invitados"
     ];
 
     for (const key of keys) {

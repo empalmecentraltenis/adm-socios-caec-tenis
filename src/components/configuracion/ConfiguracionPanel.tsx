@@ -39,8 +39,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
   const [saldoInicialEnero2026, setSaldoInicialEnero2026] = useState('0');
   const [precioLuzTurno, setPrecioLuzTurno] = useState('6000');
   const [precioLuzProfe, setPrecioLuzProfe] = useState('3000');
+  const [fechaInicioCobroLuz, setFechaInicioCobroLuz] = useState('2026-11-16');
   const [precioInvitadoExtra, setPrecioInvitadoExtra] = useState('10000');
   const [cupoInvitadosAnual, setCupoInvitadosAnual] = useState('4');
+  const [fechaInicioCobroInvitados, setFechaInicioCobroInvitados] = useState('2026-11-16');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
@@ -69,8 +71,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
         setSaldoInicialEnero2026(clean(data.saldo_inicial_enero_2026));
         setPrecioLuzTurno(clean(data.precio_luz_turno || '6000'));
         setPrecioLuzProfe(clean(data.precio_luz_profe || '3000'));
+        setFechaInicioCobroLuz(data.fecha_inicio_cobro_luz || '2026-11-16');
         setPrecioInvitadoExtra(clean(data.precio_invitado_extra || '10000'));
         setCupoInvitadosAnual(String(data.cupo_invitados_anual || '4'));
+        setFechaInicioCobroInvitados(data.fecha_inicio_cobro_invitados || '2026-11-16');
       }
     } catch (error) {
       console.error('Error al cargar configuración:', error);
@@ -93,8 +97,10 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
           saldo_inicial_enero_2026: parseCurrency(saldoInicialEnero2026),
           precio_luz_turno: parseCurrency(precioLuzTurno),
           precio_luz_profe: parseCurrency(precioLuzProfe),
+          fecha_inicio_cobro_luz: fechaInicioCobroLuz,
           precio_invitado_extra: parseCurrency(precioInvitadoExtra),
           cupo_invitados_anual: parseInt(cupoInvitadosAnual) || 4,
+          fecha_inicio_cobro_invitados: fechaInicioCobroInvitados,
         }),
       });
 
@@ -464,6 +470,28 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+          <Card className="bg-[#1E1E1E] border-amber-400/20 md:col-span-2">
+            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-500/5 rounded-xl border border-amber-500/15">
+              <div>
+                <Label className="text-white text-xs font-bold block">
+                  Fecha a partir de la cual se liquida el cobro de Luz
+                </Label>
+                <p className="text-[#888888] text-[11px] mt-0.5">
+                  Los turnos nocturnos jugados antes de esta fecha quedan 100% bonificados.
+                </p>
+              </div>
+              <div className="w-full sm:w-48 shrink-0">
+                <Input
+                  type="date"
+                  disabled={readOnly}
+                  value={fechaInicioCobroLuz}
+                  onChange={(e) => setFechaInicioCobroLuz(e.target.value)}
+                  className={`bg-[#2A2A2A] border-[#383838] text-white h-9 text-xs font-bold ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-[#1E1E1E] border-amber-400/20">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
@@ -544,6 +572,28 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+          <Card className="bg-[#1E1E1E] border-emerald-500/20 md:col-span-2">
+            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-500/5 rounded-xl border border-emerald-500/15">
+              <div>
+                <Label className="text-white text-xs font-bold block">
+                  Fecha a partir de la cual se cobra Invitado Extra
+                </Label>
+                <p className="text-[#888888] text-[11px] mt-0.5">
+                  Las invitaciones que excedan el cupo anual antes de esta fecha quedan bonificadas.
+                </p>
+              </div>
+              <div className="w-full sm:w-48 shrink-0">
+                <Input
+                  type="date"
+                  disabled={readOnly}
+                  value={fechaInicioCobroInvitados}
+                  onChange={(e) => setFechaInicioCobroInvitados(e.target.value)}
+                  className={`bg-[#2A2A2A] border-[#383838] text-white h-9 text-xs font-bold ${readOnly ? 'opacity-80 cursor-not-allowed' : ''}`}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="bg-[#1E1E1E] border-emerald-500/20">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">

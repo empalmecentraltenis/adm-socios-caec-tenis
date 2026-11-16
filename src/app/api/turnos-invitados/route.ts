@@ -13,17 +13,21 @@ export async function GET(request: Request) {
     const desdeParam = searchParams.get('desde'); // YYYY-MM-DD
     const hastaParam = searchParams.get('hasta'); // YYYY-MM-DD
 
-    // 1. Obtener tarifas y cupos configurados
+    // 1. Obtener tarifas, cupos y fecha de inicio de cobro configurados
     const configs = await db.configuracion.findMany({
       where: {
-        clave: { in: ['precio_invitado_extra', 'cupo_invitados_anual'] },
+        clave: { in: ['precio_invitado_extra', 'cupo_invitados_anual', 'fecha_inicio_cobro_invitados'] },
       },
     });
 
     let precioInvitadoExtra = 10000;
     let cupoInvitadosAnual = 4;
+    let fechaInicioCobroInvitados = '2026-11-16';
 
     for (const c of configs) {
+      if (c.clave === 'fecha_inicio_cobro_invitados' && c.valor) {
+        fechaInicioCobroInvitados = c.valor;
+      }
       if (c.clave === 'precio_invitado_extra') {
         const val = parseFloat(c.valor);
         if (!isNaN(val) && val >= 0) precioInvitadoExtra = val;
@@ -317,8 +321,8 @@ export async function GET(request: Request) {
           if (ordenActual <= cupoInvitadosAnual) {
             gratisEnTurno++;
           } else {
-            // Solo se cobra si el turno es a partir del 16/11/2026
-            if (fechaStr >= '2026-11-16') {
+            // Solo se cobra si el turno es a partir de la fecha configurada
+            if (fechaStr >= fechaInicioCobroInvitados) {
               cobradosEnTurno++;
             } else {
               gratisEnTurno++;
