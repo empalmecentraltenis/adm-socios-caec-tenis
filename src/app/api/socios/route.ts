@@ -67,7 +67,7 @@ export async function GET(request: Request) {
       vitalicio: cuotaVitalicio,
     };
 
-    const mesActualNum = ahora.getFullYear() * 12 + (ahora.getMonth() + 1);
+    const [currentYear, currentMonth] = mesActual.split("-").map(Number);
 
     const sociosConEstado = socios.map((socio) => {
       let mesesAdeudados = 0;
@@ -76,35 +76,24 @@ export async function GET(request: Request) {
         const mesesPagadosSet = new Set(socio.pagos.map((p) => p.mesPagado));
         const deudaVencida: string[] = [];
 
-        if (socio.pagos.length > 0) {
-          // El pago más reciente
-          const ultimoMesPago = socio.pagos[0].mesPagado;
-          const [y, m] = ultimoMesPago.split("-").map(Number);
-          let iterNum = y * 12 + m + 1;
-
-          while (iterNum <= mesActualNum) {
-            const curY = Math.floor((iterNum - 1) / 12);
-            const curM = ((iterNum - 1) % 12) + 1;
-            const curMesStr = `${curY}-${String(curM).padStart(2, "0")}`;
-
-            // Solo los meses anteriores al mes actual se consideran vencidos
-            if (curMesStr < mesActual && !mesesPagadosSet.has(curMesStr)) {
-              deudaVencida.push(curMesStr);
-            }
-            iterNum++;
+        for (let offset = -11; offset <= 0; offset++) {
+          let y = currentYear;
+          let m = currentMonth + offset;
+          while (m <= 0) {
+            y -= 1;
+            m += 12;
           }
-        } else {
-          // Sin pagos registrados: computar desde fecha de alta o inicio de 2026
-          const fechaAlta = socio.fechaAlta ? new Date(socio.fechaAlta) : new Date(2026, 0, 1);
-          let iterNum = fechaAlta.getFullYear() * 12 + (fechaAlta.getMonth() + 1);
-          while (iterNum <= mesActualNum) {
-            const curY = Math.floor((iterNum - 1) / 12);
-            const curM = ((iterNum - 1) % 12) + 1;
-            const curMesStr = `${curY}-${String(curM).padStart(2, "0")}`;
-            if (curMesStr < mesActual) {
-              deudaVencida.push(curMesStr);
-            }
-            iterNum++;
+          const ymStr = `${y}-${String(m).padStart(2, "0")}`;
+
+          if (socio.fechaAlta) {
+            const fechaAlta = new Date(socio.fechaAlta);
+            const fechaAltaYm = `${fechaAlta.getFullYear()}-${String(fechaAlta.getMonth() + 1).padStart(2, "0")}`;
+            if (ymStr < fechaAltaYm) continue;
+          }
+
+          // Solo meses anteriores al mes actual se consideran vencidos (o si no están pagados)
+          if (ymStr < mesActual && !mesesPagadosSet.has(ymStr)) {
+            deudaVencida.push(ymStr);
           }
         }
 
