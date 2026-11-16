@@ -39,6 +39,13 @@ export async function GET(request: Request) {
     const todayStr = toDateStr(today);
     const mesActualStr = todayStr.substring(0, 7);
 
+    // Auto-resolver turnos sin validar que hayan vencido antes de listar
+    try {
+      await db.$queryRawUnsafe(`SELECT resolver_turnos_sin_validar_sql() as res;`);
+    } catch (autoErr) {
+      console.warn('Auto-resolución QR en GET /api/sanciones:', autoErr);
+    }
+
     // 1. Obtener todas las penalizaciones con socios y turnos asociados
     const penalizacionesDb = await db.penalizacion.findMany({
       include: {

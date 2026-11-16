@@ -67,20 +67,23 @@ export async function GET(request: Request) {
       return hFinStr <= horaActualStr;
     };
 
-    // FECHA DE INICIO DE COBRO PARA LUZ E INVITADOS EXTRAS: 16 de Noviembre de 2026
-    const FECHA_INICIO_COBRO_ADICIONALES = '2026-11-16';
-
     // 1. Configuraciones
     const configuraciones = await db.configuracion.findMany();
     const getValor = (clave: string) => {
       const c = configuraciones.find((item) => item.clave === clave);
       return c ? parseFloat(c.valor) : 0;
     };
+    const getTexto = (clave: string, defVal: string) => {
+      const c = configuraciones.find((item) => item.clave === clave);
+      return c?.valor || defVal;
+    };
     const cuotaSocio = getValor("cuota_socio") || 7000;
     const cuotaAlumno = getValor("cuota_alumno") || 3500;
     const cuotaVitalicio = getValor("cuota_vitalicio") || 0;
     const precioLuzTurno = getValor("precio_luz_turno") || 6000;
     const precioInvitadoExtra = getValor("precio_invitado_extra") || 10000;
+    const fechaInicioCobroLuz = getTexto("fecha_inicio_cobro_luz", "2026-11-16");
+    const fechaInicioCobroInvitados = getTexto("fecha_inicio_cobro_invitados", "2026-11-16");
 
     const cuotaPorCategoria: Record<string, number> = {
       socio: cuotaSocio,
@@ -339,8 +342,8 @@ export async function GET(request: Request) {
           if (i <= 4) {
             bonificadosEnTurno++;
           } else {
-            // Solo se cobra si el turno es a partir del 16/11/2026
-            if (t.fecha >= FECHA_INICIO_COBRO_ADICIONALES) {
+            // Solo se cobra si el turno es a partir de la fecha configurada
+            if (t.fecha >= fechaInicioCobroInvitados) {
               conCargoEnTurno++;
             } else {
               bonificadosEnTurno++;

@@ -235,13 +235,98 @@ export async function GET(request: Request) {
     }
 
     // 6. Invitados extra
-    const invitados = pagosInvitados.map((p) => ({
+    // A) Pagos ya registrados
+    const pagosInvitadosList = pagosInvitados.map((p) => ({
       id: p.id,
       concepto: p.concepto,
       monto: p.monto,
       fechaRegistro: extractDate(p.fechaRegistro),
       metodoPago: p.metodoPago,
+      pagado: true,
     }));
+
+    // B) Turnos con invitados jugados por este socio como titular en el año
+    // Para ver cuántos caen en el cupo gratis y cuántos adeudan pago
+    const turnosTitular = turnosAnio.filter(
+      (t) => t.socioDni === dni && t.estado === 'ocupado' && esTurnoFinalizado(t.fecha, t.horaFin)
+    );
+    // Ordenar cronológicamente para calcular el orden de invitaciones del 1 al N
+    turnosTitular.sort((a, b) => {
+      const fa = extractDate(a.fecha) + ' ' + extractTime(a.horaInicio);
+      const fb = extractDate(b.fecha) + ' ' + extractTime(b.horaInicio);
+      return fa.localeCompare(fb);
+    });
+
+    let acumuladorInvitados = 0;
+    const turnosConInvitadosConCargo: Array<{
+      id: string;
+      concepto: string;
+      monto: number;
+      fechaRegistro: string;
+      metodoPago: string;
+      pagado: boolean;
+    }> = [];
+
+    // Mapear pagos de invitados por turnoId o libres
+    const pagosPorTurnoId = new Map<string, number>();
+    let pagosSinTurnoId = 0;
+    for (const p of pagosInvitados) {
+      if (p.turnoId) {
+        pagosPorTurnoId.set(p.turnoId, (pagosPorTurnoId.get(p.turnoId) || 0) + 1);
+      } else {
+        pagosSinTurnoId++;
+      }
+    }
+
+    for (const t of turnosTitular) {
+      let countInvitados = 0;
+      if (t.participantesDnis && t.participantesDnis.length > 0) {
+        countInvitados = t.participantesDnis.filter((d) => d === '123987456').length;
+      } else if (t.acompanante) {
+        const matches = t.acompanante.match(/Especial,\s*I\.|Invitado/gi);
+        countInvitados = matches ? matches.length : (t.acompanante.toLowerCase().includes('invitado') || t.acompanante.toLowerCase().includes('especial') ? 1 : 0);
+      }
+
+      if (countInvitados === 0) continue;
+
+      const fStr = extractDate(t.fecha);
+      const hStr = extractTime(t.horaInicio);
+      const cNombre = t.cancha?.nombre || `Cancha ${t.canchaId}`;
+
+      let conCargoEnTurno = 0;
+      for (let i = 1; i <= countInvitados; i++) {
+        acumuladorInvitados++;
+        // Si supera el cupo de 4 y es posterior o igual a la fecha de inicio de cobro
+        if (acumuladorInvitados > 4 && fStr >= fechaInicioCobroInvitados) {
+          conCargoEnTurno++;
+        }
+      }
+
+      if (conCargoEnTurno > 0) {
+        let pagadosEnTurno = pagosPorTurnoId.get(t.id) || 0;
+        if (pagadosEnTurno === 0 && pagosSinTurnoId > 0) {
+          const aCubrir = Math.min(conCargoEnTurno, pagosSinTurnoId);
+          pagadosEnTurno += aCubrir;
+          pagosSinTurnoId -= aCubrir;
+        }
+
+        const pendientes = Math.max(0, conCargoEnTurno - pagadosEnTurno);
+        if (pendientes > 0) {
+          turnosConInvitadosConCargo.push({
+            id: `pend_inv_${t.id}`,
+            concepto: `Invitado con cargo (${pendientes} pase/s) - Turno ${fStr} ${hStr}hs (${cNombre})`,
+            monto: pendientes * precioInvitadoExtra,
+            fechaRegistro: fStr,
+            metodoPago: 'Pendiente en mostrador',
+            pagado: false,
+          });
+        }
+      }
+    }
+
+    const totalInvitadosPendiente = turnosConInvitadosConCargo.reduce((acc, i) => acc + i.monto, 0);
+    const totalInvitadosPagado = pagosInvitadosList.reduce((acc, i) => acc + i.monto, 0);
+    const invitadosTodos = [...turnosConInvitadosConCargo, ...pagosInvitadosList];
 
     // 7. Resumen
     const totalLuzPendiente = turnosLuz
@@ -250,7 +335,6 @@ export async function GET(request: Request) {
     const totalLuzPagado = turnosLuz
       .filter((t) => t.pagado)
       .reduce((acc, t) => acc + t.montoPorSocio, 0);
-    const totalInvitadosPagado = invitados.reduce((acc, i) => acc + i.monto, 0);
 
     return NextResponse.json({
       socio: {
@@ -260,12 +344,13 @@ export async function GET(request: Request) {
         categoria: socio.categoria,
       },
       turnosLuz,
-      invitados,
+      invitados: invitadosTodos,
       resumen: {
         luzPendiente: totalLuzPendiente,
         luzPagado: totalLuzPagado,
+        invitadosPendiente: totalInvitadosPendiente,
         invitadosPagado: totalInvitadosPagado,
-        totalPendiente: totalLuzPendiente,
+        totalPendiente: totalLuzPendiente + totalInvitadosPendiente,
       },
     });
   } catch (err: any) {
