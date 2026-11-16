@@ -173,8 +173,8 @@ export async function GET(request: Request) {
       if (horaStr < '19:00') continue;
 
       const fechaStr = extractDate(t.fecha);
-      // Turnos anteriores al 16/11/2026 quedan bonificados/libres de cobro de luz
-      if (fechaStr < FECHA_INICIO_COBRO_ADICIONALES) continue;
+      // Turnos anteriores a la fecha configurada quedan bonificados/libres de cobro de luz
+      if (fechaStr < fechaInicioCobroLuz) continue;
 
       const canchaNombre = t.cancha?.nombre || `Cancha ${t.canchaId}`;
       const titularDni = t.socioDni || '';
