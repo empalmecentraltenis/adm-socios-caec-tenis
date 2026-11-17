@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Plus,
   Trash2,
@@ -21,8 +20,8 @@ import {
   Calendar,
   Save,
   Loader2,
-  AlertCircle,
-  FileText,
+  TrendingDown,
+  TrendingUp,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import { useToast } from '@/hooks/use-toast';
@@ -35,9 +34,12 @@ interface EventoModalProps {
   onSuccess: () => void;
 }
 
-interface ItemForm {
+type CategoriaRubro = 'torneo' | 'cantina' | 'otros';
+
+interface ItemFormUnificado {
   concepto: string;
   monto: string | number;
+  categoria: CategoriaRubro;
 }
 
 export default function EventoModal({
@@ -57,28 +59,9 @@ export default function EventoModal({
   const [organizador, setOrganizador] = useState('SubComision de Tenis');
   const [notas, setNotas] = useState('');
 
-  // Secciones Financieras
-  const [ingresosTorneo, setIngresosTorneo] = useState<ItemForm[]>([
-    { concepto: 'Total pago Jugadores', monto: '' },
-  ]);
-  const [egresosTorneo, setEgresosTorneo] = useState<ItemForm[]>([
-    { concepto: 'Pelotas', monto: '' },
-    { concepto: 'Hidratacion', monto: '' },
-  ]);
-
-  const [habilitarCantina, setHabilitarCantina] = useState(true);
-  const [ingresosCantina, setIngresosCantina] = useState<ItemForm[]>([
-    { concepto: 'Total Venta en Efectivo', monto: '' },
-    { concepto: 'Total Venta x Transferencia', monto: '' },
-  ]);
-  const [egresosCantina, setEgresosCantina] = useState<ItemForm[]>([
-    { concepto: 'Hamburguesas', monto: '' },
-    { concepto: 'Bebidas', monto: '' },
-  ]);
-
-  const [habilitarOtros, setHabilitarOtros] = useState(false);
-  const [ingresosOtros, setIngresosOtros] = useState<ItemForm[]>([]);
-  const [egresosOtros, setEgresosOtros] = useState<ItemForm[]>([]);
+  // Listas unificadas de Ingresos y Egresos (cada fila lleva su rubro/etiqueta)
+  const [ingresos, setIngresos] = useState<ItemFormUnificado[]>([]);
+  const [egresos, setEgresos] = useState<ItemFormUnificado[]>([]);
 
   useEffect(() => {
     if (eventoToEdit) {
@@ -97,48 +80,59 @@ export default function EventoModal({
       setOrganizador(eventoToEdit.organizador || 'SubComision de Tenis');
       setNotas(eventoToEdit.notas || '');
 
-      setIngresosTorneo(
-        eventoToEdit.ingresosTorneo?.length
-          ? eventoToEdit.ingresosTorneo.map((i) => ({ concepto: i.concepto, monto: i.monto }))
-          : [{ concepto: 'Total pago Jugadores', monto: '' }]
-      );
-      setEgresosTorneo(
-        eventoToEdit.egresosTorneo?.length
-          ? eventoToEdit.egresosTorneo.map((i) => ({ concepto: i.concepto, monto: i.monto }))
-          : [{ concepto: 'Pelotas', monto: '' }]
-      );
+      // Unificar todos los ingresos existentes con su categoría
+      const unifIngresos: ItemFormUnificado[] = [
+        ...(eventoToEdit.ingresosTorneo || []).map((i) => ({
+          concepto: i.concepto,
+          monto: i.monto,
+          categoria: 'torneo' as CategoriaRubro,
+        })),
+        ...(eventoToEdit.ingresosCantina || []).map((i) => ({
+          concepto: i.concepto,
+          monto: i.monto,
+          categoria: 'cantina' as CategoriaRubro,
+        })),
+        ...(eventoToEdit.ingresosOtros || []).map((i) => ({
+          concepto: i.concepto,
+          monto: i.monto,
+          categoria: 'otros' as CategoriaRubro,
+        })),
+      ];
 
-      const hasCantina =
-        (eventoToEdit.ingresosCantina && eventoToEdit.ingresosCantina.length > 0) ||
-        (eventoToEdit.egresosCantina && eventoToEdit.egresosCantina.length > 0);
-      setHabilitarCantina(hasCantina);
-      setIngresosCantina(
-        eventoToEdit.ingresosCantina?.length
-          ? eventoToEdit.ingresosCantina.map((i) => ({ concepto: i.concepto, monto: i.monto }))
-          : []
-      );
-      setEgresosCantina(
-        eventoToEdit.egresosCantina?.length
-          ? eventoToEdit.egresosCantina.map((i) => ({ concepto: i.concepto, monto: i.monto }))
-          : []
-      );
+      // Unificar todos los egresos existentes con su categoría
+      const unifEgresos: ItemFormUnificado[] = [
+        ...(eventoToEdit.egresosTorneo || []).map((i) => ({
+          concepto: i.concepto,
+          monto: i.monto,
+          categoria: 'torneo' as CategoriaRubro,
+        })),
+        ...(eventoToEdit.egresosCantina || []).map((i) => ({
+          concepto: i.concepto,
+          monto: i.monto,
+          categoria: 'cantina' as CategoriaRubro,
+        })),
+        ...(eventoToEdit.egresosOtros || []).map((i) => ({
+          concepto: i.concepto,
+          monto: i.monto,
+          categoria: 'otros' as CategoriaRubro,
+        })),
+      ];
 
-      const hasOtros =
-        (eventoToEdit.ingresosOtros && eventoToEdit.ingresosOtros.length > 0) ||
-        (eventoToEdit.egresosOtros && eventoToEdit.egresosOtros.length > 0);
-      setHabilitarOtros(hasOtros);
-      setIngresosOtros(
-        eventoToEdit.ingresosOtros?.length
-          ? eventoToEdit.ingresosOtros.map((i) => ({ concepto: i.concepto, monto: i.monto }))
-          : []
+      setIngresos(
+        unifIngresos.length > 0
+          ? unifIngresos
+          : [{ concepto: 'Inscripción Jugadores', monto: '', categoria: 'torneo' }]
       );
-      setEgresosOtros(
-        eventoToEdit.egresosOtros?.length
-          ? eventoToEdit.egresosOtros.map((i) => ({ concepto: i.concepto, monto: i.monto }))
-          : []
+      setEgresos(
+        unifEgresos.length > 0
+          ? unifEgresos
+          : [
+              { concepto: 'Pelotas / Hidratación', monto: '', categoria: 'torneo' },
+              { concepto: 'Bebidas / Hamburguesas', monto: '', categoria: 'cantina' },
+            ]
       );
     } else {
-      // Valores por defecto para nuevo evento
+      // Valores por defecto para nuevo evento con sugerencias típicas
       setTitulo('');
       setSubtitulo('');
       const today = new Date().toISOString().split('T')[0];
@@ -147,34 +141,27 @@ export default function EventoModal({
       setOrganizador('SubComision de Tenis');
       setNotas('');
 
-      setIngresosTorneo([{ concepto: 'Total pago Jugadores', monto: '' }]);
-      setEgresosTorneo([
-        { concepto: 'Hidratacion', monto: '' },
-        { concepto: 'Pelotas', monto: '' },
+      setIngresos([
+        { concepto: 'Total pago Jugadores', monto: '', categoria: 'torneo' },
+        { concepto: 'Venta Cantina Efectivo', monto: '', categoria: 'cantina' },
+        { concepto: 'Venta Cantina Transferencia', monto: '', categoria: 'cantina' },
       ]);
 
-      setHabilitarCantina(true);
-      setIngresosCantina([
-        { concepto: 'Total Venta en Efectivo', monto: '' },
-        { concepto: 'Total Venta x Transferencia', monto: '' },
+      setEgresos([
+        { concepto: 'Pelotas / Tubos', monto: '', categoria: 'torneo' },
+        { concepto: 'Hidratación / Frutas', monto: '', categoria: 'torneo' },
+        { concepto: 'Bebidas Cantina', monto: '', categoria: 'cantina' },
+        { concepto: 'Hamburguesas / Comida', monto: '', categoria: 'cantina' },
       ]);
-      setEgresosCantina([
-        { concepto: 'Hamburguesas', monto: '' },
-        { concepto: 'Bebidas', monto: '' },
-      ]);
-
-      setHabilitarOtros(false);
-      setIngresosOtros([]);
-      setEgresosOtros([]);
     }
   }, [eventoToEdit, open]);
 
   // Manejo de arrays dinámicos
   const handleItemChange = (
-    setter: React.Dispatch<React.SetStateAction<ItemForm[]>>,
+    setter: React.Dispatch<React.SetStateAction<ItemFormUnificado[]>>,
     index: number,
-    field: 'concepto' | 'monto',
-    value: string
+    field: 'concepto' | 'monto' | 'categoria',
+    value: any
   ) => {
     setter((prev) => {
       const next = [...prev];
@@ -183,31 +170,40 @@ export default function EventoModal({
     });
   };
 
-  const addItem = (setter: React.Dispatch<React.SetStateAction<ItemForm[]>>, defaultConcepto = '') => {
-    setter((prev) => [...prev, { concepto: defaultConcepto, monto: '' }]);
+  const addItem = (
+    setter: React.Dispatch<React.SetStateAction<ItemFormUnificado[]>>,
+    categoriaDefault: CategoriaRubro = 'torneo'
+  ) => {
+    setter((prev) => [...prev, { concepto: '', monto: '', categoria: categoriaDefault }]);
   };
 
-  const removeItem = (setter: React.Dispatch<React.SetStateAction<ItemForm[]>>, index: number) => {
+  const removeItem = (
+    setter: React.Dispatch<React.SetStateAction<ItemFormUnificado[]>>,
+    index: number
+  ) => {
     setter((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Cálculo en vivo
-  const calcSum = (list: ItemForm[]) =>
+  const calcSum = (list: ItemFormUnificado[]) =>
     list.reduce((acc, it) => acc + (parseFloat(String(it.monto)) || 0), 0);
 
-  const subTotalIngTorneo = calcSum(ingresosTorneo);
-  const subTotalEgrTorneo = calcSum(egresosTorneo);
-  const netoTorneo = subTotalIngTorneo - subTotalEgrTorneo;
+  const totalIngresos = calcSum(ingresos);
+  const totalEgresos = calcSum(egresos);
+  const totalGeneralNeto = totalIngresos - totalEgresos;
 
-  const subTotalIngCantina = habilitarCantina ? calcSum(ingresosCantina) : 0;
-  const subTotalEgrCantina = habilitarCantina ? calcSum(egresosCantina) : 0;
-  const netoCantina = subTotalIngCantina - subTotalEgrCantina;
+  // Totales por rubro para vista previa rápida
+  const getSubtotal = (list: ItemFormUnificado[], cat: CategoriaRubro) =>
+    list
+      .filter((it) => it.categoria === cat)
+      .reduce((acc, it) => acc + (parseFloat(String(it.monto)) || 0), 0);
 
-  const subTotalIngOtros = habilitarOtros ? calcSum(ingresosOtros) : 0;
-  const subTotalEgrOtros = habilitarOtros ? calcSum(egresosOtros) : 0;
-  const netoOtros = subTotalIngOtros - subTotalEgrOtros;
-
-  const totalGeneralNeto = netoTorneo + netoCantina + netoOtros;
+  const ingTorneo = getSubtotal(ingresos, 'torneo');
+  const egrTorneo = getSubtotal(egresos, 'torneo');
+  const ingCantina = getSubtotal(ingresos, 'cantina');
+  const egrCantina = getSubtotal(egresos, 'cantina');
+  const ingOtros = getSubtotal(ingresos, 'otros');
+  const egrOtros = getSubtotal(egresos, 'otros');
 
   // Guardar en la DB
   const handleSave = async (e: React.FormEvent) => {
@@ -227,15 +223,20 @@ export default function EventoModal({
 
     setSaving(true);
     try {
-      // Limpiar items vacíos
-      const cleanList = (list: ItemForm[]) =>
+      // Filtrar items vacíos
+      const cleanList = (list: ItemFormUnificado[]) =>
         list
           .filter((it) => it.concepto.trim() || (parseFloat(String(it.monto)) || 0) > 0)
           .map((it) => ({
             concepto: it.concepto.trim() || 'Concepto sin nombre',
             monto: parseFloat(String(it.monto)) || 0,
+            categoria: it.categoria,
           }));
 
+      const allIng = cleanList(ingresos);
+      const allEgr = cleanList(egresos);
+
+      // Desglosar en los arrays que almacena la base de datos y que usa la Diapositiva
       const payload = {
         titulo: titulo.trim(),
         subtitulo: subtitulo.trim() || null,
@@ -243,42 +244,43 @@ export default function EventoModal({
         fechaEvento,
         organizador: organizador.trim() || 'SubComision de Tenis',
         estado: 'finalizado',
-        ingresosTorneo: cleanList(ingresosTorneo),
-        egresosTorneo: cleanList(egresosTorneo),
-        ingresosCantina: habilitarCantina ? cleanList(ingresosCantina) : [],
-        egresosCantina: habilitarCantina ? cleanList(egresosCantina) : [],
-        ingresosOtros: habilitarOtros ? cleanList(ingresosOtros) : [],
-        egresosOtros: habilitarOtros ? cleanList(egresosOtros) : [],
+        ingresosTorneo: allIng.filter((i) => i.categoria === 'torneo').map(({ concepto, monto }) => ({ concepto, monto })),
+        egresosTorneo: allEgr.filter((i) => i.categoria === 'torneo').map(({ concepto, monto }) => ({ concepto, monto })),
+        ingresosCantina: allIng.filter((i) => i.categoria === 'cantina').map(({ concepto, monto }) => ({ concepto, monto })),
+        egresosCantina: allEgr.filter((i) => i.categoria === 'cantina').map(({ concepto, monto }) => ({ concepto, monto })),
+        ingresosOtros: allIng.filter((i) => i.categoria === 'otros').map(({ concepto, monto }) => ({ concepto, monto })),
+        egresosOtros: allEgr.filter((i) => i.categoria === 'otros').map(({ concepto, monto }) => ({ concepto, monto })),
         notas: notas.trim() || null,
       };
 
-      const url = eventoToEdit?.id
+      const endpoint = eventoToEdit?.id
         ? `/api/eventos-informes/${eventoToEdit.id}`
         : '/api/eventos-informes';
       const method = eventoToEdit?.id ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Error al guardar');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'No se pudo guardar el informe');
       }
 
       toast({
-        title: '¡Informe guardado con éxito!',
-        description: `El evento "${titulo}" se registró correctamente.`,
+        title: eventoToEdit ? 'Informe actualizado' : 'Informe creado',
+        description: `Se guardó correctamente el balance de "${titulo}".`,
       });
 
       onSuccess();
       onOpenChange(false);
     } catch (err: any) {
+      console.error(err);
       toast({
-        title: 'Error',
-        description: err.message || 'No se pudo guardar el informe del evento',
+        title: 'Error al guardar',
+        description: err.message || 'Ocurrió un error inesperado al guardar',
         variant: 'destructive',
       });
     } finally {
@@ -287,41 +289,57 @@ export default function EventoModal({
   };
 
   const renderItemRows = (
-    items: ItemForm[],
-    setter: React.Dispatch<React.SetStateAction<ItemForm[]>>,
+    items: ItemFormUnificado[],
+    setter: React.Dispatch<React.SetStateAction<ItemFormUnificado[]>>,
     placeholderConcepto: string,
     tipo: 'ingreso' | 'egreso'
   ) => (
     <div className="space-y-2">
       {items.map((item, idx) => (
-        <div key={idx} className="flex items-center gap-2">
+        <div key={idx} className="flex items-center gap-2 group bg-[#111115] p-1.5 rounded-lg border border-[#22222a] hover:border-[#353545] transition-colors">
+          {/* Selector de Rubro / Tipo */}
+          <select
+            value={item.categoria}
+            onChange={(e) => handleItemChange(setter, idx, 'categoria', e.target.value as CategoriaRubro)}
+            className="bg-[#1b1b22] border border-[#2f2f3d] text-[11px] font-bold rounded-md px-2 h-9 text-[#d0d0d8] focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+            title="Seleccionar rubro del movimiento"
+          >
+            <option value="torneo">🏆 Torneo / Evento</option>
+            <option value="cantina">☕ Cantina - Kiosco</option>
+            <option value="otros">✨ Otros / Sponsors</option>
+          </select>
+
+          {/* Concepto libre */}
           <Input
             value={item.concepto}
             onChange={(e) => handleItemChange(setter, idx, 'concepto', e.target.value)}
             placeholder={placeholderConcepto}
-            className="flex-1 bg-[#121215] border-[#2b2b35] text-xs h-9 text-white placeholder:text-[#555]"
+            className="flex-1 bg-[#16161b] border-[#2b2b35] text-xs h-9 text-white placeholder:text-[#555]"
           />
-          <div className="relative w-36 sm:w-48">
+
+          {/* Importe numérico sin flechitas */}
+          <div className="relative w-32 sm:w-44 shrink-0">
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[#777] font-bold">$</span>
             <input
               type="text"
               inputMode="decimal"
               value={item.monto === '' ? '' : item.monto}
               onChange={(e) => {
-                // Permitir escribir números o decimales libremente sin flechitas
                 const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
                 handleItemChange(setter, idx, 'monto', val);
               }}
               placeholder="0"
-              className="w-full pl-6 pr-2 bg-[#121215] border border-[#2b2b35] rounded-md text-xs h-9 text-white font-mono placeholder:text-[#555] focus:outline-none focus:ring-1 focus:ring-amber-400"
+              className="w-full pl-6 pr-2 bg-[#16161b] border border-[#2b2b35] rounded-md text-xs h-9 text-white font-mono placeholder:text-[#555] focus:outline-none focus:ring-1 focus:ring-amber-400 font-bold"
             />
           </div>
+
+          {/* Botón quitar fila */}
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => removeItem(setter, idx)}
-            className="h-9 w-9 p-0 text-[#777] hover:text-red-400 hover:bg-red-500/10 shrink-0"
+            className="h-9 w-9 p-0 text-[#666] hover:text-red-400 hover:bg-red-500/10 shrink-0"
             title="Quitar fila"
           >
             <Trash2 className="h-4 w-4" />
@@ -329,23 +347,25 @@ export default function EventoModal({
         </div>
       ))}
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => addItem(setter)}
-        className="w-full text-xs h-8 border-dashed border-[#333] hover:border-amber-400/50 hover:bg-amber-400/5 text-[#aaa] hover:text-amber-300 gap-1 mt-1"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        <span>Agregar fila de {tipo === 'ingreso' ? 'Ingreso' : 'Egreso'}</span>
-      </Button>
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => addItem(setter, 'torneo')}
+          className="flex-1 text-xs h-8 bg-[#15151a] border-dashed border-[#333] hover:border-amber-400/50 hover:bg-amber-400/5 text-[#aaa] hover:text-amber-300 gap-1.5"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>Agregar {tipo === 'ingreso' ? 'Ingreso' : 'Gasto'}</span>
+        </Button>
+      </div>
     </div>
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-[94vw] !w-[94vw] lg:!max-w-[1240px] xl:!max-w-[1340px] max-h-[92vh] bg-[#111114] border-[#26262e] text-white p-0 overflow-hidden shadow-2xl !top-[50%] !translate-y-[-50%] flex flex-col">
-        <form onSubmit={handleSave} className="flex flex-col h-full max-h-[92vh] overflow-hidden">
+      <DialogContent className="!max-w-[95vw] !w-[95vw] lg:!max-w-[1360px] xl:!max-w-[1440px] max-h-[94vh] bg-[#111114] border-[#26262e] text-white p-0 overflow-hidden shadow-2xl !top-[50%] !translate-y-[-50%] flex flex-col">
+        <form onSubmit={handleSave} className="flex flex-col h-full max-h-[94vh] overflow-hidden">
           {/* Header */}
           <DialogHeader className="p-4 sm:p-5 bg-[#16161b] border-b border-[#25252f] flex flex-row items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
@@ -357,16 +377,36 @@ export default function EventoModal({
                   {eventoToEdit ? 'Editar Informe de Evento' : 'Nuevo Informe de Torneo / Evento'}
                 </DialogTitle>
                 <p className="text-xs text-[#888894]">
-                  Cargá los ingresos y egresos para la presentación a Comisión Directiva
+                  Carga unificada de ingresos y gastos de torneos, cantina y otros para Comisión Directiva
                 </p>
+              </div>
+            </div>
+
+            {/* Resumen rápido en header */}
+            <div className="hidden md:flex items-center gap-4 bg-[#101013] px-4 py-2 rounded-xl border border-[#252530] text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#888]">Ingresos:</span>
+                <span className="font-mono font-bold text-emerald-400">{formatCurrency(totalIngresos)}</span>
+              </div>
+              <div className="h-4 w-px bg-[#2b2b35]" />
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#888]">Egresos:</span>
+                <span className="font-mono font-bold text-red-400">{formatCurrency(totalEgresos)}</span>
+              </div>
+              <div className="h-4 w-px bg-[#2b2b35]" />
+              <div className="flex items-center gap-1.5 font-bold">
+                <span className="text-amber-300">Resultado:</span>
+                <span className={`font-mono text-sm ${totalGeneralNeto >= 0 ? 'text-[#FFCC00]' : 'text-red-400'}`}>
+                  {formatCurrency(totalGeneralNeto)}
+                </span>
               </div>
             </div>
           </DialogHeader>
 
-          {/* Formulario con Tabs */}
-          <div className="p-5 overflow-y-auto space-y-5 flex-1">
+          {/* Formulario Unificado */}
+          <div className="p-4 sm:p-5 overflow-y-auto space-y-5 flex-1">
             {/* SECCIÓN 1: DATOS BÁSICOS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#141419] p-4 rounded-xl border border-[#23232c]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-[#141419] p-4 rounded-xl border border-[#23232c]">
               <div className="sm:col-span-2">
                 <Label className="text-xs text-[#aaa] font-bold">
                   Título del Evento / Torneo <span className="text-amber-400">*</span>
@@ -375,7 +415,7 @@ export default function EventoModal({
                   required
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  placeholder="Ej: INTERCLUBES, TORNEO DOBLE MIXTO PRIMAVERA"
+                  placeholder="Ej: INTERCLUBES, PEÑA TENIS, TORNEO PRIMAVERA"
                   className="mt-1 bg-[#101013] border-[#2c2c36] text-sm h-10 text-white font-bold"
                 />
               </div>
@@ -386,7 +426,7 @@ export default function EventoModal({
                   value={subtitulo}
                   onChange={(e) => setSubtitulo(e.target.value)}
                   placeholder="Ej: JORNADA DE INTEGRACION ENTRE CLUBES"
-                  className="mt-1 bg-[#101013] border-[#2c2c36] text-xs h-9 text-white"
+                  className="mt-1 bg-[#101013] border-[#2c2c36] text-xs h-10 text-white"
                 />
               </div>
 
@@ -396,11 +436,11 @@ export default function EventoModal({
                   value={organizador}
                   onChange={(e) => setOrganizador(e.target.value)}
                   placeholder="SubComision de Tenis"
-                  className="mt-1 bg-[#101013] border-[#2c2c36] text-xs h-9 text-white"
+                  className="mt-1 bg-[#101013] border-[#2c2c36] text-xs h-10 text-white"
                 />
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 <Label className="text-xs text-[#aaa]">
                   Texto de Fecha en Diapositiva <span className="text-amber-400">*</span>
                 </Label>
@@ -413,7 +453,7 @@ export default function EventoModal({
                 />
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 <Label className="text-xs text-[#aaa]">
                   Fecha Calendario (Para orden cronológico) <span className="text-amber-400">*</span>
                 </Label>
@@ -427,149 +467,80 @@ export default function EventoModal({
               </div>
             </div>
 
-            {/* SECCIÓN 2: TABS DE INGRESOS Y EGRESOS */}
-            <Tabs defaultValue="torneo" className="w-full">
-              <TabsList className="grid grid-cols-3 bg-[#16161b] border border-[#262630] p-1 rounded-xl">
-                <TabsTrigger value="torneo" className="text-xs font-bold gap-1.5 data-[state=active]:bg-amber-500 data-[state=active]:text-black">
-                  <Trophy className="h-3.5 w-3.5" />
-                  <span>1. Torneo / Deportivo</span>
-                </TabsTrigger>
-                <TabsTrigger value="cantina" className="text-xs font-bold gap-1.5 data-[state=active]:bg-amber-500 data-[state=active]:text-black">
-                  <Coffee className="h-3.5 w-3.5" />
-                  <span>2. Cantina - Kiosco</span>
-                </TabsTrigger>
-                <TabsTrigger value="otros" className="text-xs font-bold gap-1.5 data-[state=active]:bg-amber-500 data-[state=active]:text-black">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>3. Otros / Sponsors</span>
-                </TabsTrigger>
-              </TabsList>
-
-              {/* TAB 1: TORNEO */}
-              <TabsContent value="torneo" className="mt-3 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Ingresos Torneo */}
-                  <div className="bg-[#141418] border border-[#23232b] rounded-xl p-3.5 space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-[#24242e] pb-2">
-                      <span className="text-xs font-black uppercase text-amber-300">Ingresos Torneo</span>
-                      <span className="text-xs font-mono font-bold text-emerald-400">{formatCurrency(subTotalIngTorneo)}</span>
+            {/* SECCIÓN 2: PLANILLA UNIFICADA DE INGRESOS Y EGRESOS A DOS COLUMNAS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* COLUMNA IZQUIERDA: INGRESOS UNIFICADOS */}
+              <div className="bg-[#141418] border border-[#23232b] rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#24242e] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                        <TrendingUp className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
+                        Todos los Ingresos
+                      </span>
                     </div>
-                    {renderItemRows(ingresosTorneo, setIngresosTorneo, 'Ej: Total pago Jugadores', 'ingreso')}
+                    <span className="text-sm font-mono font-bold text-emerald-400">
+                      {formatCurrency(totalIngresos)}
+                    </span>
                   </div>
 
-                  {/* Egresos Torneo */}
-                  <div className="bg-[#141418] border border-[#23232b] rounded-xl p-3.5 space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-[#24242e] pb-2">
-                      <span className="text-xs font-black uppercase text-amber-400">Egresos Torneo</span>
-                      <span className="text-xs font-mono font-bold text-red-400">{formatCurrency(subTotalEgrTorneo)}</span>
+                  <p className="text-[11px] text-[#777]">
+                    Podés cargar inscripciones, venta de cantina o auspicios. Elegí el rubro de cada fila con el desplegable.
+                  </p>
+
+                  {renderItemRows(ingresos, setIngresos, 'Ej: Venta de Pollos, Jugadores, etc.', 'ingreso')}
+                </div>
+
+                {/* Subtotales informativos de Ingresos */}
+                <div className="pt-2 border-t border-[#1e1e24] flex items-center justify-between text-[11px] text-[#888] flex-wrap gap-2">
+                  <span>🏆 Torneo: <b className="text-white font-mono">{formatCurrency(ingTorneo)}</b></span>
+                  <span>☕ Cantina: <b className="text-white font-mono">{formatCurrency(ingCantina)}</b></span>
+                  {ingOtros > 0 && <span>✨ Otros: <b className="text-white font-mono">{formatCurrency(ingOtros)}</b></span>}
+                </div>
+              </div>
+
+              {/* COLUMNA DERECHA: EGRESOS UNIFICADOS */}
+              <div className="bg-[#141418] border border-[#23232b] rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#24242e] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                        <TrendingDown className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-wider text-red-300">
+                        Todos los Gastos / Egresos
+                      </span>
                     </div>
-                    {renderItemRows(egresosTorneo, setEgresosTorneo, 'Ej: Pelotas, Hidratación', 'egreso')}
+                    <span className="text-sm font-mono font-bold text-red-400">
+                      {formatCurrency(totalEgresos)}
+                    </span>
                   </div>
+
+                  <p className="text-[11px] text-[#777]">
+                    Cargá pelotas, hidratación, verdulería, limpieza o compras de cantina.
+                  </p>
+
+                  {renderItemRows(egresos, setEgresos, 'Ej: Pelotas, Hamburguesas, Limpieza, etc.', 'egreso')}
                 </div>
 
-                <div className="bg-[#18181f] border border-[#292934] p-3 rounded-lg flex items-center justify-between text-xs">
-                  <span className="font-bold text-white uppercase">Resultado Neto Torneo:</span>
-                  <span className="font-mono font-black text-sm text-amber-300">{formatCurrency(netoTorneo)}</span>
+                {/* Subtotales informativos de Egresos */}
+                <div className="pt-2 border-t border-[#1e1e24] flex items-center justify-between text-[11px] text-[#888] flex-wrap gap-2">
+                  <span>🏆 Torneo: <b className="text-white font-mono">{formatCurrency(egrTorneo)}</b></span>
+                  <span>☕ Cantina: <b className="text-white font-mono">{formatCurrency(egrCantina)}</b></span>
+                  {egrOtros > 0 && <span>✨ Otros: <b className="text-white font-mono">{formatCurrency(egrOtros)}</b></span>}
                 </div>
-              </TabsContent>
+              </div>
+            </div>
 
-              {/* TAB 2: CANTINA */}
-              <TabsContent value="cantina" className="mt-3 space-y-4">
-                <div className="flex items-center justify-between bg-[#15151a] p-3 rounded-lg border border-[#24242e]">
-                  <div className="text-xs">
-                    <span className="font-bold text-white block">¿Incluye recaudación de Cantina / Kiosco?</span>
-                    <span className="text-[#888]">Activá este tilde para agregar la segunda tabla de venta de comida y bebidas.</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={habilitarCantina}
-                    onChange={(e) => setHabilitarCantina(e.target.checked)}
-                    className="w-5 h-5 rounded border-zinc-700 text-amber-500 focus:ring-amber-400"
-                  />
-                </div>
-
-                {habilitarCantina && (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Ingresos Cantina */}
-                      <div className="bg-[#141418] border border-[#23232b] rounded-xl p-3.5 space-y-2.5">
-                        <div className="flex items-center justify-between border-b border-[#24242e] pb-2">
-                          <span className="text-xs font-black uppercase text-amber-300">Ingresos Cantina</span>
-                          <span className="text-xs font-mono font-bold text-emerald-400">{formatCurrency(subTotalIngCantina)}</span>
-                        </div>
-                        {renderItemRows(ingresosCantina, setIngresosCantina, 'Ej: Venta en Efectivo / Transferencia', 'ingreso')}
-                      </div>
-
-                      {/* Egresos Cantina */}
-                      <div className="bg-[#141418] border border-[#23232b] rounded-xl p-3.5 space-y-2.5">
-                        <div className="flex items-center justify-between border-b border-[#24242e] pb-2">
-                          <span className="text-xs font-black uppercase text-amber-400">Egresos Cantina</span>
-                          <span className="text-xs font-mono font-bold text-red-400">{formatCurrency(subTotalEgrCantina)}</span>
-                        </div>
-                        {renderItemRows(egresosCantina, setEgresosCantina, 'Ej: Hamburguesas, Bebidas, Limpieza', 'egreso')}
-                      </div>
-                    </div>
-
-                    <div className="bg-[#18181f] border border-[#292934] p-3 rounded-lg flex items-center justify-between text-xs">
-                      <span className="font-bold text-white uppercase">Resultado Neto Cantina:</span>
-                      <span className="font-mono font-black text-sm text-amber-300">{formatCurrency(netoCantina)}</span>
-                    </div>
-                  </>
-                )}
-              </TabsContent>
-
-              {/* TAB 3: OTROS / SPONSORS */}
-              <TabsContent value="otros" className="mt-3 space-y-4">
-                <div className="flex items-center justify-between bg-[#15151a] p-3 rounded-lg border border-[#24242e]">
-                  <div className="text-xs">
-                    <span className="font-bold text-white block">¿Hay otros ingresos o gastos especiales?</span>
-                    <span className="text-[#888]">Podés registrar sponsors publicitarios, premios comprados, carpas o sonido.</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={habilitarOtros}
-                    onChange={(e) => setHabilitarOtros(e.target.checked)}
-                    className="w-5 h-5 rounded border-zinc-700 text-amber-500 focus:ring-amber-400"
-                  />
-                </div>
-
-                {habilitarOtros && (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Otros Ingresos */}
-                      <div className="bg-[#141418] border border-[#23232b] rounded-xl p-3.5 space-y-2.5">
-                        <div className="flex items-center justify-between border-b border-[#24242e] pb-2">
-                          <span className="text-xs font-black uppercase text-amber-300">Auspiciantes / Sponsors</span>
-                          <span className="text-xs font-mono font-bold text-emerald-400">{formatCurrency(subTotalIngOtros)}</span>
-                        </div>
-                        {renderItemRows(ingresosOtros, setIngresosOtros, 'Ej: Sponsor Banco Mutual', 'ingreso')}
-                      </div>
-
-                      {/* Otros Egresos */}
-                      <div className="bg-[#141418] border border-[#23232b] rounded-xl p-3.5 space-y-2.5">
-                        <div className="flex items-center justify-between border-b border-[#24242e] pb-2">
-                          <span className="text-xs font-black uppercase text-amber-400">Otros Egresos Puntuales</span>
-                          <span className="text-xs font-mono font-bold text-red-400">{formatCurrency(subTotalEgrOtros)}</span>
-                        </div>
-                        {renderItemRows(egresosOtros, setEgresosOtros, 'Ej: Trofeos y Medallas', 'egreso')}
-                      </div>
-                    </div>
-
-                    <div className="bg-[#18181f] border border-[#292934] p-3 rounded-lg flex items-center justify-between text-xs">
-                      <span className="font-bold text-white uppercase">Resultado Neto Otros Rubros:</span>
-                      <span className="font-mono font-black text-sm text-amber-300">{formatCurrency(netoOtros)}</span>
-                    </div>
-                  </>
-                )}
-              </TabsContent>
-            </Tabs>
-
-            {/* SECCIÓN 3: NOTAS */}
+            {/* SECCIÓN 3: NOTAS Y OBSERVACIONES */}
             <div>
               <Label className="text-xs text-[#aaa]">Observaciones o notas adicionales</Label>
               <Input
                 value={notas}
                 onChange={(e) => setNotas(e.target.value)}
-                placeholder="Ej: Se contó con la participación de 4 clubes de la zona..."
+                placeholder="Ej: Se contó con la participación de 33 personas, 4 clubes de la zona..."
                 className="mt-1 bg-[#101013] border-[#2c2c36] text-xs h-9 text-white"
               />
             </div>
@@ -578,10 +549,14 @@ export default function EventoModal({
           {/* Footer Fijo con Totales y Botón Guardar */}
           <DialogFooter className="p-4 bg-[#141418] border-t border-[#25252f] flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-              <span className="text-xs text-[#888] uppercase font-bold tracking-wider">
+              <span className="text-xs uppercase tracking-wider text-[#888] font-bold">
                 Recaudación Total para Subcomisión:
               </span>
-              <span className="text-lg font-black font-mono text-[#FFCC00] bg-black/40 px-3 py-1 rounded-lg border border-[#FFCC00]/30">
+              <span className={`text-base font-black font-mono px-3 py-1 rounded-lg border ${
+                totalGeneralNeto >= 0
+                  ? 'text-[#FFCC00] bg-black/40 border-[#FFCC00]/30'
+                  : 'text-red-400 bg-red-950/30 border-red-500/30'
+              }`}>
                 {formatCurrency(totalGeneralNeto)}
               </span>
             </div>
@@ -622,4 +597,3 @@ export default function EventoModal({
     </Dialog>
   );
 }
-
