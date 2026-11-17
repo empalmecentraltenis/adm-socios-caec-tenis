@@ -446,6 +446,87 @@ export async function GET(request: Request) {
       return b.totalInvitadosAnio - a.totalInvitadosAnio;
     });
 
+    // Construir Ranking de Personas Invitadas (agrupadas por nombre/dni del invitado)
+    const personasInvitadasMap = new Map<string, {
+      nombre: string;
+      dni: string;
+      totalPartidos: number;
+      sociosQueInvitaron: Map<string, { dni: string; nombre: string; cantidad: number }>;
+      turnosDetalle: Array<{
+        turnoId: string;
+        fecha: string;
+        horario: string;
+        cancha: string;
+        socioTitular: { dni: string; nombre: string };
+      }>;
+      primerTurno: string;
+      ultimoTurno: string;
+    }>();
+
+    for (const t of turnosDetallePeriodo) {
+      for (const j of t.jugadores) {
+        if (!j.esInvitado) continue;
+        const nombreLimpio = j.nombre.replace(/^Invitado:\s*/i, '').trim();
+        const dniLimpio = (j.dniInvitado || '').trim();
+        // Usar clave única: DNI si existe o Nombre en minúsculas
+        const key = dniLimpio || nombreLimpio.toLowerCase();
+        if (!key) continue;
+
+        let entry = personasInvitadasMap.get(key);
+        if (!entry) {
+          entry = {
+            nombre: nombreLimpio || 'Invitado sin nombre',
+            dni: dniLimpio,
+            totalPartidos: 0,
+            sociosQueInvitaron: new Map(),
+            turnosDetalle: [],
+            primerTurno: t.fecha,
+            ultimoTurno: t.fecha,
+          };
+          personasInvitadasMap.set(key, entry);
+        }
+
+        entry.totalPartidos++;
+        if (t.fecha < entry.primerTurno) entry.primerTurno = t.fecha;
+        if (t.fecha > entry.ultimoTurno) entry.ultimoTurno = t.fecha;
+
+        // Registrar socio titular que lo invitó
+        const titularDni = t.titular.dni;
+        const titularNombre = t.titular.nombre;
+        const socioData = entry.sociosQueInvitaron.get(titularDni) || {
+          dni: titularDni,
+          nombre: titularNombre,
+          cantidad: 0,
+        };
+        socioData.cantidad++;
+        entry.sociosQueInvitaron.set(titularDni, socioData);
+
+        // Turno
+        entry.turnosDetalle.push({
+          turnoId: t.id,
+          fecha: t.fecha,
+          horario: t.horario,
+          cancha: t.canchaNombre,
+          socioTitular: { dni: titularDni, nombre: titularNombre },
+        });
+      }
+    }
+
+    const personasInvitadasRanking = Array.from(personasInvitadasMap.values())
+      .map((p) => ({
+        nombre: p.nombre,
+        dni: p.dni,
+        totalPartidos: p.totalPartidos,
+        primerTurno: p.primerTurno,
+        ultimoTurno: p.ultimoTurno,
+        sociosQueInvitaron: Array.from(p.sociosQueInvitaron.values()).sort((a, b) => b.cantidad - a.cantidad),
+        turnosDetalle: p.turnosDetalle.sort((a, b) => b.fecha.localeCompare(a.fecha)),
+      }))
+      .sort((a, b) => {
+        if (b.totalPartidos !== a.totalPartidos) return b.totalPartidos - a.totalPartidos;
+        return a.nombre.localeCompare(b.nombre);
+      });
+
     // KPIs globales del período
     const totalRecaudado = sociosAcumuladoPeriodo.reduce((acc, s) => acc + (s.totalPagado || 0), 0);
     const totalPendienteCobro = sociosAcumuladoPeriodo.reduce((acc, s) => acc + s.totalACobrar, 0);
@@ -475,9 +556,11 @@ export async function GET(request: Request) {
         totalInvitadosCobrados,
         sociosConCargo,
         totalSociosParticipantes: sociosAcumuladoPeriodo.length,
+        totalPersonasInvitadasUnicas: personasInvitadasRanking.length,
       },
       turnos: turnosDetallePeriodo,
       sociosAcumulado: sociosAcumuladoPeriodo,
+      personasInvitadasRanking,
     });
   } catch (error) {
     console.error('Error al consultar turnos con invitados:', error);

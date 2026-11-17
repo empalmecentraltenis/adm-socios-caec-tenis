@@ -48,6 +48,8 @@ import {
   ChevronUp,
   AlertCircle,
   Ticket,
+  UserCheck,
+  Award,
 } from 'lucide-react';
 import {
   format,
@@ -139,6 +141,26 @@ interface TurnoInvitadoItem {
   textoCupo?: string;
 }
 
+interface PersonaInvitadaRanking {
+  nombre: string;
+  dni: string;
+  totalPartidos: number;
+  primerTurno: string;
+  ultimoTurno: string;
+  sociosQueInvitaron: Array<{
+    dni: string;
+    nombre: string;
+    cantidad: number;
+  }>;
+  turnosDetalle: Array<{
+    turnoId: string;
+    fecha: string;
+    horario: string;
+    cancha: string;
+    socioTitular: { dni: string; nombre: string };
+  }>;
+}
+
 interface ApiResponse {
   periodo: {
     tipo: 'mes' | 'semana' | 'dia' | 'anio';
@@ -158,9 +180,11 @@ interface ApiResponse {
     totalInvitadosCobrados: number;
     sociosConCargo: number;
     totalSociosParticipantes: number;
+    totalPersonasInvitadasUnicas?: number;
   };
   turnos: TurnoInvitadoItem[];
   sociosAcumulado: SocioInvitadoAcumulado[];
+  personasInvitadasRanking?: PersonaInvitadaRanking[];
 }
 
 interface InvitadosPanelProps {
@@ -177,8 +201,10 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
   const [loading, setLoading] = useState<boolean>(true);
 
   const [searchSocio, setSearchSocio] = useState<string>('');
-  const [vista, setVista] = useState<'acumulado' | 'detalle'>('acumulado');
+  const [searchInvitado, setSearchInvitado] = useState<string>('');
+  const [vista, setVista] = useState<'acumulado' | 'detalle' | 'ranking_personas'>('acumulado');
   const [expandedSocioId, setExpandedSocioId] = useState<string | null>(null);
+  const [expandedInvitadoKey, setExpandedInvitadoKey] = useState<string | null>(null);
 
   // Modal para edición de tarifas de invitados
   const [editTarifasOpen, setEditTarifasOpen] = useState<boolean>(false);
@@ -327,6 +353,19 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
         (s.dni && s.dni.includes(q))
     );
   }, [data?.sociosAcumulado, searchSocio]);
+
+  // Personas invitadas filtradas por buscador
+  const personasInvitadasFiltradas = useMemo(() => {
+    const list = data?.personasInvitadasRanking || [];
+    if (!searchInvitado.trim()) return list;
+    const q = searchInvitado.toLowerCase().trim();
+    return list.filter(
+      (p) =>
+        p.nombre.toLowerCase().includes(q) ||
+        (p.dni && p.dni.includes(q)) ||
+        p.sociosQueInvitaron.some((s) => s.nombre.toLowerCase().includes(q) || s.dni.includes(q))
+    );
+  }, [data?.personasInvitadasRanking, searchInvitado]);
 
   // Exportaciones
   const handleExportPDF = () => {
@@ -495,12 +534,12 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
         </div>
       </div>
 
-      {/* 2. Vistas: Resumen para Secretaría vs Detalle Turno por Turno */}
+      {/* 2. Vistas: Resumen para Secretaría vs Detalle Turno por Turno vs Ranking de Personas Invitadas */}
       <Card className="bg-[#181818] border-[#2A2A2A]">
         <CardHeader className="pb-3 border-b border-[#2A2A2A]">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#242424] p-1 rounded-lg flex items-center border border-[#333333]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="bg-[#242424] p-1 rounded-lg flex items-center border border-[#333333] flex-wrap gap-1">
                 <button
                   onClick={() => setVista('acumulado')}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
@@ -509,7 +548,18 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                       : 'text-[#AAAAAA] hover:text-white'
                   }`}
                 >
-                  Resumen para Secretaría ({sociosFiltrados.length})
+                  Resumen por Socio ({sociosFiltrados.length})
+                </button>
+                <button
+                  onClick={() => setVista('ranking_personas')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                    vista === 'ranking_personas'
+                      ? 'bg-[#FFCC00] text-[#121212]'
+                      : 'text-[#AAAAAA] hover:text-white'
+                  }`}
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Ranking de Invitados ({data?.personasInvitadasRanking?.length || 0})</span>
                 </button>
                 <button
                   onClick={() => setVista('detalle')}
@@ -532,6 +582,19 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                   placeholder="Buscar socio por nombre o DNI..."
                   value={searchSocio}
                   onChange={(e) => setSearchSocio(e.target.value)}
+                  className="bg-[#242424] border-[#333333] text-white pl-9 h-9 text-xs"
+                />
+              </div>
+            )}
+
+            {vista === 'ranking_personas' && (
+              <div className="relative w-full md:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#666666]" />
+                <Input
+                  type="text"
+                  placeholder="Buscar invitado o socio..."
+                  value={searchInvitado}
+                  onChange={(e) => setSearchInvitado(e.target.value)}
                   className="bg-[#242424] border-[#333333] text-white pl-9 h-9 text-xs"
                 />
               </div>
@@ -721,6 +784,165 @@ export default function InvitadosPanel({ readOnly = false }: InvitadosPanelProps
                                               {formatCurrency(td.cargoTurno)}
                                             </span>
                                           )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )
+          ) : vista === 'ranking_personas' ? (
+            /* Sub-vista 3: Ranking de Personas Invitadas (Para detectar invitados recurrentes) */
+            personasInvitadasFiltradas.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <UserCheck className="h-12 w-12 text-[#444444] mx-auto mb-3" />
+                <h4 className="text-white font-semibold text-base">Sin personas invitadas registradas</h4>
+                <p className="text-[#888888] text-xs mt-1">
+                  No se encontraron personas invitadas registradas durante este período.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-[#1F1F1F]">
+                    <TableRow className="border-[#2A2A2A] hover:bg-transparent">
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold w-12 text-center">#</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold">Nombre del Invitado</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold">DNI</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Frecuencia / Partidos</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-center">Estado / Alerta</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold">Socios que lo Invitaron</TableHead>
+                      <TableHead className="text-[#AAAAAA] text-xs font-bold text-right">Último Turno</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {personasInvitadasFiltradas.map((p, idx) => {
+                      const key = p.dni || p.nombre;
+                      const isExpanded = expandedInvitadoKey === key;
+                      const esFrecuente = p.totalPartidos >= 3;
+                      const esRecurrente = p.totalPartidos === 2;
+
+                      return (
+                        <>
+                          <TableRow
+                            key={key}
+                            className={`border-[#262626] cursor-pointer transition-colors ${
+                              isExpanded
+                                ? 'bg-[#222222]'
+                                : idx % 2 === 0
+                                ? 'bg-[#181818] hover:bg-[#202020]'
+                                : 'bg-[#161616] hover:bg-[#202020]'
+                            }`}
+                            onClick={() => setExpandedInvitadoKey(isExpanded ? null : key)}
+                          >
+                            <TableCell className="text-center font-mono text-xs text-[#777777]">
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-xs shrink-0">
+                                  {p.nombre.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="font-semibold text-white text-xs">
+                                  {p.nombre}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs text-[#AAAAAA]">
+                              {p.dni ? p.dni : <span className="text-[#555555] italic">Sin DNI</span>}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black font-mono ${
+                                esFrecuente
+                                  ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                                  : esRecurrente
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : 'bg-[#252525] text-zinc-300 border border-[#333]'
+                              }`}>
+                                {p.totalPartidos} {p.totalPartidos === 1 ? 'partido' : 'partidos'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {esFrecuente ? (
+                                <Badge className="bg-red-500/20 text-red-400 border border-red-500/40 text-[10px] font-bold">
+                                  ⚠️ Muy Recurrente (3+)
+                                </Badge>
+                              ) : esRecurrente ? (
+                                <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
+                                  Recurrente (2)
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
+                                  Ocasional (1)
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs text-[#CCCCCC]">
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {p.sociosQueInvitaron.map((s, sIdx) => (
+                                  <Badge
+                                    key={sIdx}
+                                    variant="outline"
+                                    className="bg-[#202025] border-[#30303a] text-zinc-300 text-[10px] py-0 px-1.5"
+                                  >
+                                    {s.nombre} ({s.cantidad}x)
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-zinc-400 font-mono">
+                              {p.ultimoTurno}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-[#888888] hover:text-white"
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+
+                          {/* Historial desplegable de turnos del invitado */}
+                          {isExpanded && (
+                            <TableRow className="bg-[#1C1C1C] border-[#2A2A2A]">
+                              <TableCell colSpan={8} className="p-3 pl-12 pr-6">
+                                <div className="bg-[#141414] border border-[#2E2E2E] rounded-lg p-3 space-y-2">
+                                  <div className="flex items-center justify-between text-xs font-bold text-[#AAAAAA] border-b border-[#262626] pb-1.5">
+                                    <span>Historial de turnos jugados por {p.nombre}:</span>
+                                    <span className="text-[11px] text-amber-400">Total: {p.totalPartidos} partido(s)</span>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {p.turnosDetalle.map((td, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded bg-[#1A1A1A] text-[#CCCCCC]"
+                                      >
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-white font-medium">{td.fecha}</span>
+                                          <span className="text-[#888888]">· {td.horario} hs</span>
+                                          <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-[#262626] border-[#3A3A3A] text-white">
+                                            {td.cancha}
+                                          </Badge>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-[11px]">
+                                          <span className="text-[#888888]">Invitado por socio titular:</span>
+                                          <span className="text-white font-bold">{td.socioTitular.nombre}</span>
+                                          <span className="text-[#666666] font-mono">({td.socioTitular.dni})</span>
                                         </div>
                                       </div>
                                     ))}
