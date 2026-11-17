@@ -14,6 +14,7 @@ import {
   Sparkles,
   Trophy,
   Coffee,
+  Receipt,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 
@@ -53,7 +54,8 @@ export default function EventoSlideView({
   open,
   onOpenChange,
 }: EventoSlideViewProps) {
-  const [slideActiva, setSlideActiva] = useState<'torneo' | 'cantina' | 'otros'>('torneo');
+  // Ahora por defecto se muestra la diapositiva General Consolidada
+  const [slideActiva, setSlideActiva] = useState<'consolidado' | 'torneo' | 'cantina' | 'otros'>('consolidado');
   const slideRef = useRef<HTMLDivElement>(null);
 
   if (!evento) return null;
@@ -73,6 +75,23 @@ export default function EventoSlideView({
   const ingOtros = sum(evento.ingresosOtros);
   const egrOtros = sum(evento.egresosOtros);
   const netoOtros = ingOtros - egrOtros;
+
+  // Todos los ingresos y egresos consolidados
+  const todosLosIngresos: Array<{ concepto: string; monto: number; rubro: string }> = [
+    ...(evento.ingresosTorneo || []).map((i) => ({ ...i, rubro: 'Torneo' })),
+    ...(evento.ingresosCantina || []).map((i) => ({ ...i, rubro: 'Cantina' })),
+    ...(evento.ingresosOtros || []).map((i) => ({ ...i, rubro: 'Otros' })),
+  ];
+
+  const todosLosEgresos: Array<{ concepto: string; monto: number; rubro: string }> = [
+    ...(evento.egresosTorneo || []).map((i) => ({ ...i, rubro: 'Torneo' })),
+    ...(evento.egresosCantina || []).map((i) => ({ ...i, rubro: 'Cantina' })),
+    ...(evento.egresosOtros || []).map((i) => ({ ...i, rubro: 'Otros' })),
+  ];
+
+  const totalIngGeneral = ingTorneo + ingCantina + ingOtros;
+  const totalEgrGeneral = egrTorneo + egrCantina + egrOtros;
+  const totalNetoGeneral = totalIngGeneral - totalEgrGeneral;
 
   const tieneCantina =
     (evento.ingresosCantina && evento.ingresosCantina.length > 0) ||
@@ -95,6 +114,60 @@ export default function EventoSlideView({
       window.print();
       return;
     }
+
+    const subtituloDiapo =
+      slideActiva === 'consolidado'
+        ? '· BALANCE GENERAL COMPLETO'
+        : slideActiva === 'cantina'
+        ? '· CANTINA'
+        : slideActiva === 'otros'
+        ? '· OTROS / AUSPICIOS'
+        : '· TORNEO';
+
+    const itemsIng =
+      slideActiva === 'consolidado'
+        ? todosLosIngresos
+        : slideActiva === 'cantina'
+        ? evento.ingresosCantina
+        : slideActiva === 'otros'
+        ? evento.ingresosOtros
+        : evento.ingresosTorneo;
+
+    const itemsEgr =
+      slideActiva === 'consolidado'
+        ? todosLosEgresos
+        : slideActiva === 'cantina'
+        ? evento.egresosCantina
+        : slideActiva === 'otros'
+        ? evento.egresosOtros
+        : evento.egresosTorneo;
+
+    const subIng =
+      slideActiva === 'consolidado'
+        ? totalIngGeneral
+        : slideActiva === 'cantina'
+        ? ingCantina
+        : slideActiva === 'otros'
+        ? ingOtros
+        : ingTorneo;
+
+    const subEgr =
+      slideActiva === 'consolidado'
+        ? totalEgrGeneral
+        : slideActiva === 'cantina'
+        ? egrCantina
+        : slideActiva === 'otros'
+        ? egrOtros
+        : egrTorneo;
+
+    const netoSlide =
+      slideActiva === 'consolidado'
+        ? totalNetoGeneral
+        : slideActiva === 'cantina'
+        ? netoCantina
+        : slideActiva === 'otros'
+        ? netoOtros
+        : netoTorneo;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -163,7 +236,6 @@ export default function EventoSlideView({
               text-transform: uppercase;
               letter-spacing: 2px;
               color: #FFCC00;
-              margin-top: 4px;
             }
             .header-right {
               text-align: right;
@@ -236,6 +308,16 @@ export default function EventoSlideView({
             .row-concept {
               color: #27272a;
             }
+            .row-rubro {
+              font-size: 10px;
+              background-color: #f4f4f5;
+              border: 1px solid #e4e4e7;
+              padding: 2px 6px;
+              border-radius: 4px;
+              color: #71717a;
+              font-weight: bold;
+              margin-left: 6px;
+            }
             .row-amount {
               font-family: 'Courier New', Courier, monospace;
               font-weight: bold;
@@ -248,9 +330,10 @@ export default function EventoSlideView({
               padding: 12px 14px;
               display: flex;
               justify-content: space-between;
+              align-items: center;
               font-family: Arial, sans-serif;
+              font-size: 14px;
               font-weight: 900;
-              font-size: 13px;
               border-top: 2px solid #a1a1aa;
             }
             .subtotal-dark {
@@ -259,43 +342,47 @@ export default function EventoSlideView({
               padding: 12px 14px;
               display: flex;
               justify-content: space-between;
+              align-items: center;
               font-family: Arial, sans-serif;
+              font-size: 14px;
               font-weight: 900;
-              font-size: 13px;
               border-top: 2px solid #a1a1aa;
             }
             .total-banner {
-              display: inline-flex;
+              display: flex;
               border: 2px solid #000000;
-              margin-top: 10px;
+              box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+              width: fit-content;
             }
             .total-banner-dark {
               background-color: #1a1a1e !important;
               color: #ffffff !important;
-              padding: 12px 20px;
+              padding: 14px 20px;
               display: flex;
               flex-direction: column;
               justify-content: center;
               font-family: Arial, sans-serif;
-              font-weight: 900;
               font-size: 12px;
+              font-weight: 900;
               letter-spacing: 1px;
             }
             .total-banner-sub {
-              font-size: 10px;
+              font-size: 11px;
               color: #fde047;
+              letter-spacing: 1px;
+              margin-top: 2px;
             }
             .total-banner-amount {
               background-color: #FFCC00 !important;
               color: #000000 !important;
-              padding: 12px 24px;
+              padding: 14px 28px;
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 26px;
+              font-weight: 900;
               display: flex;
               align-items: center;
               justify-content: center;
-              font-family: 'Courier New', Courier, monospace;
-              font-weight: 900;
-              font-size: 26px;
-              min-width: 170px;
+              min-width: 180px;
             }
             .footer-bar {
               margin-top: 20px;
@@ -316,7 +403,7 @@ export default function EventoSlideView({
                 <div class="header-left">
                   <img src="${window.location.origin}/logo-caec.png" alt="CAEC" class="logo-img" />
                   <div>
-                    <div class="header-title">${evento.titulo} ${slideActiva === 'cantina' ? '· CANTINA' : slideActiva === 'otros' ? '· OTROS / AUSPICIOS' : ''}</div>
+                    <div class="header-title">${evento.titulo} ${subtituloDiapo}</div>
                     ${evento.subtitulo ? `<div class="header-subtitle">${evento.subtitulo}</div>` : ''}
                   </div>
                 </div>
@@ -331,16 +418,18 @@ export default function EventoSlideView({
                 <div class="table-block">
                   <div>
                     <div class="table-head-dark">
-                      <span class="head-highlight">INGRESOS ${slideActiva === 'cantina' ? '- CANTINA' : slideActiva === 'otros' ? '- AUSPICIANTES / OTROS' : ''}</span>
+                      <span class="head-highlight">INGRESOS ${slideActiva === 'consolidado' ? '- TOTALES' : slideActiva === 'cantina' ? '- CANTINA' : slideActiva === 'otros' ? '- AUSPICIANTES / OTROS' : ''}</span>
                       <span>Recaudación ($)</span>
                     </div>
                     <div>
                       ${(() => {
-                        const items = slideActiva === 'cantina' ? evento.ingresosCantina : slideActiva === 'otros' ? evento.ingresosOtros : evento.ingresosTorneo;
-                        if (!items || items.length === 0) return '<div class="row-item" style="color: #888; font-style: italic;">Sin ingresos registrados</div>';
-                        return items.map(it => `
+                        if (!itemsIng || itemsIng.length === 0) return '<div class="row-item" style="color: #888; font-style: italic;">Sin ingresos registrados</div>';
+                        return itemsIng.map((it: any) => `
                           <div class="row-item">
-                            <span class="row-concept">${it.concepto}</span>
+                            <span class="row-concept">
+                              ${it.concepto}
+                              ${it.rubro ? `<span class="row-rubro">${it.rubro}</span>` : ''}
+                            </span>
                             <span class="row-amount">$ ${Number(it.monto).toLocaleString('es-AR')}</span>
                           </div>
                         `).join('');
@@ -349,7 +438,7 @@ export default function EventoSlideView({
                   </div>
                   <div class="subtotal-yellow">
                     <span>SUB-TOTAL INGRESOS</span>
-                    <span>$ ${Number(slideActiva === 'cantina' ? ingCantina : slideActiva === 'otros' ? ingOtros : ingTorneo).toLocaleString('es-AR')}</span>
+                    <span>$ ${Number(subIng).toLocaleString('es-AR')}</span>
                   </div>
                 </div>
 
@@ -357,16 +446,18 @@ export default function EventoSlideView({
                 <div class="table-block">
                   <div>
                     <div class="table-head-yellow">
-                      <span>EGRESOS ${slideActiva === 'cantina' ? '- CANTINA' : slideActiva === 'otros' ? '- OTROS GASTOS' : ''}</span>
+                      <span>EGRESOS ${slideActiva === 'consolidado' ? '- TOTALES' : slideActiva === 'cantina' ? '- CANTINA' : slideActiva === 'otros' ? '- OTROS GASTOS' : ''}</span>
                       <span>Egresos ($)</span>
                     </div>
                     <div>
                       ${(() => {
-                        const items = slideActiva === 'cantina' ? evento.egresosCantina : slideActiva === 'otros' ? evento.egresosOtros : evento.egresosTorneo;
-                        if (!items || items.length === 0) return '<div class="row-item" style="color: #888; font-style: italic;">Sin egresos registrados</div>';
-                        return items.map(it => `
+                        if (!itemsEgr || itemsEgr.length === 0) return '<div class="row-item" style="color: #888; font-style: italic;">Sin egresos registrados</div>';
+                        return itemsEgr.map((it: any) => `
                           <div class="row-item">
-                            <span class="row-concept">${it.concepto}</span>
+                            <span class="row-concept">
+                              ${it.concepto}
+                              ${it.rubro ? `<span class="row-rubro">${it.rubro}</span>` : ''}
+                            </span>
                             <span class="row-amount">$ ${Number(it.monto).toLocaleString('es-AR')}</span>
                           </div>
                         `).join('');
@@ -375,7 +466,7 @@ export default function EventoSlideView({
                   </div>
                   <div class="subtotal-dark">
                     <span>SUB-TOTAL EGRESOS</span>
-                    <span>$ ${Number(slideActiva === 'cantina' ? egrCantina : slideActiva === 'otros' ? egrOtros : egrTorneo).toLocaleString('es-AR')}</span>
+                    <span>$ ${Number(subEgr).toLocaleString('es-AR')}</span>
                   </div>
                 </div>
               </div>
@@ -385,10 +476,10 @@ export default function EventoSlideView({
                 <div class="total-banner">
                   <div class="total-banner-dark">
                     <span>TOTAL GENERAL</span>
-                    <span class="total-banner-sub">DE RECAUDACIÓN P/ SUBCOMISIÓN ${slideActiva === 'cantina' ? '(CANTINA)' : ''}</span>
+                    <span class="total-banner-sub">DE RECAUDACIÓN P/ SUBCOMISIÓN ${slideActiva === 'cantina' ? '(CANTINA)' : slideActiva === 'otros' ? '(OTROS)' : ''}</span>
                   </div>
                   <div class="total-banner-amount">
-                    $ ${Number(slideActiva === 'cantina' ? netoCantina : slideActiva === 'otros' ? netoOtros : netoTorneo).toLocaleString('es-AR')}
+                    $ ${Number(netoSlide).toLocaleString('es-AR')}
                   </div>
                 </div>
               </div>
@@ -452,6 +543,22 @@ export default function EventoSlideView({
               <Layers className="h-3.5 w-3.5" /> Diapositiva:
             </span>
 
+            {/* BOTÓN 1: BALANCE CONSOLIDADO GENERAL (TODOS LOS MOVIMIENTOS) */}
+            <Button
+              size="sm"
+              variant={slideActiva === 'consolidado' ? 'default' : 'outline'}
+              onClick={() => setSlideActiva('consolidado')}
+              className={`h-8 text-xs rounded-lg px-3 gap-1.5 ${
+                slideActiva === 'consolidado'
+                  ? 'bg-amber-500 text-black font-black hover:bg-amber-400'
+                  : 'bg-[#18181f] border-[#2c2c38] text-[#aaa] hover:text-white'
+              }`}
+            >
+              <Receipt className="h-3.5 w-3.5" />
+              🌟 Balance General Completo ({todosLosIngresos.length + todosLosEgresos.length})
+            </Button>
+
+            {/* BOTÓN 2: SOLO TORNEO */}
             <Button
               size="sm"
               variant={slideActiva === 'torneo' ? 'default' : 'outline'}
@@ -463,9 +570,10 @@ export default function EventoSlideView({
               }`}
             >
               <Trophy className="h-3.5 w-3.5" />
-              1. Torneo / Jugadores
+              Torneo / Jugadores
             </Button>
 
+            {/* BOTÓN 3: CANTINA */}
             {tieneCantina && (
               <Button
                 size="sm"
@@ -478,10 +586,11 @@ export default function EventoSlideView({
                 }`}
               >
                 <Coffee className="h-3.5 w-3.5" />
-                2. Cantina - Kiosco
+                Cantina - Kiosco
               </Button>
             )}
 
+            {/* BOTÓN 4: OTROS */}
             {tieneOtros && (
               <Button
                 size="sm"
@@ -494,7 +603,7 @@ export default function EventoSlideView({
                 }`}
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                3. Otros / Sponsors
+                Otros / Sponsors
               </Button>
             )}
           </div>
@@ -518,8 +627,10 @@ export default function EventoSlideView({
                 <div className="min-w-0">
                   <h1 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-wider text-white font-serif">
                     {evento.titulo}
+                    {slideActiva === 'consolidado' && ' · BALANCE GENERAL'}
                     {slideActiva === 'cantina' && ' · CANTINA'}
                     {slideActiva === 'otros' && ' · OTROS / AUSPICIOS'}
+                    {slideActiva === 'torneo' && ' · TORNEO'}
                   </h1>
                   {evento.subtitulo && (
                     <p className="text-xs sm:text-sm font-bold uppercase tracking-widest text-[#FFCC00] mt-0.5">
@@ -539,9 +650,105 @@ export default function EventoSlideView({
               </div>
             </div>
 
-            {/* 2. CUERPO DE TABLAS SEGÚN LA DIAPOSITIVA ACTIVA */}
+            {/* 2. CUERPO DE TABLAS */}
 
-            {/* VISTA 1: TORNEO / JUGADORES */}
+            {/* VISTA 1: BALANCE CONSOLIDADO COMPLETO */}
+            {slideActiva === 'consolidado' && (
+              <div className="space-y-6 flex-1 flex flex-col justify-between">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  {/* TABLA TODOS LOS INGRESOS */}
+                  <div className="border border-zinc-300 shadow-sm flex flex-col justify-between bg-white">
+                    <div>
+                      <div className="bg-[#1f1f23] text-white px-4 py-2.5 flex justify-between items-center border-b-2 border-zinc-400">
+                        <span className="font-sans font-black text-xs uppercase tracking-wider text-amber-300">
+                          INGRESOS (TODOS LOS RUBROS)
+                        </span>
+                        <span className="font-sans font-black text-xs uppercase tracking-wider text-zinc-300">
+                          Recaudación ($)
+                        </span>
+                      </div>
+                      <div className="divide-y divide-zinc-200 text-sm">
+                        {todosLosIngresos.length > 0 ? (
+                          todosLosIngresos.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center px-4 py-3 bg-white">
+                              <span className="text-zinc-800 font-sans flex items-center gap-2">
+                                <span>{item.concepto}</span>
+                                <span className="text-[10px] font-sans font-bold uppercase px-1.5 py-0.5 bg-zinc-100 text-zinc-600 rounded border border-zinc-200">
+                                  {item.rubro}
+                                </span>
+                              </span>
+                              <span className="font-mono font-bold text-zinc-900">{formatCurrency(item.monto)}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-xs italic text-zinc-400 bg-zinc-50">Sin ingresos cargados</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-[#FFCC00] text-black px-4 py-3 flex justify-between items-center font-sans font-black text-sm border-t-2 border-zinc-400">
+                      <span>TOTAL INGRESOS</span>
+                      <span className="font-mono text-base">{formatCurrency(totalIngGeneral)}</span>
+                    </div>
+                  </div>
+
+                  {/* TABLA TODOS LOS EGRESOS */}
+                  <div className="border border-zinc-300 shadow-sm flex flex-col justify-between bg-white">
+                    <div>
+                      <div className="bg-[#FFCC00] text-black px-4 py-2.5 flex justify-between items-center border-b-2 border-zinc-400">
+                        <span className="font-sans font-black text-xs uppercase tracking-wider">
+                          EGRESOS (TODOS LOS GASTOS)
+                        </span>
+                        <span className="font-sans font-black text-xs uppercase tracking-wider">
+                          Egresos ($)
+                        </span>
+                      </div>
+                      <div className="divide-y divide-zinc-200 text-sm">
+                        {todosLosEgresos.length > 0 ? (
+                          todosLosEgresos.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center px-4 py-3 bg-white">
+                              <span className="text-zinc-800 font-sans flex items-center gap-2">
+                                <span>{item.concepto}</span>
+                                <span className="text-[10px] font-sans font-bold uppercase px-1.5 py-0.5 bg-zinc-100 text-zinc-600 rounded border border-zinc-200">
+                                  {item.rubro}
+                                </span>
+                              </span>
+                              <span className="font-mono font-bold text-zinc-900">{formatCurrency(item.monto)}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-xs italic text-zinc-400 bg-zinc-50">Sin egresos cargados</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-[#1f1f23] text-white px-4 py-3 flex justify-between items-center font-sans font-black text-sm border-t-2 border-zinc-400">
+                      <span>TOTAL EGRESOS</span>
+                      <span className="font-mono text-base">{formatCurrency(totalEgrGeneral)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CAJA TOTAL GENERAL */}
+                <div className="pt-4 flex items-center justify-start">
+                  <div className="flex border-2 border-black shadow-md overflow-hidden max-w-xl w-full sm:w-auto">
+                    <div className="bg-[#1a1a1e] text-white px-5 py-3.5 flex flex-col justify-center">
+                      <span className="font-sans font-black text-xs uppercase tracking-wider">
+                        RECAUDACIÓN TOTAL GENERAL
+                      </span>
+                      <span className="font-sans font-black text-[11px] uppercase tracking-wider text-amber-300">
+                        SUPERÁVIT NETO PARA SUBCOMISIÓN DE TENIS
+                      </span>
+                    </div>
+                    <div className="bg-[#FFCC00] text-black px-6 py-3.5 flex items-center justify-center font-mono font-black text-2xl sm:text-3xl min-w-[180px]">
+                      {formatCurrency(totalNetoGeneral)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* VISTA 2: TORNEO / JUGADORES */}
             {slideActiva === 'torneo' && (
               <div className="space-y-6 flex-1 flex flex-col justify-between">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -550,7 +757,7 @@ export default function EventoSlideView({
                     <div>
                       <div className="bg-[#1f1f23] text-white px-4 py-2.5 flex justify-between items-center border-b-2 border-zinc-400">
                         <span className="font-sans font-black text-xs uppercase tracking-wider text-amber-300">
-                          INGRESOS
+                          INGRESOS TORNEO
                         </span>
                         <span className="font-sans font-black text-xs uppercase tracking-wider text-zinc-300">
                           Recaudación ($)
@@ -581,7 +788,7 @@ export default function EventoSlideView({
                     <div>
                       <div className="bg-[#FFCC00] text-black px-4 py-2.5 flex justify-between items-center border-b-2 border-zinc-400">
                         <span className="font-sans font-black text-xs uppercase tracking-wider">
-                          EGRESOS
+                          EGRESOS TORNEO
                         </span>
                         <span className="font-sans font-black text-xs uppercase tracking-wider">
                           Egresos ($)
@@ -613,7 +820,7 @@ export default function EventoSlideView({
                   <div className="flex border-2 border-black shadow-md overflow-hidden max-w-xl w-full sm:w-auto">
                     <div className="bg-[#1a1a1e] text-white px-5 py-3.5 flex flex-col justify-center">
                       <span className="font-sans font-black text-xs uppercase tracking-wider">
-                        TOTAL GENERAL
+                        TOTAL TORNEO
                       </span>
                       <span className="font-sans font-black text-[11px] uppercase tracking-wider text-amber-300">
                         DE RECAUDACIÓN P/ SUBCOMISIÓN
@@ -627,7 +834,7 @@ export default function EventoSlideView({
               </div>
             )}
 
-            {/* VISTA 2: CANTINA / KIOSCO */}
+            {/* VISTA 3: CANTINA / KIOSCO */}
             {slideActiva === 'cantina' && (
               <div className="space-y-6 flex-1 flex flex-col justify-between">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -713,7 +920,7 @@ export default function EventoSlideView({
               </div>
             )}
 
-            {/* VISTA 3: OTROS / SPONSORS */}
+            {/* VISTA 4: OTROS / SPONSORS */}
             {slideActiva === 'otros' && (
               <div className="space-y-6 flex-1 flex flex-col justify-between">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
