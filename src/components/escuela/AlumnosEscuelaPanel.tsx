@@ -358,63 +358,63 @@ export default function AlumnosEscuelaPanel({
     <div className="space-y-5">
       {/* Selector de Pestaña Principal: Padrón vs Tomar Asistencia */}
       {!hideSubNav && (
-        <div className="flex items-center gap-2 border-b border-[#2A2A2A] pb-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 border-b border-[#2A2A2A] pb-2 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setVistaActiva('padron')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs shrink-0 transition-all ${
               vistaActiva === 'padron'
                 ? 'bg-primary text-black shadow-md'
                 : 'bg-[#1C1C1C] text-[#AAAAAA] hover:text-white border border-[#2E2E2E]'
             }`}
           >
             <ListOrdered className="h-4 w-4" />
-            <span>Padrón de Alumnos</span>
+            <span>Padrón</span>
             <Badge className={`text-[10px] px-1.5 py-0 ${vistaActiva === 'padron' ? 'bg-black text-primary' : 'bg-[#2A2A2A] text-[#888]'}`}>
               {stats.total}
             </Badge>
           </button>
 
-          {/* Pestaña Tomar Asistencia: solo visible para administradores y profesores (oculto en modo solo lectura) */}
+          {/* Pestaña Tomar Asistencia */}
           {!readOnly && (
             <button
               type="button"
               onClick={() => setVistaActiva('asistencia')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs shrink-0 transition-all ${
                 vistaActiva === 'asistencia'
                   ? 'bg-emerald-500 text-black shadow-md'
                   : 'bg-[#1C1C1C] text-emerald-400 hover:text-white border border-emerald-500/30'
               }`}
             >
               <CheckSquare className="h-4 w-4" />
-              <span>⚡ Tomar Asistencia (Pase de Lista)</span>
+              <span>Asistencia</span>
             </button>
           )}
 
           <button
             type="button"
-            onClick={() => setVistaActiva('reportes')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
-              vistaActiva === 'reportes'
-                ? 'bg-amber-400 text-black shadow-md'
-                : 'bg-[#1C1C1C] text-amber-400 hover:text-white border border-amber-400/30'
-            }`}
-          >
-            <BarChart3 className="h-4 w-4" />
-            <span>📊 Reportes Asistencia</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setVistaActiva('pagos')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs shrink-0 transition-all ${
               vistaActiva === 'pagos'
                 ? 'bg-emerald-400 text-black shadow-md'
                 : 'bg-[#1C1C1C] text-emerald-300 hover:text-white border border-emerald-500/40'
             }`}
           >
             <DollarSign className="h-4 w-4" />
-            <span>💵 Cuotas y Pagos (Comisión Directiva)</span>
+            <span>Cuotas</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setVistaActiva('reportes')}
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-bold text-xs shrink-0 transition-all ${
+              vistaActiva === 'reportes'
+                ? 'bg-amber-400 text-black shadow-md'
+                : 'bg-[#1C1C1C] text-amber-400 hover:text-white border border-amber-400/30'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Reportes</span>
           </button>
         </div>
       )}
@@ -437,139 +437,139 @@ export default function AlumnosEscuelaPanel({
       {/* VISTA 3: PADRÓN GENERAL DE ALUMNOS */}
       {vistaActiva === 'padron' && (
         <>
-          {/* KPI Cards Superiores */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#888888]">
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Alumnos</span>
-            <Users size={18} className="text-primary" />
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl lg:text-3xl font-black text-white">{stats.total}</span>
-            <span className="text-xs text-[#888888] ml-2">inscriptos</span>
-          </div>
-        </div>
+          {/* KPI Cards: en desktop arriba, en mobile abajo y más compacto */}
+          <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-[#888888]">
+                <span className="text-xs font-semibold uppercase tracking-wider">Total Alumnos</span>
+                <Users size={18} className="text-primary" />
+              </div>
+              <div className="mt-3">
+                <span className="text-2xl lg:text-3xl font-black text-white">{stats.total}</span>
+                <span className="text-xs text-[#888888] ml-2">inscriptos</span>
+              </div>
+            </div>
 
-        <div className="bg-[#181818] border border-emerald-500/20 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-emerald-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">Escuelita</span>
-            <Sparkles size={18} />
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl lg:text-3xl font-black text-white">{stats.escuelita}</span>
-            <span className="text-xs text-[#888888] ml-2">chicos</span>
-          </div>
-        </div>
+            <div className="bg-[#181818] border border-emerald-500/20 rounded-xl p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-emerald-400">
+                <span className="text-xs font-semibold uppercase tracking-wider">Escuelita</span>
+                <Sparkles size={18} />
+              </div>
+              <div className="mt-3">
+                <span className="text-2xl lg:text-3xl font-black text-white">{stats.escuelita}</span>
+                <span className="text-xs text-[#888888] ml-2">chicos</span>
+              </div>
+            </div>
 
-        <div className="bg-[#181818] border border-sky-500/20 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-sky-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">Minitenis</span>
-            <GraduationCap size={18} />
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl lg:text-3xl font-black text-white">{stats.minitenis}</span>
-            <span className="text-xs text-[#888888] ml-2">chicos</span>
-          </div>
-        </div>
+            <div className="bg-[#181818] border border-sky-500/20 rounded-xl p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-sky-400">
+                <span className="text-xs font-semibold uppercase tracking-wider">Minitenis</span>
+                <GraduationCap size={18} />
+              </div>
+              <div className="mt-3">
+                <span className="text-2xl lg:text-3xl font-black text-white">{stats.minitenis}</span>
+                <span className="text-xs text-[#888888] ml-2">chicos</span>
+              </div>
+            </div>
 
-        <div className="bg-[#181818] border border-amber-500/20 rounded-xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-amber-400">
-            <span className="text-xs font-semibold uppercase tracking-wider">Entrenamiento</span>
-            <Trophy size={18} />
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl lg:text-3xl font-black text-white">{stats.entrenamiento}</span>
-            <span className="text-xs text-[#888888] ml-2">juveniles</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Barra de Filtros y Acciones */}
-      <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        {/* Selector de Grupo */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button
-            size="sm"
-            variant={selectedGrupo === 'todos' ? 'default' : 'outline'}
-            onClick={() => setSelectedGrupo('todos')}
-            className={`text-xs h-8 ${selectedGrupo === 'todos' ? 'bg-primary text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA] hover:text-white'}`}
-          >
-            Todos ({stats.total})
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedGrupo === 'Escuelita' ? 'default' : 'outline'}
-            onClick={() => setSelectedGrupo('Escuelita')}
-            className={`text-xs h-8 ${selectedGrupo === 'Escuelita' ? 'bg-emerald-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA] hover:text-white'}`}
-          >
-            Escuelita ({stats.escuelita})
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedGrupo === 'Minitenis' ? 'default' : 'outline'}
-            onClick={() => setSelectedGrupo('Minitenis')}
-            className={`text-xs h-8 ${selectedGrupo === 'Minitenis' ? 'bg-sky-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA] hover:text-white'}`}
-          >
-            Minitenis ({stats.minitenis})
-          </Button>
-          <Button
-            size="sm"
-            variant={selectedGrupo === 'Grupo Entrenamiento' ? 'default' : 'outline'}
-            onClick={() => setSelectedGrupo('Grupo Entrenamiento')}
-            className={`text-xs h-8 ${selectedGrupo === 'Grupo Entrenamiento' ? 'bg-amber-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA] hover:text-white'}`}
-          >
-            Entrenamiento ({stats.entrenamiento})
-          </Button>
-        </div>
-
-        {/* Búsqueda y Botón Agregar */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 md:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888888]" />
-            <Input
-              type="text"
-              placeholder="Buscar alumno..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-8 text-xs bg-[#121212] border-[#2A2A2A] text-white placeholder:text-[#666666] focus-visible:ring-primary"
-            />
+            <div className="bg-[#181818] border border-amber-500/20 rounded-xl p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-amber-400">
+                <span className="text-xs font-semibold uppercase tracking-wider">Entrenamiento</span>
+                <Trophy size={18} />
+              </div>
+              <div className="mt-3">
+                <span className="text-2xl lg:text-3xl font-black text-white">{stats.entrenamiento}</span>
+                <span className="text-xs text-[#888888] ml-2">juveniles</span>
+              </div>
+            </div>
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={exportarAExcel}
-            disabled={loading || filteredAlumnos.length === 0}
-            className="h-8 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs gap-1.5 font-semibold shrink-0"
-            title="Exportar padrón a archivo Excel"
-          >
-            <FileSpreadsheet size={14} />
-            <span className="hidden sm:inline">Exportar Excel</span>
-          </Button>
+          {/* Barra de Filtros y Acciones */}
+          <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-3 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
+            {/* Selector de Grupo */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                variant={selectedGrupo === 'todos' ? 'default' : 'outline'}
+                onClick={() => setSelectedGrupo('todos')}
+                className={`text-xs h-8 px-2.5 font-bold ${selectedGrupo === 'todos' ? 'bg-primary text-black' : 'border-[#2A2A2A] text-[#AAAAAA] hover:text-white'}`}
+              >
+                Todos ({stats.total})
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedGrupo === 'Escuelita' ? 'default' : 'outline'}
+                onClick={() => setSelectedGrupo('Escuelita')}
+                className={`text-xs h-8 px-2.5 font-bold ${selectedGrupo === 'Escuelita' ? 'bg-emerald-500 text-black' : 'border-[#2A2A2A] text-[#AAAAAA] hover:text-white'}`}
+              >
+                Escuelita ({stats.escuelita})
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedGrupo === 'Minitenis' ? 'default' : 'outline'}
+                onClick={() => setSelectedGrupo('Minitenis')}
+                className={`text-xs h-8 px-2.5 font-bold ${selectedGrupo === 'Minitenis' ? 'bg-sky-500 text-black' : 'border-[#2A2A2A] text-[#AAAAAA] hover:text-white'}`}
+              >
+                Minitenis ({stats.minitenis})
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedGrupo === 'Grupo Entrenamiento' ? 'default' : 'outline'}
+                onClick={() => setSelectedGrupo('Grupo Entrenamiento')}
+                className={`text-xs h-8 px-2.5 font-bold ${selectedGrupo === 'Grupo Entrenamiento' ? 'bg-amber-500 text-black' : 'border-[#2A2A2A] text-[#AAAAAA] hover:text-white'}`}
+              >
+                Entrenamiento ({stats.entrenamiento})
+              </Button>
+            </div>
 
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={fetchAlumnos}
-            disabled={loading}
-            className="h-8 w-8 p-0 text-[#888888] hover:text-white"
-            title="Refrescar lista"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </Button>
+            {/* Búsqueda y Botón Agregar (Optimizados para táctil en móvil) */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 md:w-64">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888888]" />
+                <Input
+                  type="text"
+                  placeholder="Buscar alumno..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 h-9 text-xs bg-[#121212] border-[#2A2A2A] text-white placeholder:text-[#666666] focus-visible:ring-primary"
+                />
+              </div>
 
-          {!readOnly && (
-            <Button
-              size="sm"
-              onClick={handleOpenCreate}
-              className="h-8 bg-primary hover:bg-primary/90 text-black font-bold text-xs gap-1.5 shrink-0"
-            >
-              <Plus size={14} />
-              <span>Nuevo Alumno</span>
-            </Button>
-          )}
-        </div>
-      </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={exportarAExcel}
+                disabled={loading || filteredAlumnos.length === 0}
+                className="h-9 px-2.5 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs gap-1.5 font-semibold shrink-0"
+                title="Exportar padrón a archivo Excel"
+              >
+                <FileSpreadsheet size={14} />
+                <span className="hidden sm:inline">Exportar Excel</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={fetchAlumnos}
+                disabled={loading}
+                className="h-9 w-9 p-0 text-[#888888] hover:text-white shrink-0"
+                title="Refrescar lista"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              </Button>
+
+              {!readOnly && (
+                <Button
+                  size="sm"
+                  onClick={handleOpenCreate}
+                  className="h-9 bg-primary hover:bg-primary/90 text-black font-black text-xs gap-1.5 px-3 shrink-0 shadow-md"
+                >
+                  <Plus size={15} />
+                  <span>Nuevo Alumno</span>
+                </Button>
+              )}
+            </div>
+          </div>
 
       {/* Contenido / Listados por Grupo */}
       {loading ? (
@@ -689,17 +689,17 @@ export default function AlumnosEscuelaPanel({
                           </div>
                         </div>
 
-                        {/* Botones de Acción */}
+                        {/* Botones de Acción (Cómodos y accesibles para dedos) */}
                         {!readOnly && (
                           <div className="flex items-center gap-1 shrink-0">
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleOpenEdit(alumno)}
-                              className="h-7 w-7 p-0 text-[#888888] hover:text-white hover:bg-white/10"
+                              className="h-8 w-8 sm:h-7 sm:w-7 p-0 text-[#888888] hover:text-white hover:bg-white/10"
                               title="Editar alumno"
                             >
-                              <Pencil size={13} />
+                              <Pencil size={15} />
                             </Button>
                             <Button
                               size="sm"
@@ -708,10 +708,10 @@ export default function AlumnosEscuelaPanel({
                                 setAlumnoToDelete(alumno);
                                 setDeleteAlertOpen(true);
                               }}
-                              className="h-7 w-7 p-0 text-[#888888] hover:text-red-400 hover:bg-red-500/10"
+                              className="h-8 w-8 sm:h-7 sm:w-7 p-0 text-[#888888] hover:text-red-400 hover:bg-red-500/10"
                               title="Eliminar alumno"
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={15} />
                             </Button>
                           </div>
                         )}
@@ -722,6 +722,41 @@ export default function AlumnosEscuelaPanel({
               </div>
             );
           })}
+
+          {/* KPI Cards Inferiores para vista de celular (más chicos y abajo) */}
+          <div className="grid grid-cols-2 gap-2 pt-2 md:hidden">
+            <div className="bg-[#141414] border border-[#2A2A2A] rounded-lg p-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users size={14} className="text-primary" />
+                <span className="text-[11px] font-semibold text-[#888888] uppercase">Total</span>
+              </div>
+              <span className="text-base font-black text-white">{stats.total}</span>
+            </div>
+
+            <div className="bg-[#141414] border border-emerald-500/20 rounded-lg p-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-emerald-400" />
+                <span className="text-[11px] font-semibold text-emerald-400 uppercase">Escuelita</span>
+              </div>
+              <span className="text-base font-black text-white">{stats.escuelita}</span>
+            </div>
+
+            <div className="bg-[#141414] border border-sky-500/20 rounded-lg p-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GraduationCap size={14} className="text-sky-400" />
+                <span className="text-[11px] font-semibold text-sky-400 uppercase">Minitenis</span>
+              </div>
+              <span className="text-base font-black text-white">{stats.minitenis}</span>
+            </div>
+
+            <div className="bg-[#141414] border border-amber-500/20 rounded-lg p-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trophy size={14} className="text-amber-400" />
+                <span className="text-[11px] font-semibold text-amber-400 uppercase">Entrenam.</span>
+              </div>
+              <span className="text-base font-black text-white">{stats.entrenamiento}</span>
+            </div>
+          </div>
         </div>
       )}
 

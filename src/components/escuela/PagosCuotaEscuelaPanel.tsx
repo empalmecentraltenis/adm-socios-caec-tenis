@@ -651,143 +651,106 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* 0. Selector General de Meses del Año con Resumen de Recaudación */}
-      <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-3 sm:p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#242424]">
+      {/* Selector de Mes y Filtros Principales */}
+      <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-3 sm:p-4 space-y-3 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Selector de Mes con botones o input month */}
           <div className="flex items-center gap-2">
-            <Calendar size={18} className="text-amber-400" />
-            <h3 className="text-sm font-bold text-white tracking-wide">
-              Vista General por Meses
-            </h3>
-            <span className="text-xs text-[#888888]">
-              (Hacé clic en un mes para ver su detalle de alumnos y pagos)
-            </span>
-          </div>
-
-          {/* Navegador de Año y Total Anual */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-[#121212] border border-[#2A2A2A] rounded-lg px-1 py-0.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleCambiarAnio(-1)}
-                className="h-6 w-6 p-0 text-[#888888] hover:text-white"
-                title="Año anterior"
-              >
-                <ChevronLeft size={14} />
-              </Button>
-              <span className="text-xs font-mono font-bold text-white px-2">
-                {anioActual}
+            <Calendar size={18} className="text-amber-400 shrink-0" />
+            <div className="flex items-center bg-[#121212] border border-[#2A2A2A] rounded-lg px-2 py-1 gap-2">
+              <span className="text-xs font-bold text-amber-400 capitalize whitespace-nowrap">
+                {labelMesActual.toLowerCase()}
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleCambiarAnio(1)}
-                className="h-6 w-6 p-0 text-[#888888] hover:text-white"
-                title="Año siguiente"
-              >
-                <ChevronRight size={14} />
-              </Button>
+              <input
+                type="month"
+                value={mesSeleccionado}
+                onChange={(e) => {
+                  if (e.target.value) setMesSeleccionado(e.target.value);
+                }}
+                className="bg-transparent border-0 text-white text-xs cursor-pointer focus:outline-none w-6 sm:w-auto opacity-70 hover:opacity-100"
+                title="Seleccionar mes y año"
+              />
             </div>
-
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs">
-              <span className="text-[#888888] font-medium hidden sm:inline">Total {anioActual}:</span>
-              <span className="font-mono font-bold text-emerald-400">
-                ${totalAnualRecaudado.toLocaleString('es-AR')}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Carrusel / Grilla de 12 meses */}
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 pt-3">
-          {MESES_NOMBRES.map((nombreMes, index) => {
-            const numMesStr = String(index + 1).padStart(2, '0');
-            const mesItemKey = `${anioActual}-${numMesStr}`;
-            const esSeleccionado = mesSeleccionado === mesItemKey;
             
-            const mesData = mesesAnio.find((m) => m.mes === mesItemKey) || {
-              totalRecaudado: 0,
-              cantidadPagados: 0,
-            };
-
-            const tieneRecaudacion = mesData.totalRecaudado > 0;
-
-            return (
-              <button
-                key={mesItemKey}
-                type="button"
-                onClick={() => setMesSeleccionado(mesItemKey)}
-                className={`relative flex flex-col items-center justify-between p-2 rounded-lg text-left transition-all cursor-pointer ${
-                  esSeleccionado
-                    ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20 ring-2 ring-amber-400 font-semibold'
-                    : tieneRecaudacion
-                    ? 'bg-[#1e1e1e] border border-emerald-500/30 hover:border-emerald-500/60 hover:bg-[#252525] text-white'
-                    : 'bg-[#141414] border border-[#262626] hover:border-[#383838] hover:bg-[#1a1a1a] text-[#888888]'
-                }`}
-              >
-                {/* Nombre de mes */}
-                <div className="flex items-center justify-between w-full">
-                  <span className={`text-[11px] uppercase tracking-wider font-bold ${
-                    esSeleccionado ? 'text-black' : tieneRecaudacion ? 'text-white' : 'text-[#888888]'
-                  }`}>
-                    {nombreMes.slice(0, 3)}
-                  </span>
-                  {mesData.cantidadPagados > 0 && (
-                    <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-bold ${
-                      esSeleccionado
-                        ? 'bg-black text-amber-300'
-                        : 'bg-emerald-500/20 text-emerald-400'
-                    }`}>
-                      {mesData.cantidadPagados}
-                    </span>
-                  )}
-                </div>
-
-                {/* Total cobrado del mes */}
-                <div className="w-full mt-1.5 pt-1 border-t border-black/10 dark:border-white/5">
-                  <div className={`text-[10px] font-mono leading-tight ${
-                    esSeleccionado
-                      ? 'text-black font-extrabold'
-                      : tieneRecaudacion
-                      ? 'text-emerald-400 font-bold'
-                      : 'text-[#555555]'
-                  }`}>
-                    {tieneRecaudacion ? `$${mesData.totalRecaudado.toLocaleString('es-AR')}` : '$0'}
-                  </div>
-                </div>
-
-                {/* Indicador de mes actual */}
-                {esSeleccionado && (
-                  <div className="absolute -bottom-1 w-2 h-1 bg-amber-400 rounded-full" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 1. Barra de Filtros y Acciones del Mes Seleccionado */}
-      <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl p-3 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        {/* Etiqueta del mes activo y Filtro por Grupo */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Badge de Mes Activo */}
-          <div className="flex items-center gap-2 bg-[#121212] border border-amber-500/30 px-3 py-1 rounded-lg">
-            <Calendar size={14} className="text-amber-400" />
-            <span className="text-xs font-bold text-amber-400">
-              {labelMesActual}
-            </span>
+            {/* Botón refrescar */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={fetchPagos}
+              disabled={loading}
+              className="h-8 w-8 p-0 text-[#888888] hover:text-white shrink-0"
+              title="Refrescar estado"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </Button>
           </div>
 
+          {/* Buscador y Acciones */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <div className="relative flex-1 sm:w-48">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#888888]" />
+              <Input
+                type="text"
+                placeholder="Buscar alumno..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 h-8 text-xs bg-[#121212] border-[#2A2A2A] text-white"
+              />
+            </div>
+
+            {!readOnly && (
+              <Button
+                size="sm"
+                onClick={handleOpenMasivo}
+                disabled={loading || alumnosPendientes.length === 0}
+                className="h-8 bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs gap-1 shadow-sm px-2.5"
+                title="Cobrar a múltiples alumnos"
+              >
+                <CheckCheck size={14} />
+                <span className="hidden sm:inline">Cobro Masivo</span>
+                {alumnosPendientes.length > 0 && (
+                  <span className="bg-black/20 text-black text-[10px] px-1.5 py-0.2 rounded-full font-extrabold">
+                    {alumnosPendientes.length}
+                  </span>
+                )}
+              </Button>
+            )}
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportarAExcel}
+              disabled={loading || filteredAlumnos.length === 0}
+              className="h-8 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 text-xs gap-1 px-2.5 font-semibold"
+              title="Exportar Excel"
+            >
+              <FileSpreadsheet size={14} />
+              <span className="hidden sm:inline">Excel</span>
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportarAPDF}
+              disabled={loading || filteredAlumnos.length === 0}
+              className="h-8 border-red-500/40 text-red-400 hover:bg-red-500/10 text-xs gap-1 px-2.5 font-semibold"
+              title="Reporte PDF"
+            >
+              <FileDown size={14} />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Filtros de Categoría y Estado - Compactos y scrolleables en celular */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#242424]">
           {/* Filtro por Grupo */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full">
             <Button
               size="sm"
               variant={grupoFiltro === 'todos' ? 'default' : 'outline'}
               onClick={() => setGrupoFiltro('todos')}
-              className={`text-xs h-7 px-2.5 ${grupoFiltro === 'todos' ? 'bg-primary text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
+              className={`text-xs h-7 px-2.5 shrink-0 ${grupoFiltro === 'todos' ? 'bg-primary text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
             >
               Todos
             </Button>
@@ -795,7 +758,7 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
               size="sm"
               variant={grupoFiltro === 'Escuelita' ? 'default' : 'outline'}
               onClick={() => setGrupoFiltro('Escuelita')}
-              className={`text-xs h-7 px-2.5 ${grupoFiltro === 'Escuelita' ? 'bg-emerald-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
+              className={`text-xs h-7 px-2.5 shrink-0 ${grupoFiltro === 'Escuelita' ? 'bg-emerald-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
             >
               Escuelita
             </Button>
@@ -803,7 +766,7 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
               size="sm"
               variant={grupoFiltro === 'Minitenis' ? 'default' : 'outline'}
               onClick={() => setGrupoFiltro('Minitenis')}
-              className={`text-xs h-7 px-2.5 ${grupoFiltro === 'Minitenis' ? 'bg-sky-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
+              className={`text-xs h-7 px-2.5 shrink-0 ${grupoFiltro === 'Minitenis' ? 'bg-sky-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
             >
               Minitenis
             </Button>
@@ -811,27 +774,27 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
               size="sm"
               variant={grupoFiltro === 'Grupo Entrenamiento' ? 'default' : 'outline'}
               onClick={() => setGrupoFiltro('Grupo Entrenamiento')}
-              className={`text-xs h-7 px-2.5 ${grupoFiltro === 'Grupo Entrenamiento' ? 'bg-amber-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
+              className={`text-xs h-7 px-2.5 shrink-0 ${grupoFiltro === 'Grupo Entrenamiento' ? 'bg-amber-500 text-black font-bold' : 'border-[#2A2A2A] text-[#AAAAAA]'}`}
             >
               Competencia
             </Button>
           </div>
 
           {/* Filtro de Estado: Todos / Cobrados / Pendientes */}
-          <div className="flex items-center gap-1 pl-2 border-l border-[#2A2A2A]">
+          <div className="flex items-center gap-1 pl-1 sm:pl-2 sm:border-l border-[#2A2A2A] overflow-x-auto">
             <Button
               size="sm"
               variant={estadoFiltro === 'todos' ? 'secondary' : 'ghost'}
               onClick={() => setEstadoFiltro('todos')}
-              className="text-xs h-7 px-2 text-[#AAAAAA]"
+              className="text-xs h-7 px-2 text-[#AAAAAA] shrink-0"
             >
-              Todos
+              Todos ({filteredAlumnos.length})
             </Button>
             <Button
               size="sm"
               variant={estadoFiltro === 'pagados' ? 'secondary' : 'ghost'}
               onClick={() => setEstadoFiltro('pagados')}
-              className={`text-xs h-7 px-2 ${estadoFiltro === 'pagados' ? 'text-emerald-400 font-bold' : 'text-[#888888]'}`}
+              className={`text-xs h-7 px-2 shrink-0 ${estadoFiltro === 'pagados' ? 'text-emerald-400 font-bold bg-emerald-500/10' : 'text-[#888888]'}`}
             >
               Cobrados ({resumen?.cantidadPagados || 0})
             </Button>
@@ -839,77 +802,11 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
               size="sm"
               variant={estadoFiltro === 'pendientes' ? 'secondary' : 'ghost'}
               onClick={() => setEstadoFiltro('pendientes')}
-              className={`text-xs h-7 px-2 ${estadoFiltro === 'pendientes' ? 'text-amber-400 font-bold' : 'text-[#888888]'}`}
+              className={`text-xs h-7 px-2 shrink-0 ${estadoFiltro === 'pendientes' ? 'text-amber-400 font-bold bg-amber-500/10' : 'text-[#888888]'}`}
             >
               Pendientes ({resumen?.cantidadPendientes || 0})
             </Button>
           </div>
-        </div>
-
-        {/* Búsqueda y Botones de Exportar para Comisión Directiva */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 md:w-56">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888888]" />
-            <Input
-              type="text"
-              placeholder="Buscar alumno o tutor..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-8 text-xs bg-[#121212] border-[#2A2A2A] text-white"
-            />
-          </div>
-
-          {!readOnly && (
-            <Button
-              size="sm"
-              onClick={handleOpenMasivo}
-              disabled={loading || alumnosPendientes.length === 0}
-              className="h-8 bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs gap-1.5 shadow-sm"
-              title="Cobrar a múltiples o todos los alumnos de una sola vez"
-            >
-              <CheckCheck size={14} />
-              <span>Cobro Masivo</span>
-              {alumnosPendientes.length > 0 && (
-                <span className="bg-black/20 text-black text-[10px] px-1.5 py-0.2 rounded-full font-extrabold">
-                  {alumnosPendientes.length}
-                </span>
-              )}
-            </Button>
-          )}
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={exportarAExcel}
-            disabled={loading || filteredAlumnos.length === 0}
-            className="h-8 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs gap-1.5 font-semibold"
-            title="Exportar planilla Excel para Comisión Directiva"
-          >
-            <FileSpreadsheet size={14} />
-            <span className="hidden sm:inline">Excel</span>
-          </Button>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={exportarAPDF}
-            disabled={loading || filteredAlumnos.length === 0}
-            className="h-8 border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-red-300 text-xs gap-1.5 font-semibold"
-            title="Generar Reporte PDF Oficial para Comisión Directiva"
-          >
-            <FileDown size={14} />
-            <span className="hidden sm:inline">PDF Oficial</span>
-          </Button>
-
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={fetchPagos}
-            disabled={loading}
-            className="h-8 w-8 p-0 text-[#888888] hover:text-white"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </Button>
         </div>
       </div>
 
@@ -930,162 +827,219 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
           </CardContent>
         </Card>
       ) : (
-        <div className="bg-[#181818] border border-[#2A2A2A] rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#141414] text-[#888888] uppercase text-[10px] font-bold border-b border-[#2A2A2A]">
-                <tr>
-                  <th className="py-3 px-3 w-10 text-center">#</th>
-                  <th className="py-3 px-4">Alumno</th>
-                  <th className="py-3 px-3">Grupo</th>
-                  <th className="py-3 px-3">Responsable / Tel</th>
-                  <th className="py-3 px-3 text-right">Valor Cuota</th>
-                  <th className="py-3 px-3 text-center">Estado</th>
-                  <th className="py-3 px-3">Detalle Cobro</th>
-                  {!readOnly && <th className="py-3 px-4 text-right">Acción</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#242424]">
-                {filteredAlumnos.map((alumno, idx) => {
-                  const grp = GRUPO_CONFIG[alumno.grupo] || {
-                    label: alumno.grupo,
-                    icon: Users,
-                    color: 'text-gray-400',
-                    bg: 'bg-gray-500/10',
-                    border: 'border-gray-500/20',
-                  };
-                  const GrpIcon = grp.icon;
+        <div className="space-y-4">
+          {/* Vista móvil: 2 Columnas de botones grandes interactivos estilo Asistencia */}
+          <div className="grid grid-cols-2 gap-2 md:hidden">
+            {filteredAlumnos.map((alumno) => {
+              const estaCobrado = alumno.pagado;
+              const grp = GRUPO_CONFIG[alumno.grupo];
+              return (
+                <button
+                  key={alumno.id}
+                  type="button"
+                  onClick={() => {
+                    if (readOnly) return;
+                    handleOpenCobro(alumno);
+                  }}
+                  className={`flex flex-col justify-between p-2.5 rounded-xl border text-left transition-all active:scale-[0.98] select-none min-h-[92px] ${
+                    estaCobrado
+                      ? 'bg-emerald-500 text-black border-emerald-400 shadow-md shadow-emerald-500/20'
+                      : 'bg-[#1C1C1C] border-[#2E2E2E] hover:border-[#444444] text-white'
+                  }`}
+                >
+                  <div className="w-full">
+                    <div className="flex items-start justify-between gap-1">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        estaCobrado ? 'bg-black/20 text-black' : 'bg-[#262626] text-[#888888]'
+                      }`}>
+                        {alumno.grupo === 'Grupo Entrenamiento' ? 'COMPETENCIA' : alumno.grupo.toUpperCase()}
+                      </span>
+                      {estaCobrado ? (
+                        <Check size={14} className="text-black shrink-0 font-bold" />
+                      ) : (
+                        <Clock size={13} className="text-amber-400 shrink-0" />
+                      )}
+                    </div>
+                    <span className={`font-extrabold text-xs sm:text-sm line-clamp-2 mt-1 leading-snug ${
+                      estaCobrado ? 'text-black' : 'text-white'
+                    }`}>
+                      {alumno.nombre}
+                    </span>
+                  </div>
 
-                  return (
-                    <tr
-                      key={alumno.id}
-                      className={`hover:bg-[#1C1C1C] transition-colors ${
-                        alumno.pagado ? 'bg-emerald-500/[0.02]' : ''
-                      }`}
-                    >
-                      {/* N° */}
-                      <td className="py-3 px-3 text-center text-[#666666] font-mono">
-                        {idx + 1}
-                      </td>
+                  <div className="mt-2 pt-1 border-t border-black/10 flex items-center justify-between text-[11px] font-mono">
+                    <span className={`font-black ${estaCobrado ? 'text-black' : 'text-emerald-400'}`}>
+                      ${alumno.pagado && alumno.pago ? alumno.pago.monto.toLocaleString('es-AR') : alumno.montoSugerido.toLocaleString('es-AR')}
+                    </span>
+                    <span className={`text-[9px] font-bold uppercase ${
+                      estaCobrado ? 'text-black/80' : 'text-amber-400'
+                    }`}>
+                      {estaCobrado ? '✓ COBRADO' : 'PENDIENTE'}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-                      {/* Alumno */}
-                      <td className="py-3 px-4">
-                        <span className="font-bold text-white text-sm block">
-                          {alumno.nombre}
-                        </span>
-                        {alumno.edad && (
-                          <span className="text-[10px] text-[#777777]">
-                            {alumno.edad} años
+          {/* Vista escritorio / tablet: Tabla completa */}
+          <div className="hidden md:block bg-[#181818] border border-[#2A2A2A] rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#141414] text-[#888888] uppercase text-[10px] font-bold border-b border-[#2A2A2A]">
+                  <tr>
+                    <th className="py-3 px-3 w-10 text-center">#</th>
+                    <th className="py-3 px-4">Alumno</th>
+                    <th className="py-3 px-3">Grupo</th>
+                    <th className="py-3 px-3">Responsable / Tel</th>
+                    <th className="py-3 px-3 text-right">Valor Cuota</th>
+                    <th className="py-3 px-3 text-center">Estado</th>
+                    <th className="py-3 px-3">Detalle Cobro</th>
+                    {!readOnly && <th className="py-3 px-4 text-right">Acción</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#242424]">
+                  {filteredAlumnos.map((alumno, idx) => {
+                    const grp = GRUPO_CONFIG[alumno.grupo] || {
+                      label: alumno.grupo,
+                      icon: Users,
+                      color: 'text-gray-400',
+                      bg: 'bg-gray-500/10',
+                      border: 'border-gray-500/20',
+                    };
+                    const GrpIcon = grp.icon;
+
+                    return (
+                      <tr
+                        key={alumno.id}
+                        className={`hover:bg-[#1C1C1C] transition-colors ${
+                          alumno.pagado ? 'bg-emerald-500/[0.02]' : ''
+                        }`}
+                      >
+                        {/* N° */}
+                        <td className="py-3 px-3 text-center text-[#666666] font-mono">
+                          {idx + 1}
+                        </td>
+
+                        {/* Alumno */}
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-white text-sm block">
+                            {alumno.nombre}
                           </span>
-                        )}
-                      </td>
-
-                      {/* Grupo */}
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${grp.color} ${grp.bg} ${grp.border}`}
-                        >
-                          <GrpIcon size={12} />
-                          <span>{alumno.grupo === 'Grupo Entrenamiento' ? 'Competencia' : alumno.grupo}</span>
-                        </span>
-                      </td>
-
-                      {/* Tutor / Teléfono */}
-                      <td className="py-3 px-3">
-                        <span className="text-[#CCCCCC] block">{alumno.tutor || '-'}</span>
-                        {alumno.telefono && (
-                          <span className="text-[10px] text-[#888888] font-mono block">
-                            {alumno.telefono}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Valor Cuota */}
-                      <td className="py-3 px-3 text-right font-mono font-bold text-white">
-                        {formatCurrency(alumno.montoSugerido)}
-                      </td>
-
-                      {/* Estado */}
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        {alumno.pagado ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold gap-1 px-2 py-0.5">
-                            <Check size={12} />
-                            <span>COBRADO</span>
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-bold gap-1 px-2 py-0.5">
-                            <Clock size={12} />
-                            <span>PENDIENTE</span>
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* Detalle Cobro */}
-                      <td className="py-3 px-3 text-[#AAAAAA]">
-                        {alumno.pago ? (
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-emerald-400 font-bold font-mono">
-                                {formatCurrency(alumno.pago.monto)}
-                              </span>
-                              <span className="text-[10px] uppercase font-bold text-[#888888] px-1 py-0.2 rounded bg-[#242424]">
-                                {alumno.pago.metodoPago}
-                              </span>
-                            </div>
+                          {alumno.edad && (
                             <span className="text-[10px] text-[#777777]">
-                              Fecha: {alumno.pago.fechaPago}
-                              {alumno.pago.observaciones ? ` • ${alumno.pago.observaciones}` : ''}
+                              {alumno.edad} años
                             </span>
-                          </div>
-                        ) : (
-                          <span className="text-[#555555] italic">-</span>
-                        )}
-                      </td>
-
-                      {/* Botón de Acción */}
-                      {!readOnly && (
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
-                          {alumno.pagado ? (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenCobro(alumno)}
-                                className="h-7 text-xs border-[#333333] text-[#AAAAAA] hover:text-white"
-                                title="Editar pago"
-                              >
-                                Editar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setAlumnoParaAnular(alumno);
-                                  setAnularModalOpen(true);
-                                }}
-                                className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20"
-                                title="Anular cobro"
-                              >
-                                <Trash2 size={13} />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => handleOpenCobro(alumno)}
-                              className="h-7 bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs gap-1 shadow-sm"
-                            >
-                              <CheckCircle2 size={13} />
-                              <span>Cobrar ${alumno.montoSugerido.toLocaleString('es-AR')}</span>
-                            </Button>
                           )}
                         </td>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+                        {/* Grupo */}
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${grp.color} ${grp.bg} ${grp.border}`}
+                          >
+                            <GrpIcon size={12} />
+                            <span>{alumno.grupo === 'Grupo Entrenamiento' ? 'Competencia' : alumno.grupo}</span>
+                          </span>
+                        </td>
+
+                        {/* Tutor / Teléfono */}
+                        <td className="py-3 px-3">
+                          <span className="text-[#CCCCCC] block">{alumno.tutor || '-'}</span>
+                          {alumno.telefono && (
+                            <span className="text-[10px] text-[#888888] font-mono block">
+                              {alumno.telefono}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Valor Cuota */}
+                        <td className="py-3 px-3 text-right font-mono font-bold text-white">
+                          {formatCurrency(alumno.montoSugerido)}
+                        </td>
+
+                        {/* Estado */}
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          {alumno.pagado ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold gap-1 px-2 py-0.5">
+                              <Check size={12} />
+                              <span>COBRADO</span>
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-bold gap-1 px-2 py-0.5">
+                              <Clock size={12} />
+                              <span>PENDIENTE</span>
+                            </Badge>
+                          )}
+                        </td>
+
+                        {/* Detalle Cobro */}
+                        <td className="py-3 px-3 text-[#AAAAAA]">
+                          {alumno.pago ? (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-emerald-400 font-bold font-mono">
+                                  {formatCurrency(alumno.pago.monto)}
+                                </span>
+                                <span className="text-[10px] uppercase font-bold text-[#888888] px-1 py-0.2 rounded bg-[#242424]">
+                                  {alumno.pago.metodoPago}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#777777]">
+                                Fecha: {alumno.pago.fechaPago}
+                                {alumno.pago.observaciones ? ` • ${alumno.pago.observaciones}` : ''}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[#555555] italic">-</span>
+                          )}
+                        </td>
+
+                        {/* Botón de Acción */}
+                        {!readOnly && (
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            {alumno.pagado ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenCobro(alumno)}
+                                  className="h-7 text-xs border-[#333333] text-[#AAAAAA] hover:text-white"
+                                  title="Editar pago"
+                                >
+                                  Editar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setAlumnoParaAnular(alumno);
+                                    setAnularModalOpen(true);
+                                  }}
+                                  className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                                  title="Anular cobro"
+                                >
+                                  <Trash2 size={13} />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenCobro(alumno)}
+                                className="h-7 bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs gap-1 shadow-sm"
+                              >
+                                <CheckCircle2 size={13} />
+                                <span>Cobrar ${alumno.montoSugerido.toLocaleString('es-AR')}</span>
+                              </Button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
