@@ -177,8 +177,8 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
   const [savingMasivo, setSavingMasivo] = useState(false);
 
   // Cargar datos
-  const fetchPagos = useCallback(async () => {
-    setLoading(true);
+  const fetchPagos = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const res = await fetch(`/api/pagos-escuela?mes=${mesSeleccionado}&grupo=${grupoFiltro}`);
       const data = await res.json();
@@ -189,20 +189,24 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
           setMesesAnio(data.mesesAnio);
         }
       } else {
+        if (!isSilent) {
+          toast({
+            title: 'Error al cargar pagos',
+            description: data.error || 'No se pudieron obtener los registros de cuotas.',
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (err: any) {
+      if (!isSilent) {
         toast({
-          title: 'Error al cargar pagos',
-          description: data.error || 'No se pudieron obtener los registros de cuotas.',
+          title: 'Error de conexión',
+          description: 'No se pudo conectar con el servidor',
           variant: 'destructive',
         });
       }
-    } catch (err: any) {
-      toast({
-        title: 'Error de conexión',
-        description: 'No se pudo conectar con el servidor',
-        variant: 'destructive',
-      });
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, [mesSeleccionado, grupoFiltro, toast]);
 
@@ -273,10 +277,6 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
         if (!res.ok) {
           throw new Error('No se pudo anular el pago');
         }
-        toast({
-          title: 'Cuota marcada como Impago',
-          description: `${alumno.nombre} quedó como pendiente.`,
-        });
       } else {
         // Pasar a Pagado -> Registrar pago directo con monto sugerido
         const res = await fetch('/api/pagos-escuela', {
@@ -293,12 +293,15 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
         if (!res.ok) {
           throw new Error('No se pudo registrar el pago');
         }
-        toast({
-          title: 'Cuota cobrada',
-          description: `${alumno.nombre} pagó $${alumno.montoSugerido.toLocaleString('es-AR')}.`,
-        });
+        const data = await res.json();
+        if (data?.pago) {
+          setAlumnos((prev) =>
+            prev.map((al) => (al.id === alumno.id ? { ...al, pago: data.pago } : al))
+          );
+        }
       }
-      fetchPagos();
+      // Actualizar resumen en segundo plano sin mostrar rueda de carga ni resetear el listado
+      fetchPagos(true);
     } catch (err: any) {
       // Revertir optimismo en caso de error
       setAlumnos((prev) =>
