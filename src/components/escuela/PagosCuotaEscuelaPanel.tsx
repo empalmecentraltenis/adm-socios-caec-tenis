@@ -165,6 +165,7 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
   const [anularModalOpen, setAnularModalOpen] = useState(false);
   const [alumnoParaAnular, setAlumnoParaAnular] = useState<AlumnoPagoItem | null>(null);
   const [anulando, setAnulando] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Modal para cobro masivo
   const [masivoModalOpen, setMasivoModalOpen] = useState(false);
@@ -228,6 +229,92 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
       return true;
     });
   }, [alumnos, estadoFiltro, search]);
+
+  // Conmutar estado de pago rápido (Pagado / Impago) con un toque, exactamente como en Asistencia
+  const togglePagoAlumno = async (alumno: AlumnoPagoItem) => {
+    if (readOnly || togglingId) return;
+
+    const estabaPagado = alumno.pagado;
+    const pagoAnterior = alumno.pago;
+    setTogglingId(alumno.id);
+
+    // Actualización optimista instantánea
+    setAlumnos((prev) =>
+      prev.map((al) => {
+        if (al.id !== alumno.id) return al;
+        if (estabaPagado) {
+          return { ...al, pagado: false, pago: undefined };
+        } else {
+          return {
+            ...al,
+            pagado: true,
+            pago: {
+              id: 'temp-' + Date.now(),
+              alumnoId: al.id,
+              mes: mesSeleccionado,
+              monto: al.montoSugerido,
+              fechaPago: getTodayStr(),
+              metodoPago: 'efectivo',
+              observaciones: null,
+              createdAt: new Date().toISOString(),
+            },
+          };
+        }
+      })
+    );
+
+    try {
+      if (estabaPagado) {
+        // Pasar a Impago -> Anular pago en base de datos
+        const url = alumno.pago?.id
+          ? `/api/pagos-escuela?pagoId=${alumno.pago.id}`
+          : `/api/pagos-escuela?alumnoId=${alumno.id}&mes=${mesSeleccionado}`;
+        const res = await fetch(url, { method: 'DELETE' });
+        if (!res.ok) {
+          throw new Error('No se pudo anular el pago');
+        }
+        toast({
+          title: 'Cuota marcada como Impago',
+          description: `${alumno.nombre} quedó como pendiente.`,
+        });
+      } else {
+        // Pasar a Pagado -> Registrar pago directo con monto sugerido
+        const res = await fetch('/api/pagos-escuela', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            alumnoId: alumno.id,
+            mes: mesSeleccionado,
+            monto: alumno.montoSugerido,
+            fechaPago: getTodayStr(),
+            metodoPago: 'efectivo',
+          }),
+        });
+        if (!res.ok) {
+          throw new Error('No se pudo registrar el pago');
+        }
+        toast({
+          title: 'Cuota cobrada',
+          description: `${alumno.nombre} pagó $${alumno.montoSugerido.toLocaleString('es-AR')}.`,
+        });
+      }
+      fetchPagos();
+    } catch (err: any) {
+      // Revertir optimismo en caso de error
+      setAlumnos((prev) =>
+        prev.map((al) =>
+          al.id === alumno.id ? { ...al, pagado: estabaPagado, pago: pagoAnterior } : al
+        )
+      );
+      toast({
+        title: 'Error',
+        description: err.message || 'No se pudo actualizar el pago',
+        variant: 'destructive',
+      });
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   // Abrir modal de cobro rápido
   const handleOpenCobro = (alumno: AlumnoPagoItem) => {
@@ -685,19 +772,8 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
             </Button>
           </div>
 
-          {/* Buscador y Acciones */}
+          {/* Acciones */}
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <div className="relative flex-1 sm:w-48">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#888888]" />
-              <Input
-                type="text"
-                placeholder="Buscar alumno..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-8 text-xs bg-[#121212] border-[#2A2A2A] text-white"
-              />
-            </div>
-
             {!readOnly && (
               <Button
                 size="sm"
@@ -796,7 +872,7 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
               onClick={() => setEstadoFiltro('pagados')}
               className={`text-xs h-7 px-2 shrink-0 ${estadoFiltro === 'pagados' ? 'text-emerald-400 font-bold bg-emerald-500/10' : 'text-[#888888]'}`}
             >
-              Cobrados ({resumen?.cantidadPagados || 0})
+              Pagados ({resumen?.cantidadPagados || 0})
             </Button>
             <Button
               size="sm"
@@ -804,7 +880,7 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
               onClick={() => setEstadoFiltro('pendientes')}
               className={`text-xs h-7 px-2 shrink-0 ${estadoFiltro === 'pendientes' ? 'text-amber-400 font-bold bg-amber-500/10' : 'text-[#888888]'}`}
             >
-              Pendientes ({resumen?.cantidadPendientes || 0})
+              Impagos ({resumen?.cantidadPendientes || 0})
             </Button>
           </div>
         </div>
@@ -828,53 +904,49 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
         </Card>
       ) : (
         <div className="space-y-4">
-          {/* Vista móvil: 2 Columnas de botones grandes interactivos estilo Asistencia */}
-          <div className="grid grid-cols-2 gap-2 md:hidden">
+          {/* Vista móvil: 2 Columnas de botones grandes interactivos exactamente como en Asistencia */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-2.5 md:hidden">
             {filteredAlumnos.map((alumno) => {
-              const estaCobrado = alumno.pagado;
-              const grp = GRUPO_CONFIG[alumno.grupo];
+              const estaPagado = alumno.pagado;
+              const isToggling = togglingId === alumno.id;
+
               return (
                 <button
                   key={alumno.id}
                   type="button"
-                  onClick={() => {
-                    if (readOnly) return;
-                    handleOpenCobro(alumno);
-                  }}
-                  className={`flex flex-col justify-between p-2.5 rounded-xl border text-left transition-all active:scale-[0.98] select-none min-h-[92px] ${
-                    estaCobrado
+                  onClick={() => togglePagoAlumno(alumno)}
+                  disabled={isToggling || readOnly}
+                  className={`relative select-none rounded-xl p-2.5 sm:p-3 border text-left transition-all duration-150 flex flex-col justify-between min-h-[68px] active:scale-[0.97] ${
+                    estaPagado
                       ? 'bg-emerald-500 text-black border-emerald-400 shadow-md shadow-emerald-500/20'
-                      : 'bg-[#1C1C1C] border-[#2E2E2E] hover:border-[#444444] text-white'
+                      : 'bg-[#1C1C1C] border-[#2E2E2E] text-[#AAAAAA] hover:border-[#444] hover:bg-[#222222]'
                   }`}
                 >
-                  <div className="w-full">
-                    <div className="flex items-start justify-between gap-1">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                        estaCobrado ? 'bg-black/20 text-black' : 'bg-[#262626] text-[#888888]'
-                      }`}>
-                        {alumno.grupo === 'Grupo Entrenamiento' ? 'COMPETENCIA' : alumno.grupo.toUpperCase()}
-                      </span>
-                      {estaCobrado ? (
-                        <Check size={14} className="text-black shrink-0 font-bold" />
-                      ) : (
-                        <Clock size={13} className="text-amber-400 shrink-0" />
-                      )}
-                    </div>
-                    <span className={`font-extrabold text-xs sm:text-sm line-clamp-2 mt-1 leading-snug ${
-                      estaCobrado ? 'text-black' : 'text-white'
+                  <div className="flex items-start justify-between gap-1 w-full">
+                    <span className={`font-black text-xs sm:text-sm leading-tight line-clamp-2 ${
+                      estaPagado ? 'text-black' : 'text-white'
                     }`}>
                       {alumno.nombre}
                     </span>
+                    {isToggling ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-amber-400" />
+                    ) : estaPagado ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-black fill-black/20" />
+                    ) : (
+                      <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                    )}
                   </div>
 
-                  <div className="mt-2 pt-1 border-t border-black/10 flex items-center justify-between text-[11px] font-mono">
-                    <span className={`font-black ${estaCobrado ? 'text-black' : 'text-emerald-400'}`}>
-                      ${alumno.pagado && alumno.pago ? alumno.pago.monto.toLocaleString('es-AR') : alumno.montoSugerido.toLocaleString('es-AR')}
-                    </span>
-                    <span className={`text-[9px] font-bold uppercase ${
-                      estaCobrado ? 'text-black/80' : 'text-amber-400'
+                  <div className="flex items-center justify-between gap-1 mt-1.5 pt-1 border-t border-black/10 dark:border-white/5 w-full">
+                    <span className={`text-[10px] font-bold uppercase truncate ${
+                      estaPagado ? 'text-black/80' : 'text-[#777]'
                     }`}>
-                      {estaCobrado ? '✓ COBRADO' : 'PENDIENTE'}
+                      {alumno.grupo === 'Grupo Entrenamiento' ? 'Competencia' : alumno.grupo}
+                    </span>
+                    <span className={`text-[9px] font-mono uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded ${
+                      estaPagado ? 'bg-black text-emerald-400' : 'bg-[#282828] text-amber-400'
+                    }`}>
+                      {estaPagado ? 'PAGADO' : 'IMPAGO'}
                     </span>
                   </div>
                 </button>
@@ -1043,62 +1115,6 @@ export default function PagosCuotaEscuelaPanel({ readOnly = false }: Props) {
           </div>
         </div>
       )}
-
-      {/* 2. Barra Compacta de Resumen (Abajo de todo) */}
-      <div className="bg-[#141414] border border-[#262626] rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          {/* Recaudado */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">Recaudado:</span>
-            <span className="font-extrabold text-emerald-400 font-mono text-sm">
-              {formatCurrency(resumen?.totalRecaudado || 0)}
-            </span>
-            <span className="text-[10px] text-[#666666]">
-              ({resumen?.cantidadPagados || 0} alumnos)
-            </span>
-          </div>
-
-          <span className="text-[#333333] hidden sm:inline">•</span>
-
-          {/* Estimado */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">Estimado:</span>
-            <span className="font-bold text-white font-mono text-sm">
-              {formatCurrency(resumen?.totalEsperado || 0)}
-            </span>
-          </div>
-
-          <span className="text-[#333333] hidden sm:inline">•</span>
-
-          {/* % Cobranza */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">Cobranza:</span>
-            <span className="font-bold text-sky-400 font-mono text-xs">
-              {resumen?.porcentajeCobrado || 0}%
-            </span>
-            <span className="text-[10px] text-[#666666]">
-              ({resumen?.cantidadPagados || 0}/{resumen?.totalAlumnos || 0})
-            </span>
-          </div>
-
-          <span className="text-[#333333] hidden sm:inline">•</span>
-
-          {/* Pendientes */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#888888] font-bold uppercase tracking-wider">Pendientes:</span>
-            <span className="font-bold text-amber-400 font-mono text-xs">
-              {resumen?.cantidadPendientes || 0} alumnos
-            </span>
-            <span className="text-[10px] text-[#888888]">
-              ({formatCurrency((resumen?.totalEsperado || 0) - (resumen?.totalRecaudado || 0))})
-            </span>
-          </div>
-        </div>
-
-        <div className="text-[11px] text-[#666666] font-mono">
-          Período: <strong className="text-white">{labelMesActual}</strong>
-        </div>
-      </div>
 
       {/* MODAL PARA REGISTRAR O EDITAR COBRO */}
       <Dialog open={cobroModalOpen} onOpenChange={setCobroModalOpen}>
