@@ -123,6 +123,7 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
   const [copiedLink, setCopiedLink] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchReporte, setSearchReporte] = useState('');
+  const [filtroRegistroReporte, setFiltroRegistroReporte] = useState<'todos' | 'no_registrados' | 'registrados'>('todos');
   const [vistaReporte, setVistaReporte] = useState<'acumulado' | 'detalle'>('acumulado');
   const [expandedAlumnoKey, setExpandedAlumnoKey] = useState<string | null>(null);
 
@@ -396,17 +397,42 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
     });
   }, [asistenciasMensuales]);
 
-  // Filtrado de alumnos acumulados por término de búsqueda
+  // Conteo de no registrados en el reporte del período
+  const noRegistradosReporteCount = useMemo(() => {
+    return rankingAlumnos.filter((r) => r.esNoRegistrado).length;
+  }, [rankingAlumnos]);
+
+  // Filtrado de alumnos acumulados por término de búsqueda y filtro de registrados
   const filteredRankingAlumnos = useMemo(() => {
-    if (!searchReporte.trim()) return rankingAlumnos;
-    const term = searchReporte.toLowerCase().trim();
     return rankingAlumnos.filter((r) => {
+      // Filtro por estado de registro
+      if (filtroRegistroReporte === 'no_registrados' && !r.esNoRegistrado) return false;
+      if (filtroRegistroReporte === 'registrados' && r.esNoRegistrado) return false;
+
+      if (!searchReporte.trim()) return true;
+      const term = searchReporte.toLowerCase().trim();
       const nom = `${r.socio.nombre} ${r.socio.apellido}`.toLowerCase();
       const dni = (r.socio.dni || '').toLowerCase();
       const cat = (r.socio.categoria || '').toLowerCase();
       return nom.includes(term) || dni.includes(term) || cat.includes(term);
     });
-  }, [rankingAlumnos, searchReporte]);
+  }, [rankingAlumnos, searchReporte, filtroRegistroReporte]);
+
+  // Asistencias mensuales filtradas para la vista detalle según el filtro de registrados y búsqueda
+  const filteredAsistenciasMensuales = useMemo(() => {
+    return asistenciasMensuales.filter((a) => {
+      const noReg = isAlumnoNoRegistrado(a);
+      if (filtroRegistroReporte === 'no_registrados' && !noReg) return false;
+      if (filtroRegistroReporte === 'registrados' && noReg) return false;
+
+      if (!searchReporte.trim()) return true;
+      const term = searchReporte.toLowerCase().trim();
+      const nom = `${a.socio.nombre} ${a.socio.apellido}`.toLowerCase();
+      const dni = (a.socio.dni || '').toLowerCase();
+      const notas = (a.notas || '').toLowerCase();
+      return nom.includes(term) || dni.includes(term) || notas.includes(term);
+    });
+  }, [asistenciasMensuales, searchReporte, filtroRegistroReporte]);
 
   // Exportar asistencias a Excel (diario o período)
   const exportarAExcel = (tipo: 'diario' | 'periodo') => {
@@ -700,6 +726,19 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                   className="h-8 text-xs border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
                 >
                   Hoy
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const ayer = new Date();
+                    ayer.setDate(ayer.getDate() - 1);
+                    setSelectedDate(ayer);
+                  }}
+                  className="h-8 text-xs border-[#333333] text-[#CCCCCC] hover:bg-[#2A2A2A] hover:text-white"
+                >
+                  Ayer
                 </Button>
 
                 <Button
@@ -1170,9 +1209,9 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
               </div>
             </div>
 
-            {/* Barra de búsqueda para el Reporte de Alumnos */}
-            <div className="mb-3">
-              <div className="relative max-w-sm">
+            {/* Barra de búsqueda y Filtros para el Reporte de Alumnos */}
+            <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
+              <div className="relative max-w-sm flex-1">
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Buscar en el reporte por nombre, apellido, DNI..."
@@ -1180,6 +1219,44 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                   onChange={(e) => setSearchReporte(e.target.value)}
                   className="pl-9 h-8 text-xs bg-[#242424] border-[#383838] text-white focus:border-[#FFCC00]"
                 />
+              </div>
+
+              {/* Botonera de Filtro por Estado de Registro */}
+              <div className="flex items-center gap-1.5 bg-[#141414] border border-[#2E2E2E] rounded-lg p-1 self-start sm:self-auto flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setFiltroRegistroReporte('todos')}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    filtroRegistroReporte === 'todos'
+                      ? 'bg-[#FFCC00] text-black shadow-sm'
+                      : 'text-[#AAAAAA] hover:text-white'
+                  }`}
+                >
+                  Todos ({rankingAlumnos.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroRegistroReporte('no_registrados')}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all flex items-center gap-1.5 ${
+                    filtroRegistroReporte === 'no_registrados'
+                      ? 'bg-amber-500 text-black shadow-sm font-extrabold'
+                      : 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10'
+                  }`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>No Registrados ({noRegistradosReporteCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroRegistroReporte('registrados')}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    filtroRegistroReporte === 'registrados'
+                      ? 'bg-[#FFCC00] text-black shadow-sm'
+                      : 'text-[#AAAAAA] hover:text-white'
+                  }`}
+                >
+                  Registrados ({rankingAlumnos.length - noRegistradosReporteCount})
+                </button>
               </div>
             </div>
 
@@ -1410,14 +1487,14 @@ export default function AsistenciaAlumnosPanel({ readOnly = false }: { readOnly?
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {asistenciasMensuales.length === 0 ? (
+                    {filteredAsistenciasMensuales.length === 0 ? (
                       <TableRow className="border-[#333333] print:border-b">
                         <TableCell colSpan={!readOnly ? 6 : 5} className="text-center py-10 text-[#666666] text-sm print:text-black">
-                          No hay asistencias registradas en este período.
+                          No hay asistencias registradas con los filtros seleccionados.
                         </TableCell>
                       </TableRow>
                     ) : (
-                      asistenciasMensuales.map((asistencia) => {
+                      filteredAsistenciasMensuales.map((asistencia) => {
                         const noRegistrado = isAlumnoNoRegistrado(asistencia);
                         const alertas = getAlertasSocio(asistencia.socio);
                         const tieneAlertas = alertas.length > 0;
