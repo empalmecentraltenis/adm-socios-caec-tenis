@@ -14,6 +14,7 @@ import {
   Tag,
   GraduationCap,
   Crown,
+  Sparkles,
   Wallet,
   Zap,
   UserPlus,
@@ -158,6 +159,17 @@ export default function ConfiguracionPanel({ readOnly = false }: ConfiguracionPa
       valor: cuotaVitalicio,
       onChange: setCuotaVitalicio,
       descripcion: 'Miembro vitalicio exento de pago mensual de cuota.',
+    },
+    {
+      key: 'becado',
+      label: 'Becado (Escuela)',
+      icon: Sparkles,
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-400/10',
+      borderColor: 'border-purple-400/20',
+      valor: '0',
+      onChange: () => {},
+      descripcion: 'Alumnos de la escuela habilitados para jugar con adultos. Exentos de cuota social, QR y sanciones.',
     },
   ];
 

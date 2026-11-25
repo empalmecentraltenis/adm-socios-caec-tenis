@@ -911,7 +911,21 @@ export default function GestionTurnosPanel({ readOnly }: { readOnly?: boolean })
                                   {turno.participantes.map((p, pIdx) => {
                                     if (p.esInvitado) {
                                       const tieneDatos = Boolean(p.nombreInvitadoReal || p.dniInvitadoReal);
-                                      return (
+                                      if (p.categoria === 'becado') {
+                                       return (
+                                         <span
+                                           key={pIdx}
+                                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border bg-purple-500/15 text-purple-300 border-purple-500/30"
+                                           title="Alumno Becado de Escuela - Exento de QR"
+                                         >
+                                           <Sparkles className="h-3 w-3 text-purple-400" />
+                                           <span>{p.nombre} (Becado)</span>
+                                           <CheckCircle2 className="h-3 w-3 text-emerald-400 ml-0.5" />
+                                         </span>
+                                       );
+                                     }
+
+                                     return (
                                         <span
                                           key={pIdx}
                                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${

@@ -430,6 +430,9 @@ export async function POST(request: Request) {
       } else if (clave === 'sanciones_cancelacion_activa') {
         updateData.sancionesCancelacionActiva = valor;
         accionDetalle = valor ? 'Sanciones por cancelación tardía activadas' : 'Sanciones por cancelación tardía desactivadas';
+      } else if (clave === 'clima_inestable') {
+        updateData.climaInestable = valor;
+        accionDetalle = valor ? 'Modo Día de Lluvia / Clima Inestable ACTIVADO (sanciones en pausa)' : 'Modo Día de Lluvia / Clima Inestable DESACTIVADO';
       } else {
         return NextResponse.json({ error: 'Clave de configuración no soportada' }, { status: 400 });
       }
@@ -440,6 +443,7 @@ export async function POST(request: Request) {
           id: 'general',
           validacionQrActiva: clave === 'validacion_qr_activa' ? valor : false,
           sancionesCancelacionActiva: clave === 'sanciones_cancelacion_activa' ? valor : true,
+          climaInestable: clave === 'clima_inestable' ? valor : false,
           ...updateData,
         },
         update: updateData,

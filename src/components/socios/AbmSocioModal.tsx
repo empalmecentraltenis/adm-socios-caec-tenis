@@ -250,6 +250,9 @@ export default function AbmSocioModal({
                   <SelectItem value="vitalicio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-white">
                     👑 Vitalicio
                   </SelectItem>
+                  <SelectItem value="becado" className="text-purple-300 focus:bg-[#2A2A2A] focus:text-purple-200">
+                    🌟 Becado (Escuela)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

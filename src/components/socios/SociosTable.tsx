@@ -79,6 +79,7 @@ function getCategoriaBadge(categoria: string) {
     case 'socio': return 'bg-[#FFCC00]/15 text-[#FFCC00] border-[#FFCC00]/20';
     case 'alumno': return 'bg-blue-400/15 text-blue-400 border-blue-400/20';
     case 'vitalicio': return 'bg-green-400/15 text-green-400 border-green-400/20';
+    case 'becado': return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
     default: return 'bg-gray-400/15 text-gray-400 border-gray-400/20';
   }
 }
@@ -126,13 +127,13 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
     }
 
     if (filterEstado === 'morosos') {
-      result = result.filter((s) => s.mesesAdeudados >= 4);
+      result = result.filter((s) => s.mesesAdeudados >= 4 && s.categoria !== 'becado' && s.categoria !== 'vitalicio');
     } else if (filterEstado === 'al_dia') {
-      result = result.filter((s) => s.alDia || s.categoria === 'vitalicio');
+      result = result.filter((s) => s.alDia || s.categoria === 'vitalicio' || s.categoria === 'becado');
     } else if (filterEstado === 'al_dia_pagado') {
-      result = result.filter((s) => s.mesesAdeudados === 0 || s.categoria === 'vitalicio' || s.rol === 'admin');
+      result = result.filter((s) => s.mesesAdeudados === 0 || s.categoria === 'vitalicio' || s.categoria === 'becado' || s.rol === 'admin');
     } else if (filterEstado === 'al_dia_deuda') {
-      result = result.filter((s) => s.alDia && s.mesesAdeudados > 0 && s.categoria !== 'vitalicio' && s.rol !== 'admin');
+      result = result.filter((s) => s.alDia && s.mesesAdeudados > 0 && s.categoria !== 'vitalicio' && s.categoria !== 'becado' && s.rol !== 'admin');
     }
 
     result = [...result].sort((a, b) => {
@@ -496,6 +497,7 @@ export default function SociosTable({ onRegistrarPago, onEditarSocio, onCrearSoc
                 <SelectItem value="socio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Socio</SelectItem>
                 <SelectItem value="alumno" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Alumno</SelectItem>
                 <SelectItem value="vitalicio" className="text-[#CCCCCC] focus:bg-[#2A2A2A] focus:text-foreground">Vitalicio</SelectItem>
+                <SelectItem value="becado" className="text-purple-300 focus:bg-[#2A2A2A] focus:text-purple-200">Becado</SelectItem>
               </SelectContent>
             </Select>
             <div className="relative w-44">

@@ -366,6 +366,7 @@ export async function GET(request: Request) {
           };
         }
         const soc = socioMapByDni.get(d);
+        const esBecado = soc?.categoria === 'becado';
         return {
           dni: d,
           nombre: soc ? `${soc.apellido}, ${soc.nombre}` : `DNI ${d}`,
@@ -373,7 +374,8 @@ export async function GET(request: Request) {
           telefono: soc?.telefono || '',
           esTitular: d === titularDni,
           esInvitado: false,
-          haValidadoQR: validadosList.includes(d) || Boolean(t.validado),
+          esBecado,
+          haValidadoQR: validadosList.includes(d) || Boolean(t.validado) || esBecado,
         };
       });
 

@@ -50,6 +50,7 @@ import {
   Trash2,
   QrCode,
   CalendarX2,
+  CloudRain,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import * as XLSX from 'xlsx';
@@ -158,9 +159,10 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
   const [sancionToDelete, setSancionToDelete] = useState<{ id: string; socioNombre: string; socioDni: string; motivo: string; fechaInicio: string } | null>(null);
   const [submittingDelete, setSubmittingDelete] = useState<boolean>(false);
 
-  // Estados de switches de configuración (QR y Cancelación tardía)
+  // Estados de switches de configuración (QR, Cancelación tardía y Clima inestable)
   const [togglingQr, setTogglingQr] = useState<boolean>(false);
   const [togglingCancelacion, setTogglingCancelacion] = useState<boolean>(false);
+  const [togglingClima, setTogglingClima] = useState<boolean>(false);
 
   // Modal para nueva sanción manual
   const [nuevaSancionOpen, setNuevaSancionOpen] = useState<boolean>(false);
@@ -301,11 +303,12 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
     }
   };
 
-  // Togglear configuración del club (QR o Cancelación tardía)
-  const handleToggleConfig = async (clave: 'validacion_qr_activa' | 'sanciones_cancelacion_activa', nuevoValor: boolean) => {
+  // Togglear configuración del club (QR, Cancelación tardía o Día de Lluvia)
+  const handleToggleConfig = async (clave: 'validacion_qr_activa' | 'sanciones_cancelacion_activa' | 'clima_inestable', nuevoValor: boolean) => {
     if (readOnly) return;
     if (clave === 'validacion_qr_activa') setTogglingQr(true);
     if (clave === 'sanciones_cancelacion_activa') setTogglingCancelacion(true);
+    if (clave === 'clima_inestable') setTogglingClima(true);
 
     try {
       const res = await fetch('/api/sanciones', {
@@ -332,7 +335,9 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
         title: 'Configuración actualizada',
         description: clave === 'validacion_qr_activa'
           ? (nuevoValor ? 'Validación QR obligatoria activada' : 'Validación QR opcional (sin sanción por no escanear)')
-          : (nuevoValor ? 'Sanciones por cancelación tardía activadas' : 'Sanciones por cancelación tardía desactivadas'),
+          : clave === 'sanciones_cancelacion_activa'
+          ? (nuevoValor ? 'Sanciones por cancelación tardía activadas' : 'Sanciones por cancelación tardía desactivadas')
+          : (nuevoValor ? '🌧️ Modo Día de Lluvia / Clima Inestable ACTIVADO (QR y sanciones en pausa)' : 'Modo Clima Inestable desactivado (sistema normal)'),
       });
     } catch (err: any) {
       toast({
@@ -343,6 +348,7 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
     } finally {
       if (clave === 'validacion_qr_activa') setTogglingQr(false);
       if (clave === 'sanciones_cancelacion_activa') setTogglingCancelacion(false);
+      if (clave === 'clima_inestable') setTogglingClima(false);
     }
   };
 
@@ -641,9 +647,43 @@ export default function SancionesPanel({ readOnly = false }: SancionesPanelProps
         </div>
       </div>
 
-      {/* 1.1 Controles Maestros de Políticas de Sanción (QR y Cancelación Tardía) */}
+      {/* 1.1 Controles Maestros de Políticas de Sanción (Lluvia, QR y Cancelación Tardía) */}
       {!readOnly && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Card: Modo Día de Lluvia / Clima Inestable */}
+          <div className={`border rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm transition-all ${
+            configClub?.climaInestable
+              ? 'bg-sky-950/40 border-sky-500/50 shadow-sky-950/20'
+              : 'bg-card border-border'
+          }`}>
+            <div className="flex items-start gap-2.5">
+              <div className={`p-2 rounded-lg mt-0.5 ${configClub?.climaInestable ? 'bg-sky-500/20 text-sky-400' : 'bg-muted text-muted-foreground'}`}>
+                <CloudRain size={18} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground">Día de Lluvia / Clima</span>
+                  <Badge variant="outline" className={`text-[10px] font-semibold py-0 px-1.5 ${configClub?.climaInestable ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
+                    {configClub?.climaInestable ? '🌧️ ACTIVO (Sin sanciones)' : 'Inactivo'}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  {configClub?.climaInestable
+                    ? 'Pausa total: no se exige QR y las ausencias/cancelaciones no sancionan a nadie.'
+                    : 'Activalo en días de mal clima para suspender el escaneo de QR y ausencias.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center shrink-0">
+              <Switch
+                checked={Boolean(configClub?.climaInestable)}
+                disabled={togglingClima || loading}
+                onCheckedChange={(val) => handleToggleConfig('clima_inestable', val)}
+                className="data-[state=checked]:bg-sky-500"
+              />
+            </div>
+          </div>
+
           {/* Card: Sanciones por Validación QR */}
           <div className="bg-card border border-border rounded-xl p-3.5 flex items-center justify-between gap-3 shadow-sm">
             <div className="flex items-start gap-2.5">
