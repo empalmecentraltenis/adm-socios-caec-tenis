@@ -81,6 +81,7 @@ export async function GET(request: Request) {
     const cuotaAlumno = getValor("cuota_alumno") || 3500;
     const cuotaVitalicio = getValor("cuota_vitalicio") || 0;
     const precioLuzTurno = getValor("precio_luz_turno") || 6000;
+    const precioLuzProfe = getValor("precio_luz_profe") || 3000;
     const precioInvitadoExtra = getValor("precio_invitado_extra") || 10000;
     const fechaInicioCobroLuz = getTexto("fecha_inicio_cobro_luz", "2026-11-16");
     const fechaInicioCobroInvitados = getTexto("fecha_inicio_cobro_invitados", "2026-11-16");
@@ -166,6 +167,50 @@ export async function GET(request: Request) {
     }>>();
 
     for (const t of turnosAnioDb) {
+      // 3.A) Turnos del Profesor (clases bloqueadas)
+      if (t.estado === 'bloqueado') {
+        const motivo = (t.motivoBloqueo || '').trim();
+        const motivoLower = motivo.toLowerCase();
+        if (motivoLower.includes('clase') || motivoLower.includes('profe')) {
+          if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
+          const horaStr = extractTime(t.horaInicio);
+          if (horaStr < '19:00') continue;
+
+          const fechaStr = extractDate(t.fecha);
+          if (fechaStr < fechaInicioCobroLuz) continue;
+
+          // Asignar al profesor
+          // Buscamos si tiene socioDni y si corresponde a un profesor
+          let profeDni = t.socioDni && socioMapByDni.has(t.socioDni) ? t.socioDni : '';
+          if (!profeDni) {
+            // Buscar en sociosDb al profesor
+            const profeSocio = sociosDb.find(s => s.rol === 'profesor' || s.categoria === 'profesor');
+            if (profeSocio) profeDni = profeSocio.dni;
+          }
+
+          if (profeDni) {
+            const canchaNombre = t.cancha?.nombre || `Cancha ${t.canchaId}`;
+            const pagoLuz = pagosLuzMap.get(`${profeDni}_${t.id}`);
+            const itemLuz = {
+              turnoId: t.id,
+              fecha: fechaStr,
+              hora: horaStr,
+              cancha: canchaNombre,
+              tipoPartido: `Clase Profesor (${motivo || 'Clase'})`,
+              monto: precioLuzProfe,
+              sociosCount: 1,
+              pagado: !!pagoLuz,
+              pagoId: pagoLuz?.id,
+            };
+
+            const list = turnosLuzPorSocio.get(profeDni) || [];
+            list.push(itemLuz);
+            turnosLuzPorSocio.set(profeDni, list);
+          }
+        }
+        continue;
+      }
+
       if (t.estado !== 'ocupado') continue;
       // La deuda por luz solo se genera cuando el turno ya terminó
       if (!esTurnoFinalizado(t.fecha, t.horaFin)) continue;
@@ -546,6 +591,7 @@ export async function GET(request: Request) {
           vitalicio: cuotaVitalicio,
         },
         precioLuzTurno,
+        precioLuzProfe,
         precioInvitadoExtra,
       },
       socios,

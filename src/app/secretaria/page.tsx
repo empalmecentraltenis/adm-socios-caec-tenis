@@ -1130,7 +1130,9 @@ export default function SecretariaPage() {
                                     </Badge>
                                   </div>
                                   <span className="text-[10px] text-[#888888] block">
-                                    Costo compartido entre {turno.sociosCount} socio(s)
+                                    {turno.tipoPartido?.toLowerCase().includes('clase') || turno.tipoPartido?.toLowerCase().includes('profe')
+                                      ? 'Turno de clase de profesor'
+                                      : `Costo compartido entre ${turno.sociosCount} socio(s)`}
                                   </span>
                                 </div>
 
